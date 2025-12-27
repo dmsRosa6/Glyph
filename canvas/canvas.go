@@ -38,5 +38,5 @@ func (c *Canvas) Draw() {
     for _, s := range c.Shapes {
         s.Draw(c.Buf)
     }
-    c.Rect.Draw(c.Buf)
+    c.Render.Draw(c.Buf)
 }

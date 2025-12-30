@@ -7,9 +7,9 @@ type Buffer struct {
 
 func NewBuffer(w, h int) *Buffer {
     cells := make([][]*Cell, h)
-    for y := 0; y < h; y++ {
+    for y := range h {
         cells[y] = make([]*Cell, w)
-        for x := 0; x < w; x++ {
+        for x := range w {
             cells[y][x] = NewCell(' ', *NewColor(0, 0, 0), *NewColor(127, 127, 127))
         }
     }

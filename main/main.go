@@ -1,21 +1,30 @@
 package main
 
 import (
-	"time"
+	"fmt"
 
-	canvas "github.com/dmsRosa6/glyph/canvas"
-	"github.com/dmsRosa6/glyph/shape"
+	"github.com/dmsRosa6/glyph/canvas"
+	shape "github.com/dmsRosa6/glyph/geom"
 )
 
 func main() {
-    canvas := canvas.NewCanvas(40, 20)
-    canvas.Init()
-    defer canvas.Restore()
 
-    rect := shape.NewRect(1, 1, 10, 10, 'A', true)
-    canvas.AddShape(rect)
 
-    canvas.Draw()
+	canvas := canvas.NewCanvas(30,30)	
 
-    time.Sleep(3 * time.Second)
+	rect := shape.NewRect(0,0,10,5,'X',true)
+
+	canvas.Init()
+
+	canvas.AddShape(rect)
+
+	var a int = 0
+	for a < 10{
+		canvas.Draw()
+		rect.Translate(shape.Vector{1,1})
+		fmt.Scanln()
+		a++
+	}
+
+	canvas.Restore()
 }

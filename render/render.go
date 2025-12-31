@@ -31,7 +31,7 @@ func (r *Renderer) Render(buf *core.Buffer) {
 
     for y := 0; y < buf.H; y++ {
         for x := 0; x < buf.W; x++ {
-            r.out.WriteRune(buf.Cells[y][x].Ch)
+            r.out.WriteString(cellToANSI(*buf.Cells[y][x], core.Cell{}))
         }
         r.out.WriteByte('\n')
     }
@@ -43,3 +43,4 @@ func (r *Renderer) Restore() {
     fmt.Fprint(r.out, "\x1b[?1049l") // leave alt screen
     r.out.Flush()
 }
+

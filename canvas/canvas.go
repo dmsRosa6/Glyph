@@ -2,41 +2,46 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
-	shape "github.com/dmsRosa6/glyph/geom"
 	"github.com/dmsRosa6/glyph/render"
 )
 
 type Canvas struct {
-    Rect   shape.Rect
-    Buf    *core.Buffer
-    Shapes []shape.Drawable
-    Render *render.Renderer
+	Rect   Rect
+	Buf    *core.Buffer
+	Shapes []Drawable
+	Render *render.Renderer
+	Bg     core.Color
+	Fg     core.Color
 }
 
-func NewCanvas(w, h int) *Canvas {
-    return &Canvas{
-        Render: render.NewRenderer(),
-        Rect:   *shape.NewRect(0, 0, w, h, rune(' '),false),
-        Buf:    core.NewBuffer(w, h),
-        Shapes: []shape.Drawable{},
-    }
+func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
+	return &Canvas{
+		Render: render.NewRenderer(),
+		Rect:   *NewRect(0, 0, w, h, rune(' '), false, fg, bg),
+		Buf:    core.NewBuffer(w, h, fg, bg),
+		Shapes: []Drawable{},
+	}
 }
 
 func (c *Canvas) Init() {
-    c.Render.Init()
+	c.Render.Init()
+	c.Draw()
 }
 
 func (c *Canvas) Restore() {
-    c.Render.Restore()
+	c.Render.Restore()
 }
 
-func (c *Canvas) AddShape(s shape.Drawable) {
-    c.Shapes = append(c.Shapes, s)
+func (c *Canvas) AddShape(s Drawable) {
+	c.Shapes = append(c.Shapes, s)
 }
 
 func (c *Canvas) Draw() {
-    for _, s := range c.Shapes {
-        s.Draw(c.Buf)
-    }
-    c.Render.Render(c.Buf)
+    
+    c.Buf.Clear()
+
+	for _, s := range c.Shapes {
+		s.Draw(c.Buf)
+	}
+	c.Render.Render(c.Buf)
 }

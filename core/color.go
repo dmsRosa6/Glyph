@@ -1,13 +1,12 @@
 package core
 
-// TODO maybe we can use 16 bits for colors
 type Color struct{
-	R int8
-	G int8
-	B int8
+	R uint8
+	G uint8
+	B uint8
 }
 
-func NewColor(r,g,b int8) *Color{
+func NewColor(r,g,b uint8) *Color{
 	return &Color{
 		R: r,
 		G: g,

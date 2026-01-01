@@ -6,15 +6,17 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 )
 
+//TODO i removed the old state comparation, eventually come to this again
 func cellToANSI(c core.Cell, prev core.Cell) string {
 	seq := ""
-
-	if c.Fg != prev.Fg {
-		seq += fgToANSI(c.Fg)
-	}
-	if c.Bg != prev.Bg {
-		seq += bgToANSI(c.Bg)
-	}
+	seq += fgToANSI(c.Fg)
+	seq += bgToANSI(c.Bg)
+	//if c.Fg != prev.Fg {
+	//	seq += fgToANSI(c.Fg)
+	//}
+	//if c.Bg != prev.Bg {
+	//	seq += bgToANSI(c.Bg)
+	//}
 
 	seq += string(c.Ch)
 	return seq

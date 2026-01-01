@@ -1,0 +1,1 @@
+I have a bug when one of width/height overflows and it defaults to the max on the redraw it ends up filling spaces that is not supposed to

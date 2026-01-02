@@ -31,7 +31,7 @@ func (r *Renderer) Render(buf *core.Buffer) {
 
     for y := 0; y < buf.H; y++ {
         for x := 0; x < buf.W; x++ {
-            r.out.WriteString(cellToANSI(*buf.Cells[y][x], core.Cell{}))
+            r.out.WriteString(cellToANSI(*buf.Cells[y][x]))
         }
         r.out.WriteByte('\n')
     }

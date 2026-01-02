@@ -34,7 +34,7 @@ func (b *Buffer) Clear() {
 }
 
 func (b *Buffer) Set(x, y int, ch rune, bg, fg Color){
-    b.Cells[y][x] = NewCell(ch, bg, fg)
+    b.Cells[y][x] = NewCell(ch, fg, bg)
 }
 
 func (b *Buffer) Get(x, y int) *Cell{

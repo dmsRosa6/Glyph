@@ -9,14 +9,15 @@ type Text struct {
 	Pos   geom.Point
 	Value string
 
-	dirty bool
+	Bg, Fg core.Color
 }
 
-func NewText(x, y int, value string) *Text {
+func NewText(x, y int, value string, bg, fg core.Color) *Text {
 	return &Text{
 		Pos:   geom.Point{X: x, Y: y},
 		Value: value,
-		dirty: true,
+		Bg: bg,
+		Fg: fg,
 	}
 }
 
@@ -24,26 +25,24 @@ func (t *Text) Draw(buf *core.Buffer) {
 	x := t.Pos.X
 	y := t.Pos.Y
 
-	for _, r := range t.Value {
-		buf.Set(x, y, r, core.Color{}, core.Color{})
-		x++
+	for i := 0; i < len(t.Value); i++{
+		
+		if t.Fg.IsTransparent {
+			continue
+		}
+	
+		r := rune(t.Value[i])
+		
+		buf.Set(x+i, y, r, t.Bg, t.Fg)
 	}
-
-	t.dirty = false
-}
-
-func (t *Text) MarkAsDirty() {
-	t.dirty = true
 }
 
 func (t *Text) MoveTo(p geom.Point) {
 	if t.Pos != p {
 		t.Pos = p
-		t.MarkAsDirty()
 	}
 }
 
 func (t *Text) Translate(v geom.Vector) {
 	t.Pos = t.Pos.Add(v)
-	t.MarkAsDirty()
 }

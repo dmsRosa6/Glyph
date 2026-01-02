@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -26,8 +27,13 @@ func WatchResize(onResize func()) {
     signal.Notify(ch, syscall.SIGWINCH)
 
     go func() {
-        for range ch {
-            onResize()
-        }
-    }()
+		var timer *time.Timer
+		for range ch {
+			if timer != nil {
+				timer.Stop()
+			}
+			timer = time.AfterFunc(50*time.Millisecond, onResize)
+		}
+	}()
+
 }

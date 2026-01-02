@@ -7,17 +7,16 @@ import (
 )
 
 //TODO i removed the old state comparation, eventually come to this again
-func cellToANSI(c core.Cell, prev core.Cell) string {
+func cellToANSI(c core.Cell) string {
 	seq := ""
-	seq += fgToANSI(c.Fg)
-	seq += bgToANSI(c.Bg)
-	//if c.Fg != prev.Fg {
-	//	seq += fgToANSI(c.Fg)
-	//}
-	//if c.Bg != prev.Bg {
-	//	seq += bgToANSI(c.Bg)
-	//}
+	
+	if(!c.Fg.IsTransparent){
+		seq += fgToANSI(c.Fg)
+	}
 
+	if(!c.Bg.IsTransparent){
+		seq += bgToANSI(c.Bg)
+	}
 	seq += string(c.Ch)
 	return seq
 }

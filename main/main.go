@@ -5,30 +5,24 @@ import (
 
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
-	"github.com/dmsRosa6/glyph/geom"
 )
 
 func main() {
+	
+	c := canvas.NewCanvas(-1,-1,core.NewColor(0,0,0),core.NewColor(200,30,100))	
 
+	t := canvas.NewText(2,3,"12",core.White, core.Transparent)
 
+	border := canvas.NewBorder(0,1,6,5,'X',core.Transparent,core.Transparent)
 
-	c1 := *core.NewColor(255,100,100)
-	c := canvas.NewCanvas(40,20,*core.NewColor(0,0,0),*core.NewColor(255,255,255))	
-
-	rect := canvas.NewRect(0,0,10,5,' ',true, c1,c1)
 
 	c.Init()
 	fmt.Scanln()
-	c.AddShape(rect)
-
-	var a int = 0
-	for a < 50{
-		c.Draw()
-		rect.Translate(geom.Vector{1,0})
-		fmt.Scanln()
-		a++
-	}
+	c.AddShape(t)
+	c.AddShape(border)
+	c.Draw()
+	
+	fmt.Scanln()
 	c.Restore()
 
-	
 }

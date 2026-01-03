@@ -2,39 +2,24 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
-	"github.com/dmsRosa6/glyph/render"
-	"github.com/dmsRosa6/glyph/term"
 )
 
 type Canvas struct {
 	Buf    *core.Buffer
 	Shapes []Drawable
-	Render *render.Renderer
 	Bg     core.Color
 	Fg     core.Color
+
 	RequestedWidth int
 	RequestedHeight int
+
+    IsDirty bool
 }
 
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
-    t, err := term.TermSize()
-    if err != nil {
-        panic("Could not get the terminal size")
-    }
-
-    if w <= 0 {
-        w = t.Cols
-    }
-    if h <= 0 {
-        h = t.Rows
-    }
-
-    actualWidth := min(t.Cols, w)
-    actualHeight := min(t.Rows, h)
 
     c := &Canvas{
-        Render:          render.NewRenderer(),
-        Buf:             core.NewBuffer(actualWidth, actualHeight, fg, bg),
+        Buf:             core.NewBuffer(w, h, fg, bg),
         Shapes:          []Drawable{},
         Bg:              bg,
         Fg:              fg,
@@ -42,58 +27,42 @@ func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
         RequestedHeight: h,
     }
 
-    // Watch terminal resize
-    term.WatchResize(func() {
-        c.resize()
-    })
-
     return c
 }
 
-func (c *Canvas) resize() {
-    t, err := term.TermSize()
-    if err != nil {
-        panic("Could not get the terminal size")
+func (c *Canvas) ApplySize(termW, termH int) {
+    w := c.RequestedWidth
+    h := c.RequestedHeight
+
+    if w <= 0 {
+        w = termW
+    }
+    if h <= 0 {
+        h = termH
     }
 
-    actualWidth := min(t.Cols, c.RequestedWidth)
-    actualHeight := min(t.Rows, c.RequestedHeight)
+    actualW := min(termW, w)
+    actualH := min(termH, h)
 
-    c.Buf = core.NewBuffer(actualWidth, actualHeight, c.Fg, c.Bg)
-    c.Draw()
-}
+    c.Buf = core.NewBuffer(actualW, actualH, c.Fg, c.Bg)
+    c.IsDirty = true
 
-func (c *Canvas) Resize(w, h int) {
-    if w <= 0 || h <= 0 {
-        panic("Canvas.Resize: width and height must be positive")
-    }
-
-    c.RequestedWidth = w
-    c.RequestedHeight = h
-
-    c.resize()
-}
-
-
-func (c *Canvas) Init() {
-	c.Render.Init()
-	c.Draw()
+    c.Compose()
 }
 
 func (c *Canvas) Restore() {
-	c.Render.Restore()
+	c.Buf.Clear()
 }
 
 func (c *Canvas) AddShape(s Drawable) {
 	c.Shapes = append(c.Shapes, s)
 }
 
-func (c *Canvas) Draw() {
+func (c *Canvas) Compose() {
     
     c.Buf.Clear()
 
 	for _, s := range c.Shapes {
 		s.Draw(c.Buf)
     }
-	c.Render.Render(c.Buf)
 }

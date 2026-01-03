@@ -10,15 +10,15 @@ import (
 
 func main() {
 	
-	c := canvas.NewCanvas(1000,1000,core.NewColor(0,0,0),core.NewColor(200,30,100))	
+	c := canvas.NewCanvas(50,30,core.NewColor(0,0,0), core.White)	
 
-	t := canvas.NewText(2,3,"12",core.Black, core.White)
+	b := canvas.NewBox(1, 1, 24, 12, 2, 2, core.NewColor(150,50,5), core.Transparent, core.NewColor(200,30,100), core.Transparent)
 	
 	r := render.NewRenderer(render.LoopMode(0), 30)
+	c.AddShape(b)
 	
 	go r.Run(c)
 	
-	c.AddShape(t)
 
 	fmt.Scanln()
 

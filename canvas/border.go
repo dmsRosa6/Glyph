@@ -6,37 +6,62 @@ import (
 )
 
 type Border struct{
-	Pos geom.Point
 	Bounds geom.Bounds
 	Ch rune
+	ThicknessX int
+    ThicknessY int
 	Fg, Bg core.Color
 }
 
-func NewBorder(x, y, w, h int, ch rune, fg, bg core.Color) *Border{
+func NewBorder(x, y, w, h, thicknessX, thicknessY int, ch rune, fg, bg core.Color) *Border{
 	return &Border{
 		Bounds: geom.Bounds{
 			Pos: geom.Point{X: x, Y: y},
 			W:   w,
 			H:   h,
 		},
+		ThicknessX: thicknessX,
+		ThicknessY: thicknessY,
 		Ch:     ch,
 		Fg:     fg,
 		Bg:     bg,
 	}
 }
 
-func (r *Border) Draw(buf *core.Buffer){
-	
-	for x := r.Bounds.Pos.X; x < r.Bounds.Pos.X+r.Bounds.W; x++ {
-		buf.Set(x, r.Bounds.Pos.Y, r.Ch, r.Bg, r.Fg)
-		buf.Set(x, r.Bounds.Pos.Y+r.Bounds.H-1, r.Ch, r.Bg, r.Fg)
-	}
-	
-	for y := r.Bounds.Pos.Y; y < r.Bounds.Pos.Y+r.Bounds.H; y++ {
-		buf.Set(r.Bounds.Pos.X, y, r.Ch, r.Bg, r.Fg)
-		buf.Set(r.Bounds.Pos.X+r.Bounds.W-1, y, r.Ch, r.Bg, r.Fg)
-	}
+func (r *Border) Draw(buf *core.Buffer) {
+    x0, y0 := r.Bounds.Pos.X, r.Bounds.Pos.Y
+    w, h := r.Bounds.W, r.Bounds.H
+
+    // top border
+    for y := y0; y < y0+r.ThicknessY; y++ {
+        for x := x0; x < x0+w; x++ {
+            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
+        }
+    }
+
+    // bottom border
+    for y := y0+h-r.ThicknessY; y < y0+h; y++ {
+        for x := x0; x < x0+w; x++ {
+            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
+        }
+    }
+
+    // left border
+    for x := x0; x < x0+r.ThicknessX; x++ {
+        for y := y0+r.ThicknessY; y < y0+h-r.ThicknessY; y++ {
+            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
+        }
+    }
+
+    // right border
+    for x := x0+w-r.ThicknessX; x < x0+w; x++ {
+        for y := y0+r.ThicknessY; y < y0+h-r.ThicknessY; y++ {
+            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
+        }
+    }
 }
+
+
 
 func (r *Border) MoveTo(p geom.Point) {
     r.Bounds.Pos = p

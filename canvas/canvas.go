@@ -60,7 +60,7 @@ func (c *Canvas) AddShape(s Drawable) {
 
 func (c *Canvas) Compose() {
     
-    c.Buf.Clear()
+    c.Restore()
 
 	for _, s := range c.Shapes {
 		s.Draw(c.Buf)

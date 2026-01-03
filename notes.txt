@@ -1,6 +1,8 @@
-I have a bug when one of width/height overflows and it defaults to the max on the redraw it ends up filling spaces that is not supposed to
+I have a bug when one of width/height overflows and it defaults to the max on the redraw it ends up filling spaces that is not supposed to(sometimes)
 
 
 i have a bug related to offsets
 
 sanitize the text input
+
+new shape that is basically a canva but like a mini version this will need border checks and shit

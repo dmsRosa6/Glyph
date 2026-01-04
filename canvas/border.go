@@ -61,8 +61,6 @@ func (r *Border) Draw(buf *core.Buffer) {
     }
 }
 
-
-
 func (r *Border) MoveTo(p geom.Point) {
     r.Bounds.Pos = p
 }
@@ -70,3 +68,5 @@ func (r *Border) MoveTo(p geom.Point) {
 func (r *Border) Translate(v geom.Vector) {
     r.Bounds.Pos = r.Bounds.Pos.Add(v)
 }
+
+

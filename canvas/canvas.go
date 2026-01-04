@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/geom"
 )
 
 type Canvas struct {
@@ -16,6 +17,7 @@ type Canvas struct {
     IsDirty bool
 }
 
+//TODO if the w,h logic changes dont forget the bound check
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 
     c := &Canvas{
@@ -55,6 +57,14 @@ func (c *Canvas) Restore() {
 }
 
 func (c *Canvas) AddShape(s Drawable) {
+    if !s.IsInBounds(
+        geom.Point{X:0, Y:0},
+        geom.Bounds{
+            W: c.RequestedWidth,
+            H: c.RequestedHeight}){
+		panic("Shape out of composite bounds")
+	}	
+
 	c.Shapes = append(c.Shapes, s)
 }
 

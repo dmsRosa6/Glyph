@@ -8,8 +8,8 @@ import (
 //Maybe separate the markasDIrty
 type Drawable interface{
 	Draw(buf *core.Buffer)
+	IsInBounds(p geom.Point, b geom.Bounds) bool
 }
-
 
 type Moveable interface{
 	MoveTo(p geom.Point)

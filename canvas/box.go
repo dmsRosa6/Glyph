@@ -23,6 +23,18 @@ func NewBox(x, y, w, h, thickness int, bg, fg, borderBg, borderFg core.Color) *B
 	}
 }
 
+func NewBoxWithBorderStyle(x, y, w, h, thickness int, bg, fg, borderBg, borderFg core.Color, bs BorderStyle) *Box{
+
+	border := NewBorderWithStyle(x, y, w, h,thickness, borderFg, borderBg, bs)
+
+	composite := NewComposite(x+thickness, y+thickness, w-2*thickness, h-2*thickness)
+
+	return &Box{
+		border: border,
+		composite: composite,
+	}
+}
+
 func (b *Box) Draw(buf *core.Buffer){
 	b.border.Draw(buf)
 	b.composite.Draw(buf)

@@ -32,4 +32,4 @@ var Rounded = BorderStyle{
     TopLeft: '╭', TopRight: '╮',
     BottomLeft: '╰', BottomRight: '╯',
     Horizontal: '─', Vertical: '│',
-}
+}   

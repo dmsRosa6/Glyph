@@ -2,27 +2,32 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/geom"
 )
 
 type Box struct{
 	border *Border
-	rect *Rect
+	composite *Composite
 }
 
+//TODO Add colors to the composite
+func NewBox(x, y, w, h, thickness int, bg, fg, borderBg, borderFg core.Color) *Box{
 
-func NewBox(x, y, w, h, thicknessX, thicknessY int, bg, fg, borderBg, borderFg core.Color) *Box{
+	border := NewBorder(x, y, w, h,thickness , ' ', borderFg, borderBg)
 
-	border := NewBorder(x, y, w, h,thicknessX, thicknessY, ' ', borderFg, borderBg)
-
-	rect := NewRect(x+thicknessX, y+thicknessY, w-2*thicknessX, h-2*thicknessY, ' ', fg, bg)
+	composite := NewComposite(x+thickness, y+thickness, w-2*thickness, h-2*thickness)
 
 	return &Box{
 		border: border,
-		rect: rect,
+		composite: composite,
 	}
 }
 
 func (b *Box) Draw(buf *core.Buffer){
 	b.border.Draw(buf)
-	b.rect.Draw(buf)
+	b.composite.Draw(buf)
+}
+
+func (r *Box) IsInBounds(parent geom.Bounds) bool{
+	return r.composite.IsInBounds(parent) && r.border.IsInBounds(parent)	
 }

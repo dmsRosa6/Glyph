@@ -6,67 +6,95 @@ import (
 )
 
 type Border struct{
-	Bounds geom.Bounds
-	Ch rune
-	ThicknessX int
-    ThicknessY int
-	Fg, Bg core.Color
+    borderStyle BorderStyle
+    bounds geom.Bounds
+	thickness int
+	fg, bg core.Color
 }
 
-func NewBorder(x, y, w, h, thicknessX, thicknessY int, ch rune, fg, bg core.Color) *Border{
+
+func NewBorder(x, y, w, h, thickness int, ch rune, fg, bg core.Color) *Border{
 	return &Border{
-		Bounds: geom.Bounds{
+		bounds: geom.Bounds{
 			Pos: geom.Point{X: x, Y: y},
 			W:   w,
 			H:   h,
 		},
-		ThicknessX: thicknessX,
-		ThicknessY: thicknessY,
-		Ch:     ch,
-		Fg:     fg,
-		Bg:     bg,
+		thickness: thickness,
+		borderStyle: BorderStyle{
+            TopLeft: ch,
+            TopRight: ch,
+            BottomLeft: ch,
+            BottomRight: ch,
+            Horizontal: ch,
+            Vertical: ch,
+        },
+		fg:     fg,
+		bg:     bg,
 	}
 }
 
+func NewBorderWithStyle(x, y, w, h, thickness int, fg, bg core.Color, bStyle BorderStyle) *Border{
+	b := NewBorder(x,y,w,h,thickness,' ',fg,bg)
+
+    b.borderStyle = bStyle
+
+    return b
+}
+
 func (r *Border) Draw(buf *core.Buffer) {
-    x0, y0 := r.Bounds.Pos.X, r.Bounds.Pos.Y
-    w, h := r.Bounds.W, r.Bounds.H
+    for layer := 0; layer < r.thickness; layer++ {
+        x0 := r.bounds.Pos.X + layer
+        y0 := r.bounds.Pos.Y + layer
+        x1 := r.bounds.Pos.X + r.bounds.W - 1 - layer
+        y1 := r.bounds.Pos.Y + r.bounds.H - 1 - layer
 
-    // top border
-    for y := y0; y < y0+r.ThicknessY; y++ {
-        for x := x0; x < x0+w; x++ {
-            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
+        // corners
+        buf.Set(x0, y0, r.borderStyle.TopLeft, r.bg, r.fg)
+        buf.Set(x1, y0, r.borderStyle.TopRight, r.bg, r.fg)
+        buf.Set(x0, y1, r.borderStyle.BottomLeft, r.bg, r.fg)
+        buf.Set(x1, y1, r.borderStyle.BottomRight, r.bg, r.fg)
+
+        // top & bottom edges
+        for x := x0 + 1; x < x1; x++ {
+            buf.Set(x, y0, r.borderStyle.Horizontal, r.bg, r.fg)
+            buf.Set(x, y1, r.borderStyle.Horizontal, r.bg, r.fg)
+        }
+
+        // left & right edges
+        for y := y0 + 1; y < y1; y++ {
+            buf.Set(x0, y, r.borderStyle.Vertical, r.bg, r.fg)
+            buf.Set(x1, y, r.borderStyle.Vertical, r.bg, r.fg)
         }
     }
+}
 
-    // bottom border
-    for y := y0+h-r.ThicknessY; y < y0+h; y++ {
-        for x := x0; x < x0+w; x++ {
-            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
-        }
-    }
+func (r *Border) IsInBounds(parent geom.Bounds) bool{
+	if r.bounds.Pos.X < parent.Pos.X {
+		return false
+	}
 
-    // left border
-    for x := x0; x < x0+r.ThicknessX; x++ {
-        for y := y0+r.ThicknessY; y < y0+h-r.ThicknessY; y++ {
-            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
-        }
-    }
+	if r.bounds.Pos.Y < parent.Pos.Y {
+		return false
+	}
 
-    // right border
-    for x := x0+w-r.ThicknessX; x < x0+w; x++ {
-        for y := y0+r.ThicknessY; y < y0+h-r.ThicknessY; y++ {
-            buf.Set(x, y, r.Ch, r.Bg, r.Fg)
-        }
-    }
+	if r.bounds.Pos.Y + r.bounds.H > parent.Pos.Y + parent.H {
+		return false
+	}
+
+	if r.bounds.Pos.X + r.bounds.W > parent.Pos.X + parent.W {
+		return false
+	}
+
+	return true
 }
 
 func (r *Border) MoveTo(p geom.Point) {
-    r.Bounds.Pos = p
+    r.bounds.Pos = p
 }
 
 func (r *Border) Translate(v geom.Vector) {
-    r.Bounds.Pos = r.Bounds.Pos.Add(v)
+    r.bounds.Pos = r.bounds.Pos.Add(v)
 }
 
 

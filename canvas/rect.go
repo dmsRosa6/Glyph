@@ -33,6 +33,27 @@ func (r *Rect) Draw(buf *core.Buffer) {
     }
 }
 
+func (r *Rect) IsInBounds(parent geom.Bounds) bool{
+	if r.Bounds.Pos.X < parent.Pos.X {
+		return false
+	}
+
+	if r.Bounds.Pos.Y < parent.Pos.Y {
+		return false
+	}
+
+	if r.Bounds.Pos.Y + r.Bounds.H > parent.Pos.Y + parent.H {
+		return false
+	}
+
+	if r.Bounds.Pos.X + r.Bounds.W > parent.Pos.X + parent.W {
+		return false
+	}
+
+	return true
+}
+
+
 func (r *Rect) MoveTo(p geom.Point) {
     r.Bounds.Pos = p
 }

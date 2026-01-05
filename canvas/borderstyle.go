@@ -9,6 +9,16 @@ type BorderStyle struct {
     Vertical    rune
 }
 
+func UniformBorderStyle(ch rune) BorderStyle {
+    return BorderStyle{
+        TopLeft:     ch,
+        TopRight:    ch,
+        BottomLeft:  ch,
+        BottomRight: ch,
+        Horizontal:  ch,
+        Vertical:    ch,
+    }
+}
 
 var SingleLine = BorderStyle{
     TopLeft: '┌', TopRight: '┐',

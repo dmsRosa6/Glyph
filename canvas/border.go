@@ -12,34 +12,41 @@ type Border struct{
 	fg, bg core.Color
 }
 
-
-func NewBorder(x, y, w, h, thickness int, ch rune, fg, bg core.Color) *Border{
-	return &Border{
-		bounds: geom.Bounds{
-			Pos: geom.Point{X: x, Y: y},
-			W:   w,
-			H:   h,
-		},
-		thickness: thickness,
-		borderStyle: BorderStyle{
-            TopLeft: ch,
-            TopRight: ch,
-            BottomLeft: ch,
-            BottomRight: ch,
-            Horizontal: ch,
-            Vertical: ch,
-        },
-		fg:     fg,
-		bg:     bg,
-	}
+type BorderConfig struct {
+    Bounds    geom.Bounds
+    Thickness int
+    Style     BorderStyle
+    Fg, Bg    core.Color
 }
 
-func NewBorderWithStyle(x, y, w, h, thickness int, fg, bg core.Color, bStyle BorderStyle) *Border{
-	b := NewBorder(x,y,w,h,thickness,' ',fg,bg)
+func DefaultBorderConfig() BorderConfig {
+    return BorderConfig{
+        Thickness: 1,
+        Style: BorderStyle{
+            TopLeft:     ' ',
+            TopRight:    ' ',
+            BottomLeft:  ' ',
+            BottomRight: ' ',
+            Horizontal:  ' ',
+            Vertical:    ' ',
+        },
+        Fg: core.White,
+        Bg: core.Transparent,
+    }
+}
 
-    b.borderStyle = bStyle
+func NewBorder(cfg BorderConfig) *Border {
+    if cfg.Thickness < 1 {
+        panic("border thickness must be >= 1")
+    }
 
-    return b
+    return &Border{
+        bounds:     cfg.Bounds,
+        thickness:  cfg.Thickness,
+        borderStyle: cfg.Style,
+        fg:         cfg.Fg,
+        bg:         cfg.Bg,
+    }
 }
 
 func (r *Border) Draw(buf *core.Buffer) {

@@ -11,17 +11,19 @@ type Rect struct {
 	Fg, Bg core.Color
 }
 
-func NewRect(x, y, w, h int, ch rune, fg, bg core.Color) *Rect {
-	return &Rect{
-		Bounds: geom.Bounds{
-			Pos: geom.Point{X: x, Y: y},
-			W:   w,
-			H:   h,
-		},
-		Ch:     ch,
-		Fg:     fg,
-		Bg:     bg,
-	}
+type RectConfig struct {
+    Bounds geom.Bounds
+    Ch     rune
+    Fg, Bg core.Color
+}
+
+func NewRect(cfg RectConfig) *Rect {
+    return &Rect{
+        Bounds: cfg.Bounds,
+        Ch:     cfg.Ch,
+        Fg:     cfg.Fg,
+        Bg:     cfg.Bg,
+    }
 }
 
 func (r *Rect) Draw(buf *core.Buffer) {

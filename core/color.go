@@ -16,6 +16,12 @@ func NewColor(r,g,b uint8) Color{
 	}
 }
 
-var Transparent Color = Color{IsTransparent: true}
-var Black Color = Color{IsTransparent: false}
-var White Color = Color{R:255,G:255,B:255,IsTransparent: false}
+var (
+    Transparent = Color{IsTransparent: true}
+    Black       = Color{R: 0, G: 0, B: 0, IsTransparent: false}
+    White       = Color{R: 255, G: 255, B: 255, IsTransparent: false}
+    Red         = Color{R: 255, G: 0, B: 0, IsTransparent: false}
+    Green       = Color{R: 0, G: 255, B: 0, IsTransparent: false}
+    Blue        = Color{R: 0, G: 0, B: 255, IsTransparent: false}
+    Yellow      = Color{R: 255, G: 255, B: 0, IsTransparent: false}
+)

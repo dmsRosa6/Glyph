@@ -10,29 +10,66 @@ type Box struct{
 	composite *Composite
 }
 
-//TODO Add colors to the composite
-func NewBox(x, y, w, h, thickness int, bg, fg, borderBg, borderFg core.Color) *Box{
+type BoxConfig struct {
+    Bounds geom.Bounds
 
-	border := NewBorder(x, y, w, h,thickness , ' ', borderFg, borderBg)
+    Border BorderConfig
 
-	composite := NewComposite(x+thickness, y+thickness, w-2*thickness, h-2*thickness)
+    Padding int
 
-	return &Box{
-		border: border,
-		composite: composite,
-	}
+    Bg, Fg core.Color
 }
 
-func NewBoxWithBorderStyle(x, y, w, h, thickness int, bg, fg, borderBg, borderFg core.Color, bs BorderStyle) *Box{
 
-	border := NewBorderWithStyle(x, y, w, h,thickness, borderFg, borderBg, bs)
+//TODO Add colors to the composite
+func NewBox(cfg BoxConfig) *Box {
+    if cfg.Padding < 0 {
+        panic("padding must be >= 0")
+    }
 
-	composite := NewComposite(x+thickness, y+thickness, w-2*thickness, h-2*thickness)
+    b := &Box{}
 
-	return &Box{
-		border: border,
-		composite: composite,
-	}
+    b.border = NewBorder(cfg.Border)
+
+    b.composite = NewComposite(CompositeConfig{
+        Bounds: geom.Bounds{
+            Pos: geom.Point{
+                X: cfg.Bounds.Pos.X + cfg.Padding,
+                Y: cfg.Bounds.Pos.Y + cfg.Padding,
+            },
+            W: cfg.Bounds.W - 2*cfg.Padding,
+            H: cfg.Bounds.H - 2*cfg.Padding,
+        },
+    })
+
+    return b
+}
+
+func NewSimpleBox(
+    x, y, w, h, thickness int,
+    bg, fg, borderBg, borderFg core.Color,
+) *Box {
+    return NewBox(BoxConfig{
+        Bounds: geom.Bounds{
+            Pos: geom.Point{X: x, Y: y},
+            W:   w,
+            H:   h,
+        },
+        Padding: thickness,
+        Border: BorderConfig{
+            Bounds: geom.Bounds{
+                Pos: geom.Point{X: x, Y: y},
+                W:   w,
+                H:   h,
+            },
+            Thickness: thickness,
+            Style: UniformBorderStyle(' '),
+            Fg: borderFg,
+            Bg: borderBg,
+        },
+        Bg: bg,
+        Fg: fg,
+    })
 }
 
 func (b *Box) Draw(buf *core.Buffer){

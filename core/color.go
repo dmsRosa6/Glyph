@@ -24,4 +24,6 @@ var (
     Green       = Color{R: 0, G: 255, B: 0, IsTransparent: false}
     Blue        = Color{R: 0, G: 0, B: 255, IsTransparent: false}
     Yellow      = Color{R: 255, G: 255, B: 0, IsTransparent: false}
+    Gray      	= Color{R: 200, G: 200, B: 200, IsTransparent: false}
+
 )

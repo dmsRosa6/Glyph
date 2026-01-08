@@ -1,30 +1,42 @@
 package canvas
 
 import (
+	"errors"
+
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/utils"
 )
 
 type Composite struct{
 	bounds geom.Bounds
 	Children []Drawable
+
+	layer int
 }
 
 type CompositeConfig struct {
     Bounds geom.Bounds
+	Layer int
 }
 
 //TODO probabily have like a composite with rect to accelarte things
 
 //TODO eventually probabily is nice to have it like i do on the canvas and have colors by default on the composite
-func NewComposite(cfg CompositeConfig) *Composite {
-    return &Composite{
+func NewComposite(cfg CompositeConfig) (*Composite, error) {
+    c :=  &Composite{
         bounds:   cfg.Bounds,
         Children: []Drawable{},
     }
+
+	if err := c.SetLayer(cfg.Layer); err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
-func NewCompositeAt(x, y, w, h int) *Composite {
+func NewCompositeAt(x, y, w, h int) (*Composite, error) {
     return NewComposite(CompositeConfig{
         Bounds: geom.Bounds{
             Pos: geom.Point{X: x, Y: y},
@@ -66,7 +78,7 @@ func (c *Composite) AddChild(child Drawable){
 		panic("Shape out of composite bounds")
 	}	
 
-	c.Children = append(c.Children, child)
+	c.Children = utils.InsertSortLayered(c.Children, child)
 }
 
 func (c *Composite) RemoveChild(target Drawable) {
@@ -78,3 +90,16 @@ func (c *Composite) RemoveChild(target Drawable) {
 	}
 }
 
+func (r *Composite) SetLayer(l int) error{
+    if l < 0{
+		return errors.New("Layers must be greater or equal to 0")
+	} 
+	
+	r.layer = l
+
+	return nil
+}
+
+func (r *Composite) GetLayer() int{
+    return r.layer
+}

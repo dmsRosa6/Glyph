@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"errors"
+
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
 )
@@ -8,17 +10,24 @@ import (
 type Text struct {
 	Pos   geom.Point
 	Value string
-
 	Bg, Fg core.Color
+	
+	layer int
 }
 
-func NewText(x, y int, value string, bg, fg core.Color) *Text {
-	return &Text{
+func NewText(x, y, layer int, value string, bg, fg core.Color) (*Text, error) {
+	t := &Text{
 		Pos:   geom.Point{X: x, Y: y},
 		Value: value,
 		Bg: bg,
 		Fg: fg,
 	}
+
+	if err := t.SetLayer(layer); err != nil{
+		return nil, err
+	}
+
+	return t, nil
 }
 
 func (t *Text) Draw(buf *core.Buffer) {
@@ -45,4 +54,18 @@ func (t *Text) MoveTo(p geom.Point) {
 
 func (t *Text) Translate(v geom.Vector) {
 	t.Pos = t.Pos.Add(v)
+}
+
+
+func (r *Text) SetLayer(l int) error{
+	if l < 0{
+		return errors.New("Layers must be greater or equal to 0")
+	} 
+
+	r.layer = l
+	return nil
+}
+
+func (r *Text) GetLayer() int{
+    return r.layer
 }

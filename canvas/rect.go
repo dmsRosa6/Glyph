@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"errors"
+
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
 )
@@ -9,21 +11,32 @@ type Rect struct {
 	Bounds geom.Bounds
 	Ch     rune
 	Fg, Bg core.Color
+
+	layer int
 }
 
 type RectConfig struct {
     Bounds geom.Bounds
     Ch     rune
     Fg, Bg core.Color
+
+	Layer int
 }
 
-func NewRect(cfg RectConfig) *Rect {
-    return &Rect{
+func NewRect(cfg RectConfig) (*Rect, error) {
+	r :=  &Rect{
         Bounds: cfg.Bounds,
         Ch:     cfg.Ch,
         Fg:     cfg.Fg,
         Bg:     cfg.Bg,
     }
+
+	if err := r.SetLayer(cfg.Layer); err != nil {
+		return nil, err
+	}
+
+
+	return r, nil
 }
 
 func (r *Rect) Draw(buf *core.Buffer) {
@@ -62,4 +75,18 @@ func (r *Rect) MoveTo(p geom.Point) {
 
 func (r *Rect) Translate(v geom.Vector) {
     r.Bounds.Pos = r.Bounds.Pos.Add(v)
+}
+
+func (r *Rect) SetLayer(l int) error{
+	if l < 0{
+		return errors.New("Layers must be greater or equal to 0")
+	} 
+
+	r.layer = l
+
+	return nil
+}
+
+func (r *Rect) GetLayer() int{
+    return r.layer
 }

@@ -3,6 +3,7 @@ package canvas
 import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/utils"
 )
 
 type Canvas struct {
@@ -65,7 +66,7 @@ func (c *Canvas) AddShape(s Drawable) {
 		panic("Shape out of composite bounds")
 	}	
 
-	c.Shapes = append(c.Shapes, s)
+	c.Shapes = utils.InsertSortLayered(c.Shapes, s)
 }
 
 func (c *Canvas) Compose() {

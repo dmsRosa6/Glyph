@@ -9,6 +9,8 @@ import (
 type Drawable interface{
 	Draw(buf *core.Buffer)
 	IsInBounds(parent geom.Bounds) bool
+	SetLayer(l int) error
+	GetLayer() int
 }
 
 type Moveable interface{

@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"errors"
+
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
 )
@@ -10,6 +12,8 @@ type Border struct{
     bounds geom.Bounds
 	thickness int
 	fg, bg core.Color
+
+    layer int
 }
 
 type BorderConfig struct {
@@ -17,6 +21,8 @@ type BorderConfig struct {
     Thickness int
     Style     BorderStyle
     Fg, Bg    core.Color
+
+    Layer int
 }
 
 func DefaultBorderConfig() BorderConfig {
@@ -35,18 +41,24 @@ func DefaultBorderConfig() BorderConfig {
     }
 }
 
-func NewBorder(cfg BorderConfig) *Border {
+func NewBorder(cfg BorderConfig) (*Border, error) {
     if cfg.Thickness < 1 {
         panic("border thickness must be >= 1")
     }
 
-    return &Border{
+    b := &Border{
         bounds:     cfg.Bounds,
         thickness:  cfg.Thickness,
         borderStyle: cfg.Style,
         fg:         cfg.Fg,
         bg:         cfg.Bg,
     }
+
+    if err := b.SetLayer(cfg.Layer); err != nil {
+        return nil ,err
+    }
+
+    return b, nil
 }
 
 func (r *Border) Draw(buf *core.Buffer) {
@@ -104,4 +116,16 @@ func (r *Border) Translate(v geom.Vector) {
     r.bounds.Pos = r.bounds.Pos.Add(v)
 }
 
+func (r *Border) SetLayer(l int) error{
+    if l < 0{
+		return errors.New("Layers must be greater or equal to 0")
+	} 
 
+
+    r.layer = l
+    return  nil
+}
+
+func (r *Border) getLayer() int{
+    return r.layer
+}

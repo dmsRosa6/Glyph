@@ -19,7 +19,7 @@ func main() {
 			Padding: 1,
 			BorderConfig: canvas.BorderConfig{
 				Thickness: 1,
-				Style:     canvas.SingleLine,
+				Style:     canvas.DoubleLine,
 				Fg:        core.Gray,
 				Bg:        core.Transparent,
 			},
@@ -27,33 +27,21 @@ func main() {
 		Title:         "Background",
 		TitleXOffset:  2,
 		TitlePosition: canvas.TitleTop,
-		TitleFg:       core.Gray,
+		TitleFg:       core.DarkGray,
 	}
 
 	bgWin, _ := canvas.NewWindow(geom.NewBounds(2, 2, 50, 20), bgCfg)
-	bgWin.SetLayer(10)
-
-	mainCfg := canvas.WindowConfig{
-		BoxConfig: canvas.BoxConfig{
-			Padding: 1,
-			BorderConfig: canvas.BorderConfig{
-				Thickness: 1,
-				Style:     canvas.ThickLine,
-				Fg:        core.White,
-				Bg:        core.Black,
-			},
-		},
-		Title:         "Main Window",
-		TitleXOffset:  2,
-		TitlePosition: canvas.TitleTop,
-		TitleFg:       core.White,
+	
+	rectCfg := canvas.RectConfig{
+		Bg: core.Black,
+		Fg: core.Black,
 	}
 
-	mainWin, _ := canvas.NewWindow(geom.NewBounds(8, 6, 35, 12), mainCfg)
-	mainWin.SetLayer(20)
-
+	rect, _ := canvas.NewRect(geom.NewBounds(4, 4, 2, 2), rectCfg)
+	
+	bgWin.AddChild(rect)
+	
 	c.AddShape(bgWin)
-	c.AddShape(mainWin)
 
 	go r.Run(c)
 	fmt.Println("Press Enter to exit...")

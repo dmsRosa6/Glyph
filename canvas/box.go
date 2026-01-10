@@ -90,8 +90,8 @@ func NewSimpleBox(
 }
 
 func (b *Box) Draw(buf *core.Buffer){
-	b.border.Draw(buf)
 	b.composite.Draw(buf)
+	b.border.Draw(buf)
 }
 
 func (r *Box) IsInBounds(parent geom.Bounds) bool{
@@ -113,4 +113,12 @@ func (r *Box) SetLayer(l int) error{
 
 func (r *Box) GetLayer() int{
     return r.layer
+}
+
+func (b *Box) AddChild(child Drawable){
+    b.composite.AddChild(child)
+}
+
+func (b *Box) RemoveChild(target Drawable) {
+	b.composite.AddChild(target)
 }

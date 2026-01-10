@@ -96,7 +96,6 @@ func (w *Window) IsInBounds(parent geom.Bounds) bool {
     return w.box.IsInBounds(parent)
 }
 
-
 func (r *Window) SetLayer(l int) error{
     if l < 0{
 		return errors.New("Layers must be greater or equal to 0")
@@ -111,4 +110,12 @@ func (r *Window) SetLayer(l int) error{
 
 func (r *Window) GetLayer() int{
     return r.layer
+}
+
+func (b *Window) AddChild(child Drawable){
+    b.box.AddChild(child)
+}
+
+func (b *Window) RemoveChild(target Drawable) {
+	b.box.AddChild(target)
 }

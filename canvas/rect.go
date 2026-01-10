@@ -23,9 +23,20 @@ type RectConfig struct {
 }
 
 func NewRect(bounds geom.Bounds, cfg RectConfig) (*Rect, error) {
+	
+	//0 does not occupy any space so its fucks the layot
+
+	var actualRune rune
+
+	if cfg.Ch == 0 {
+		actualRune = 32
+	}else{
+		actualRune = cfg.Ch
+	}
+
 	r :=  &Rect{
         Bounds: bounds,
-        Ch:     cfg.Ch,
+        Ch:     actualRune,
         Fg:     cfg.Fg,
         Bg:     cfg.Bg,
     }

@@ -1,0 +1,8 @@
+bin/
+*.exe
+*.out
+
+.DS_Store
+*.swp
+
+enable_attach.sh

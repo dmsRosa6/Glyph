@@ -9,3 +9,9 @@ run:
 
 run-bin: build
 	./$(BIN)
+
+debug: build
+	dlv debug $(MAIN) --tty=$$(tty)
+
+debug-attach:
+	dlv attach $$(pgrep glyph)

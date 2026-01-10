@@ -14,3 +14,5 @@ FIX the bounds ineritance on composite shapes
 
 probably i should panic when layer is like less than 0. Right know it keeps the old one
 defaulting to 0
+
+rune 0 does not occupy space so fucks the layout i should probably do something about it at the renderer level

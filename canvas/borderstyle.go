@@ -43,3 +43,9 @@ var Rounded = BorderStyle{
     BottomLeft: '╰', BottomRight: '╯',
     Horizontal: '─', Vertical: '│',
 }   
+
+var EmptyBorder = BorderStyle{
+    TopLeft: ' ', TopRight: ' ',
+    BottomLeft: ' ', BottomRight: ' ',
+    Horizontal: ' ', Vertical: ' ',
+}

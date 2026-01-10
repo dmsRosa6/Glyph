@@ -15,12 +15,9 @@ func main() {
 	r := render.NewRenderer(render.LoopMode(0), 30)
 
 	bgCfg := canvas.WindowConfig{
-		Bounds: geom.NewBounds(2, 2, 50, 20),
-		Box: canvas.BoxConfig{
-			Bounds:  geom.NewBounds(2, 2, 50, 20),
+		BoxConfig: canvas.BoxConfig{
 			Padding: 1,
-			Border: canvas.BorderConfig{
-				Bounds:    geom.NewBounds(2, 2, 50, 20),
+			BorderConfig: canvas.BorderConfig{
 				Thickness: 1,
 				Style:     canvas.SingleLine,
 				Fg:        core.Gray,
@@ -33,16 +30,13 @@ func main() {
 		TitleFg:       core.Gray,
 	}
 
-	bgWin, _ := canvas.NewWindow(bgCfg)
+	bgWin, _ := canvas.NewWindow(geom.NewBounds(2, 2, 50, 20), bgCfg)
 	bgWin.SetLayer(10)
 
 	mainCfg := canvas.WindowConfig{
-		Bounds: geom.NewBounds(8, 6, 35, 12),
-		Box: canvas.BoxConfig{
-			Bounds:  geom.NewBounds(8, 6, 35, 12),
+		BoxConfig: canvas.BoxConfig{
 			Padding: 1,
-			Border: canvas.BorderConfig{
-				Bounds:    geom.NewBounds(8, 6, 35, 12),
+			BorderConfig: canvas.BorderConfig{
 				Thickness: 1,
 				Style:     canvas.ThickLine,
 				Fg:        core.White,
@@ -55,32 +49,9 @@ func main() {
 		TitleFg:       core.White,
 	}
 
-	mainWin, _ := canvas.NewWindow(mainCfg)
+	mainWin, _ := canvas.NewWindow(geom.NewBounds(8, 6, 35, 12), mainCfg)
 	mainWin.SetLayer(20)
 
-	popupCfg := canvas.WindowConfig{
-		Bounds: geom.NewBounds(10, 12, 28, 8),
-		Box: canvas.BoxConfig{
-			Bounds:  geom.NewBounds(10, 12, 28, 8),
-			Padding: 1,
-			Border: canvas.BorderConfig{
-				Bounds:    geom.NewBounds(10, 12, 28, 8),
-				Thickness: 1,
-				Style:     canvas.DoubleLine,
-				Fg:        core.Yellow,
-				Bg:        core.Black,
-			},
-		},
-		Title:         "Modal Dialog",
-		TitleXOffset:  2,
-		TitlePosition: canvas.TitleTop,
-		TitleFg:       core.Yellow,
-		Layer: 100,
-	}
-
-	popupWin, _ := canvas.NewWindow(popupCfg)
-
-	c.AddShape(popupWin)
 	c.AddShape(bgWin)
 	c.AddShape(mainWin)
 

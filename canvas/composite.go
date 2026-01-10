@@ -16,16 +16,15 @@ type Composite struct{
 }
 
 type CompositeConfig struct {
-    Bounds geom.Bounds
 	Layer int
 }
 
 //TODO probabily have like a composite with rect to accelarte things
 
 //TODO eventually probabily is nice to have it like i do on the canvas and have colors by default on the composite
-func NewComposite(cfg CompositeConfig) (*Composite, error) {
+func NewComposite(bounds geom.Bounds,cfg CompositeConfig) (*Composite, error) {
     c :=  &Composite{
-        bounds:   cfg.Bounds,
+        bounds:   bounds,
         Children: []Drawable{},
     }
 
@@ -34,16 +33,6 @@ func NewComposite(cfg CompositeConfig) (*Composite, error) {
 	}
 
 	return c, nil
-}
-
-func NewCompositeAt(x, y, w, h int) (*Composite, error) {
-    return NewComposite(CompositeConfig{
-        Bounds: geom.Bounds{
-            Pos: geom.Point{X: x, Y: y},
-            W:   w,
-            H:   h,
-        },
-    })
 }
 
 func (c *Composite) Draw(buf *core.Buffer){

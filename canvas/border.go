@@ -17,7 +17,6 @@ type Border struct{
 }
 
 type BorderConfig struct {
-    Bounds    geom.Bounds
     Thickness int
     Style     BorderStyle
     Fg, Bg    core.Color
@@ -28,26 +27,19 @@ type BorderConfig struct {
 func DefaultBorderConfig() BorderConfig {
     return BorderConfig{
         Thickness: 1,
-        Style: BorderStyle{
-            TopLeft:     ' ',
-            TopRight:    ' ',
-            BottomLeft:  ' ',
-            BottomRight: ' ',
-            Horizontal:  ' ',
-            Vertical:    ' ',
-        },
+        Style: EmptyBorder,
         Fg: core.White,
         Bg: core.Transparent,
     }
 }
 
-func NewBorder(cfg BorderConfig) (*Border, error) {
+func NewBorder(bounds geom.Bounds, cfg BorderConfig) (*Border, error) {
     if cfg.Thickness < 1 {
         panic("border thickness must be >= 1")
     }
 
     b := &Border{
-        bounds:     cfg.Bounds,
+        bounds:     bounds,
         thickness:  cfg.Thickness,
         borderStyle: cfg.Style,
         fg:         cfg.Fg,

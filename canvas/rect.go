@@ -16,16 +16,15 @@ type Rect struct {
 }
 
 type RectConfig struct {
-    Bounds geom.Bounds
     Ch     rune
     Fg, Bg core.Color
 
 	Layer int
 }
 
-func NewRect(cfg RectConfig) (*Rect, error) {
+func NewRect(bounds geom.Bounds, cfg RectConfig) (*Rect, error) {
 	r :=  &Rect{
-        Bounds: cfg.Bounds,
+        Bounds: bounds,
         Ch:     cfg.Ch,
         Fg:     cfg.Fg,
         Bg:     cfg.Bg,

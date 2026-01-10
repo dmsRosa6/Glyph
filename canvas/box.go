@@ -14,9 +14,7 @@ type Box struct{
 }
 
 type BoxConfig struct {
-    Bounds geom.Bounds
-
-    Border BorderConfig
+    BorderConfig BorderConfig
 
     Padding int
 
@@ -25,9 +23,8 @@ type BoxConfig struct {
     Layer int
 }
 
-
 //TODO Add colors to the composite
-func NewBox(cfg BoxConfig) (*Box,error) {
+func NewBox(bounds geom.Bounds, cfg BoxConfig) (*Box,error) {
     if cfg.Padding < 0 {
         panic("padding must be >= 0")
     }
@@ -37,22 +34,23 @@ func NewBox(cfg BoxConfig) (*Box,error) {
     var err error
     var c *Composite
 
-    br, err = NewBorder(cfg.Border)    
+    br, err = NewBorder(bounds,cfg.BorderConfig)    
     if err != nil {
         return nil ,err
     }
 
     b.border = br
 
-    c, err = NewComposite(CompositeConfig{
-        Bounds: geom.Bounds{
+    compositeBounds := geom.Bounds{
             Pos: geom.Point{
-                X: cfg.Bounds.Pos.X + cfg.Padding,
-                Y: cfg.Bounds.Pos.Y + cfg.Padding,
+                X: bounds.Pos.X + cfg.Padding,
+                Y: bounds.Pos.Y + cfg.Padding,
             },
-            W: cfg.Bounds.W - 2*cfg.Padding,
-            H: cfg.Bounds.H - 2*cfg.Padding,
-        },
+            W: bounds.W - 2*cfg.Padding,
+            H: bounds.H - 2*cfg.Padding,
+        }
+
+    c, err = NewComposite(compositeBounds, CompositeConfig{
         Layer: cfg.Layer,
     })
     if err != nil {
@@ -73,19 +71,14 @@ func NewSimpleBox(
     x, y, w, h, thickness int,
     bg, fg, borderBg, borderFg core.Color,
 ) (*Box, error) {
-    return NewBox(BoxConfig{
-        Bounds: geom.Bounds{
+    bounds := geom.Bounds{
             Pos: geom.Point{X: x, Y: y},
             W:   w,
             H:   h,
-        },
+        }
+    return NewBox(bounds, BoxConfig{
         Padding: thickness,
-        Border: BorderConfig{
-            Bounds: geom.Bounds{
-                Pos: geom.Point{X: x, Y: y},
-                W:   w,
-                H:   h,
-            },
+        BorderConfig: BorderConfig{
             Thickness: thickness,
             Style: UniformBorderStyle(' '),
             Fg: borderFg,

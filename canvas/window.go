@@ -22,9 +22,7 @@ type Window struct {
 }
 
 type WindowConfig struct {
-    Bounds geom.Bounds
-
-    Box BoxConfig
+    BoxConfig BoxConfig
 
     Title          string
     TitleXOffset   int
@@ -33,10 +31,10 @@ type WindowConfig struct {
     Layer int
 }
 
-func NewWindow(cfg WindowConfig) (*Window, error) {
+func NewWindow(bounds geom.Bounds, cfg WindowConfig) (*Window, error) {
 
     if cfg.Title != "" {
-        innerWidth := cfg.Bounds.W - 2*cfg.Box.Padding
+        innerWidth := bounds.W - 2*cfg.BoxConfig.Padding
 
         if cfg.TitleXOffset < 0 ||
             cfg.TitleXOffset+len(cfg.Title) > innerWidth {
@@ -47,7 +45,7 @@ func NewWindow(cfg WindowConfig) (*Window, error) {
     var err error
     var box *Box
 
-    box, err = NewBox(cfg.Box)
+    box, err = NewBox(bounds, cfg.BoxConfig)
     if err != nil {
         return nil, err
     }
@@ -55,15 +53,15 @@ func NewWindow(cfg WindowConfig) (*Window, error) {
     var textY int
     switch cfg.TitlePosition {
     case TitleTop:
-        textY = cfg.Bounds.Pos.Y
+        textY = bounds.Pos.Y
     case TitleBottom:
-        textY = cfg.Bounds.Pos.Y + cfg.Bounds.H - 1
+        textY = bounds.Pos.Y + bounds.H - 1
     }
 
     var text *Text
     if cfg.Title != "" {
         text, err = NewText(
-            cfg.Bounds.Pos.X+cfg.Box.Padding+cfg.TitleXOffset,
+            bounds.Pos.X+cfg.BoxConfig.Padding+cfg.TitleXOffset,
             textY,
             cfg.Layer,
             cfg.Title,

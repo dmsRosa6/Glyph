@@ -86,7 +86,11 @@ func NewSimpleBox(
 }
 
 func (b *Box) Draw(buf *core.Buffer, origin geom.Point){
-	b.composite.Draw(buf, origin)
+	t := geom.Point{}
+    t.AddPoint(origin)
+    t.AddPoint(*b.bounds.Pos)
+    
+    b.composite.Draw(buf, t)
 	b.border.Draw(buf, origin)
 }
 
@@ -117,14 +121,4 @@ func (b *Box) AddChild(child Drawable){
 
 func (b *Box) RemoveChild(target Drawable) {
 	b.composite.AddChild(target)
-}
-
-func (b *Box) resolveNewPosition(point geom.Point){
-    p := geom.Point{
-                X: point.X + b.padding,
-                Y: point.Y + b.padding,
-            }
-
-    b.composite.bounds.Pos = p
-    b.border.bounds.Pos = point 
 }

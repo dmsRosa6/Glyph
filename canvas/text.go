@@ -8,7 +8,7 @@ import (
 )
 
 type Text struct {
-	Pos   geom.Point
+	Pos   *geom.Point
 	Value string
 	Bg, Fg core.Color
 	
@@ -17,7 +17,7 @@ type Text struct {
 
 func NewText(x, y, layer int, value string, bg, fg core.Color) (*Text, error) {
 	t := &Text{
-		Pos:   geom.Point{X: x, Y: y},
+		Pos:   &geom.Point{X: x, Y: y},
 		Value: value,
 		Bg: bg,
 		Fg: fg,
@@ -67,14 +67,12 @@ func (t *Text) IsInBounds(parent geom.Bounds) bool{
 	return true
 }
 
-func (t *Text) MoveTo(p geom.Point) {
-	if t.Pos != p {
-		t.Pos = p
-	}
+func (t *Text) MoveTo(p *geom.Point) {
+	t.Pos = p
 }
 
 func (t *Text) Translate(v geom.Vector) {
-	t.Pos = t.Pos.Add(v)
+	t.Pos.AddVector(v)
 }
 
 

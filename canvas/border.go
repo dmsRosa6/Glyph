@@ -100,12 +100,12 @@ func (r *Border) IsInBounds(parent geom.Bounds) bool{
 	return true
 }
 
-func (r *Border) MoveTo(p geom.Point) {
+func (r *Border) MoveTo(p *geom.Point) {
     r.bounds.Pos = p
 }
 
 func (r *Border) Translate(v geom.Vector) {
-    r.bounds.Pos = r.bounds.Pos.Add(v)
+    r.bounds.Pos.AddVector(v)
 }
 
 func (r *Border) SetLayer(l int) error{

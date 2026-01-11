@@ -59,9 +59,9 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
     var textY int
     switch cfg.TitlePosition {
     case TitleTop:
-        textY = bounds.Pos.Y
+        textY = 0
     case TitleBottom:
-        textY = bounds.Pos.Y + bounds.H - 1
+        textY =  bounds.H - 1
     }
 
     var text *Text
@@ -96,9 +96,14 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 
 func (w *Window) Draw(buf *core.Buffer, origin geom.Point) {
     
+    t := geom.Point{}
+
+    t.AddPoint(origin)
+    t.AddPoint(*w.bounds.Pos)
+
     w.box.Draw(buf, origin)
     if w.text != nil {
-        w.text.Draw(buf, origin)
+        w.text.Draw(buf, t)
     }
 }
 
@@ -130,7 +135,6 @@ func (b *Window) RemoveChild(target Drawable) {
 	b.box.AddChild(target)
 }
 
-//TODO We need to reset the points when no anchor is present ot atleast check
 func (b *Window) Layout(parent geom.Bounds) {
 
 }

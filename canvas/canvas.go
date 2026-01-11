@@ -62,7 +62,7 @@ func (c *Canvas) Restore() {
 func (c *Canvas) AddShape(s Drawable) {
     if !s.IsInBounds(
         geom.Bounds{
-            Pos: geom.Point{X:0, Y:0},
+            Pos: &geom.Point{X:0, Y:0},
             W: c.RequestedWidth,
             H: c.RequestedHeight}){
 		panic("Shape out of composite bounds")
@@ -76,6 +76,6 @@ func (c *Canvas) Compose() {
     c.Restore()
 
 	for _, s := range c.Shapes {
-		s.Draw(c.Buf, c.bounds.Pos)
+		s.Draw(c.Buf, *c.bounds.Pos)
     }
 }

@@ -36,8 +36,13 @@ func NewComposite(bounds *geom.Bounds,cfg CompositeConfig) (*Composite, error) {
 }
 
 func (c *Composite) Draw(buf *core.Buffer, origin geom.Point){
+	t := geom.Point{}
+
+	t.AddPoint(origin)
+	t.AddPoint(*c.bounds.Pos)
+	
 	for _, s := range c.children {
-		s.Draw(buf, c.bounds.Pos)
+		s.Draw(buf, t)
     }
 }
 

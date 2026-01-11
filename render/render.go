@@ -104,6 +104,11 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 }
 
 func (r *Renderer) RequestRedraw() {
+    
+    if r.RenderMode.Mode != OnDemand {
+        return
+    }
+
     select {
     case r.Redraw <- struct{}{}:
     default:

@@ -25,13 +25,15 @@ func main() {
 			},
 		},
 		Title:         "Background",
-		TitleXOffset:  2,
+		TitleXOffset:  0,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
 		Anchor: canvas.AnchorBottom,
 	}
 
-	bgWin, _ := canvas.NewWindow(geom.NewBounds(2, 2, 50, 20), bgCfg)
+	winPoint := geom.NewBounds(2, 2, 50, 20)
+
+	bgWin, _ := canvas.NewWindow(winPoint, bgCfg)
 	
 	
 	rectCfg := canvas.RectConfig{
@@ -45,8 +47,13 @@ func main() {
 	c.AddShape(bgWin)
 
 	go r.Run(c)
-
 	fmt.Scanln()
 
+	winPoint.Pos.AddVector(geom.Vector{5,0})
+
+	r.RequestRedraw()
+
+	fmt.Scanln()
+	
 	r.Stop()
 }

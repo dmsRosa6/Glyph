@@ -13,7 +13,7 @@ type Drawable interface{
 }
 
 type Moveable interface{
-	MoveTo(p geom.Point)
+	MoveTo(p *geom.Point)
 	Translate(v geom.Vector)
 }
 

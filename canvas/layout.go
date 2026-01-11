@@ -3,15 +3,10 @@ package canvas
 type Anchor int
 
 const (
-	AnchorTopLeft Anchor = iota
+	NoAnchor Anchor = iota
 	AnchorTop
-	AnchorTopRight
-	AnchorLeft
 	AnchorCenter
-	AnchorRight
-	AnchorBottomLeft
 	AnchorBottom
-	AnchorBottomRight
 )
 
 type Layout struct{

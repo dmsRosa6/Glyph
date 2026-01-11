@@ -9,8 +9,8 @@ import (
 )
 
 type Composite struct{
-	bounds geom.Bounds
-	Children []Drawable
+	bounds *geom.Bounds
+	children []Drawable
 
 	layer int
 }
@@ -22,10 +22,10 @@ type CompositeConfig struct {
 //TODO probabily have like a composite with rect to accelarte things
 
 //TODO eventually probabily is nice to have it like i do on the canvas and have colors by default on the composite
-func NewComposite(bounds geom.Bounds,cfg CompositeConfig) (*Composite, error) {
+func NewComposite(bounds *geom.Bounds,cfg CompositeConfig) (*Composite, error) {
     c :=  &Composite{
         bounds:   bounds,
-        Children: []Drawable{},
+        children: []Drawable{},
     }
 
 	if err := c.SetLayer(cfg.Layer); err != nil {
@@ -35,26 +35,26 @@ func NewComposite(bounds geom.Bounds,cfg CompositeConfig) (*Composite, error) {
 	return c, nil
 }
 
-func (c *Composite) Draw(buf *core.Buffer){
-	for _, s := range c.Children {
-		s.Draw(buf)
+func (c *Composite) Draw(buf *core.Buffer, origin geom.Point){
+	for _, s := range c.children {
+		s.Draw(buf, c.bounds.Pos)
     }
 }
 
 func (r *Composite) IsInBounds(parent geom.Bounds) bool{
-	if r.bounds.Pos.X < parent.Pos.X {
+	if r.bounds.Pos.X < 0 {
 		return false
 	}
 
-	if r.bounds.Pos.Y < parent.Pos.Y {
+	if r.bounds.Pos.Y < 0 {
 		return false
 	}
 
-	if r.bounds.Pos.Y + r.bounds.H > parent.Pos.Y + parent.H {
+	if r.bounds.Pos.Y + r.bounds.H > parent.H {
 		return false
 	}
 
-	if r.bounds.Pos.X + r.bounds.W > parent.Pos.X + parent.W {
+	if r.bounds.Pos.X + r.bounds.W > parent.W {
 		return false
 	}
 
@@ -63,17 +63,17 @@ func (r *Composite) IsInBounds(parent geom.Bounds) bool{
 
 func (c *Composite) AddChild(child Drawable){
 	
-	if !child.IsInBounds(c.bounds){
+	if !child.IsInBounds(*c.bounds){
 		panic("Shape out of composite bounds")
 	}	
 
-	c.Children = utils.InsertSortLayered(c.Children, child)
+	c.children = utils.InsertSortLayered(c.children, child)
 }
 
 func (c *Composite) RemoveChild(target Drawable) {
-	for i, child := range c.Children {
+	for i, child := range c.children {
 		if child == target {
-			c.Children = append(c.Children[:i], c.Children[i+1:]...)
+			c.children = append(c.children[:i], c.children[i+1:]...)
 			return
 		}
 	}

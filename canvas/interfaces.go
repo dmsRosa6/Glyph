@@ -6,7 +6,7 @@ import (
 )
 
 type Drawable interface{
-	Draw(buf *core.Buffer)
+	Draw(buf *core.Buffer, origin geom.Point)
 	IsInBounds(parent geom.Bounds) bool
 	SetLayer(l int) error
 	GetLayer() int
@@ -17,12 +17,14 @@ type Moveable interface{
 	Translate(v geom.Vector)
 }
 
-type Composable interface {
+type Layoutable interface {
 	Layout(parent geom.Bounds)
 }
 
-type Layoutable interface {
+type Composable interface {
 	AddChild(child Drawable)
 	RemoveChild(target Drawable)
 }
+
+
 

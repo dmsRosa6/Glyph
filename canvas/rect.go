@@ -8,9 +8,10 @@ import (
 )
 
 type Rect struct {
-	Bounds geom.Bounds
-	Ch     rune
-	Fg, Bg core.Color
+	bounds *geom.Bounds
+	ch     rune
+	fg core.Color
+	bg core.Color
 
 	layer int
 }
@@ -22,7 +23,7 @@ type RectConfig struct {
 	Layer int
 }
 
-func NewRect(bounds geom.Bounds, cfg RectConfig) (*Rect, error) {
+func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 	
 	//0 does not occupy any space so its fucks the layot
 
@@ -35,10 +36,10 @@ func NewRect(bounds geom.Bounds, cfg RectConfig) (*Rect, error) {
 	}
 
 	r :=  &Rect{
-        Bounds: bounds,
-        Ch:     actualRune,
-        Fg:     cfg.Fg,
-        Bg:     cfg.Bg,
+        bounds: bounds,
+        ch:     actualRune,
+        fg:     cfg.Fg,
+        bg:     cfg.Bg,
     }
 
 	if err := r.SetLayer(cfg.Layer); err != nil {
@@ -49,42 +50,40 @@ func NewRect(bounds geom.Bounds, cfg RectConfig) (*Rect, error) {
 	return r, nil
 }
 
-func (r *Rect) Draw(buf *core.Buffer) {
-    for y := r.Bounds.Pos.Y; y < r.Bounds.Pos.Y+r.Bounds.H; y++ {
-            for x := r.Bounds.Pos.X; x < r.Bounds.Pos.X+r.Bounds.W; x++ {
-
-                buf.Set(x, y, r.Ch, r.Bg, r.Fg)
+func (r *Rect) Draw(buf *core.Buffer, origin geom.Point) {
+    for y := r.bounds.Pos.Y; y < r.bounds.Pos.Y+r.bounds.H; y++ {
+            for x := r.bounds.Pos.X; x < r.bounds.Pos.X+r.bounds.W; x++ {
+                buf.Set(origin.X + x, origin.Y + y, r.ch, r.bg, r.fg)
             }
     }
 }
 
 func (r *Rect) IsInBounds(parent geom.Bounds) bool{
-	if r.Bounds.Pos.X < parent.Pos.X {
+	if r.bounds.Pos.X < 0 {
 		return false
 	}
 
-	if r.Bounds.Pos.Y < parent.Pos.Y {
+	if r.bounds.Pos.Y < 0 {
 		return false
 	}
 
-	if r.Bounds.Pos.Y + r.Bounds.H > parent.Pos.Y + parent.H {
+	if r.bounds.Pos.Y + r.bounds.H > parent.H {
 		return false
 	}
 
-	if r.Bounds.Pos.X + r.Bounds.W > parent.Pos.X + parent.W {
+	if r.bounds.Pos.X + r.bounds.W > parent.W {
 		return false
 	}
 
 	return true
 }
 
-
 func (r *Rect) MoveTo(p geom.Point) {
-    r.Bounds.Pos = p
+    r.bounds.Pos = p
 }
 
 func (r *Rect) Translate(v geom.Vector) {
-    r.Bounds.Pos = r.Bounds.Pos.Add(v)
+    r.bounds.Pos = r.bounds.Pos.Add(v)
 }
 
 func (r *Rect) SetLayer(l int) error{

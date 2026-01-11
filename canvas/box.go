@@ -8,8 +8,11 @@ import (
 )
 
 type Box struct{
+    bounds *geom.Bounds
 	border *Border
 	composite *Composite
+
+    padding int
     layer int
 }
 
@@ -24,7 +27,7 @@ type BoxConfig struct {
 }
 
 //TODO Add colors to the composite
-func NewBox(bounds geom.Bounds, cfg BoxConfig) (*Box,error) {
+func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     if cfg.Padding < 0 {
         panic("padding must be >= 0")
     }
@@ -34,6 +37,9 @@ func NewBox(bounds geom.Bounds, cfg BoxConfig) (*Box,error) {
     var err error
     var c *Composite
 
+    b.bounds = bounds
+    b.padding = cfg.Padding
+
     br, err = NewBorder(bounds,cfg.BorderConfig)    
     if err != nil {
         return nil ,err
@@ -41,22 +47,16 @@ func NewBox(bounds geom.Bounds, cfg BoxConfig) (*Box,error) {
 
     b.border = br
 
-    compositeBounds := geom.Bounds{
-            Pos: geom.Point{
-                X: bounds.Pos.X + cfg.Padding,
-                Y: bounds.Pos.Y + cfg.Padding,
-            },
-            W: bounds.W - 2*cfg.Padding,
-            H: bounds.H - 2*cfg.Padding,
-        }
+    compositeBounds := geom.NewBounds(bounds.Pos.X + b.padding, bounds.Pos.Y + b.padding,
+                                      bounds.W - 2*cfg.Padding, bounds.H - 2*cfg.Padding)
 
     c, err = NewComposite(compositeBounds, CompositeConfig{
         Layer: cfg.Layer,
     })
+
     if err != nil {
         return nil ,err
     }
-
 
     b.composite = c
 
@@ -71,11 +71,7 @@ func NewSimpleBox(
     x, y, w, h, thickness int,
     bg, fg, borderBg, borderFg core.Color,
 ) (*Box, error) {
-    bounds := geom.Bounds{
-            Pos: geom.Point{X: x, Y: y},
-            W:   w,
-            H:   h,
-        }
+    bounds := geom.NewBounds(x,y,w,h)
     return NewBox(bounds, BoxConfig{
         Padding: thickness,
         BorderConfig: BorderConfig{
@@ -89,9 +85,9 @@ func NewSimpleBox(
     })
 }
 
-func (b *Box) Draw(buf *core.Buffer){
-	b.composite.Draw(buf)
-	b.border.Draw(buf)
+func (b *Box) Draw(buf *core.Buffer, origin geom.Point){
+	b.composite.Draw(buf, origin)
+	b.border.Draw(buf, origin)
 }
 
 func (r *Box) IsInBounds(parent geom.Bounds) bool{
@@ -121,4 +117,14 @@ func (b *Box) AddChild(child Drawable){
 
 func (b *Box) RemoveChild(target Drawable) {
 	b.composite.AddChild(target)
+}
+
+func (b *Box) resolveNewPosition(point geom.Point){
+    p := geom.Point{
+                X: point.X + b.padding,
+                Y: point.Y + b.padding,
+            }
+
+    b.composite.bounds.Pos = p
+    b.border.bounds.Pos = point 
 }

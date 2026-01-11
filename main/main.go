@@ -11,9 +11,6 @@ import (
 
 func main() {
 
-	fmt.Println("Press Enter to start...")
-	fmt.Scanln()
-
 	c := canvas.NewCanvas(60, 30, core.Black, core.White)
 	r := render.NewRenderer(render.LoopMode(0), 30)
 
@@ -31,6 +28,7 @@ func main() {
 		TitleXOffset:  2,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
+		Anchor: canvas.AnchorBottom,
 	}
 
 	bgWin, _ := canvas.NewWindow(geom.NewBounds(2, 2, 50, 20), bgCfg)
@@ -39,18 +37,16 @@ func main() {
 	rectCfg := canvas.RectConfig{
 		Bg: core.Red,
 	}
-	
 
-	rect, _ := canvas.NewRect(geom.NewBounds(4, 4, 2, 2), rectCfg)
+	rect, _ := canvas.NewRect(geom.NewBounds(0, 0, 2, 2), rectCfg)
 	
 	bgWin.AddChild(rect)
 	
 	c.AddShape(bgWin)
 
-	c.Compose()
-
 	go r.Run(c)
-	fmt.Println("Press Enter to exit...")
+
 	fmt.Scanln()
+
 	r.Stop()
 }

@@ -7,6 +7,7 @@ import (
 )
 
 type Canvas struct {
+    bounds *geom.Bounds
 	Buf    *core.Buffer
 	Shapes []Drawable
 	Bg     core.Color
@@ -22,8 +23,9 @@ type Canvas struct {
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 
     c := &Canvas{
-        Buf:             core.NewBuffer(w, h, fg, bg),
+        bounds: geom.NewBounds(0,0,w,h),
         Shapes:          []Drawable{},
+        Buf:             core.NewBuffer(w, h, fg, bg),
         Bg:              bg,
         Fg:              fg,
         RequestedWidth:  w,
@@ -74,6 +76,6 @@ func (c *Canvas) Compose() {
     c.Restore()
 
 	for _, s := range c.Shapes {
-		s.Draw(c.Buf)
+		s.Draw(c.Buf, c.bounds.Pos)
     }
 }

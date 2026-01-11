@@ -30,7 +30,7 @@ func NewText(x, y, layer int, value string, bg, fg core.Color) (*Text, error) {
 	return t, nil
 }
 
-func (t *Text) Draw(buf *core.Buffer) {
+func (t *Text) Draw(buf *core.Buffer, origin geom.Point) {
 	x := t.Pos.X
 	y := t.Pos.Y
 
@@ -42,8 +42,29 @@ func (t *Text) Draw(buf *core.Buffer) {
 	
 		r := rune(t.Value[i])
 		
-		buf.Set(x+i, y, r, t.Bg, t.Fg)
+		buf.Set(origin.X + x+i, origin.Y + y, r, t.Bg, t.Fg)
 	}
+}
+
+func (t *Text) IsInBounds(parent geom.Bounds) bool{
+
+	if t.Pos.X < 0 {
+		return false
+	}
+
+	if t.Pos.Y < 0 {
+		return false
+	}
+
+	if t.Pos.Y + 1 > parent.H {
+		return false
+	}
+
+	if t.Pos.X + len(t.Value) > parent.W {
+		return false
+	}
+
+	return true
 }
 
 func (t *Text) MoveTo(p geom.Point) {

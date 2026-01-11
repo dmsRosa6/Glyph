@@ -1,18 +1,19 @@
 I have a bug when one of width/height overflows and it defaults to the max on the redraw it ends up filling spaces that is not supposed to(sometimes)
 
 
-i have a bug related to offsets
+i have a bug related to offsets?
 
-sanitize the text input
+sanitize the text input????
 
 WHEN BOX 0,0 SIZE 20 10 I HAVE A BUG
 
 feature: on the box depending on the thickness decide where to but the text
-
-FIX the bounds ineritance on composite shapes
 
 
 probably i should panic when layer is like less than 0. Right know it keeps the old one
 defaulting to 0
 
 rune 0 does not occupy space so fucks the layout i should probably do something about it at the renderer level
+
+
+on creation, translations and shit check if children are in bounds

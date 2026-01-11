@@ -9,7 +9,7 @@ import (
 
 type Border struct{
     borderStyle BorderStyle
-    bounds geom.Bounds
+    bounds *geom.Bounds
 	thickness int
 	fg, bg core.Color
 
@@ -33,7 +33,7 @@ func DefaultBorderConfig() BorderConfig {
     }
 }
 
-func NewBorder(bounds geom.Bounds, cfg BorderConfig) (*Border, error) {
+func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
     if cfg.Thickness < 1 {
         panic("border thickness must be >= 1")
     }
@@ -53,7 +53,7 @@ func NewBorder(bounds geom.Bounds, cfg BorderConfig) (*Border, error) {
     return b, nil
 }
 
-func (r *Border) Draw(buf *core.Buffer) {
+func (r *Border) Draw(buf *core.Buffer, origin geom.Point) {
     for layer := 0; layer < r.thickness; layer++ {
         x0 := r.bounds.Pos.X + layer
         y0 := r.bounds.Pos.Y + layer
@@ -61,39 +61,39 @@ func (r *Border) Draw(buf *core.Buffer) {
         y1 := r.bounds.Pos.Y + r.bounds.H - 1 - layer
 
         // corners
-        buf.Set(x0, y0, r.borderStyle.TopLeft, r.bg, r.fg)
-        buf.Set(x1, y0, r.borderStyle.TopRight, r.bg, r.fg)
-        buf.Set(x0, y1, r.borderStyle.BottomLeft, r.bg, r.fg)
-        buf.Set(x1, y1, r.borderStyle.BottomRight, r.bg, r.fg)
+        buf.Set(origin.X + x0, origin.Y + y0, r.borderStyle.TopLeft, r.bg, r.fg)
+        buf.Set(origin.X + x1, origin.Y + y0, r.borderStyle.TopRight, r.bg, r.fg)
+        buf.Set(origin.X + x0, origin.Y + y1, r.borderStyle.BottomLeft, r.bg, r.fg)
+        buf.Set(origin.X + x1, origin.Y + y1, r.borderStyle.BottomRight, r.bg, r.fg)
 
         // top & bottom edges
         for x := x0 + 1; x < x1; x++ {
-            buf.Set(x, y0, r.borderStyle.Horizontal, r.bg, r.fg)
-            buf.Set(x, y1, r.borderStyle.Horizontal, r.bg, r.fg)
+            buf.Set(origin.X + x, origin.Y + y0, r.borderStyle.Horizontal, r.bg, r.fg)
+            buf.Set(origin.X + x, origin.Y + y1, r.borderStyle.Horizontal, r.bg, r.fg)
         }
 
         // left & right edges
         for y := y0 + 1; y < y1; y++ {
-            buf.Set(x0, y, r.borderStyle.Vertical, r.bg, r.fg)
-            buf.Set(x1, y, r.borderStyle.Vertical, r.bg, r.fg)
+            buf.Set(origin.X + x0, origin.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
+            buf.Set(origin.X + x1, origin.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
         }
     }
 }
 
 func (r *Border) IsInBounds(parent geom.Bounds) bool{
-	if r.bounds.Pos.X < parent.Pos.X {
+	if r.bounds.Pos.X < 0 {
 		return false
 	}
 
-	if r.bounds.Pos.Y < parent.Pos.Y {
+	if r.bounds.Pos.Y < 0 {
 		return false
 	}
 
-	if r.bounds.Pos.Y + r.bounds.H > parent.Pos.Y + parent.H {
+	if r.bounds.Pos.Y + r.bounds.H > parent.H {
 		return false
 	}
 
-	if r.bounds.Pos.X + r.bounds.W > parent.Pos.X + parent.W {
+	if r.bounds.Pos.X + r.bounds.W > parent.W {
 		return false
 	}
 

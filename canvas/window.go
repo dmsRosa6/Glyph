@@ -17,7 +17,11 @@ const (
 type Window struct {
     box  *Box
     text *Text
+    bounds *geom.Bounds
 
+    titleOffset int
+
+    anchor Anchor
     layer int
 }
 
@@ -28,10 +32,12 @@ type WindowConfig struct {
     TitleXOffset   int
     TitlePosition  TitlePosition
     TitleFg        core.Color
+
+    Anchor Anchor
     Layer int
 }
 
-func NewWindow(bounds geom.Bounds, cfg WindowConfig) (*Window, error) {
+func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 
     if cfg.Title != "" {
         innerWidth := bounds.W - 2*cfg.BoxConfig.Padding
@@ -78,6 +84,9 @@ func NewWindow(bounds geom.Bounds, cfg WindowConfig) (*Window, error) {
         text: text,
     }
 
+    w.bounds = bounds
+    w.titleOffset = cfg.TitleXOffset
+
     if err = w.SetLayer(cfg.Layer); err != nil {
         return nil, err
     }
@@ -85,10 +94,11 @@ func NewWindow(bounds geom.Bounds, cfg WindowConfig) (*Window, error) {
     return w, nil
 }
 
-func (w *Window) Draw(buf *core.Buffer) {
-    w.box.Draw(buf)
+func (w *Window) Draw(buf *core.Buffer, origin geom.Point) {
+    
+    w.box.Draw(buf, origin)
     if w.text != nil {
-        w.text.Draw(buf)
+        w.text.Draw(buf, origin)
     }
 }
 
@@ -118,4 +128,9 @@ func (b *Window) AddChild(child Drawable){
 
 func (b *Window) RemoveChild(target Drawable) {
 	b.box.AddChild(target)
+}
+
+//TODO We need to reset the points when no anchor is present ot atleast check
+func (b *Window) Layout(parent geom.Bounds) {
+
 }

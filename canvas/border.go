@@ -53,7 +53,7 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
     return b, nil
 }
 
-func (r *Border) Draw(buf *core.Buffer, origin geom.Point) {
+func (r *Border) Draw(buf *core.Buffer, vec geom.Vector) {
     for layer := 0; layer < r.thickness; layer++ {
         x0 := r.bounds.Pos.X + layer
         y0 := r.bounds.Pos.Y + layer
@@ -61,21 +61,21 @@ func (r *Border) Draw(buf *core.Buffer, origin geom.Point) {
         y1 := r.bounds.Pos.Y + r.bounds.H - 1 - layer
 
         // corners
-        buf.Set(origin.X + x0, origin.Y + y0, r.borderStyle.TopLeft, r.bg, r.fg)
-        buf.Set(origin.X + x1, origin.Y + y0, r.borderStyle.TopRight, r.bg, r.fg)
-        buf.Set(origin.X + x0, origin.Y + y1, r.borderStyle.BottomLeft, r.bg, r.fg)
-        buf.Set(origin.X + x1, origin.Y + y1, r.borderStyle.BottomRight, r.bg, r.fg)
+        buf.Set(vec.X + x0, vec.Y + y0, r.borderStyle.TopLeft, r.bg, r.fg)
+        buf.Set(vec.X + x1, vec.Y + y0, r.borderStyle.TopRight, r.bg, r.fg)
+        buf.Set(vec.X + x0, vec.Y + y1, r.borderStyle.BottomLeft, r.bg, r.fg)
+        buf.Set(vec.X + x1, vec.Y + y1, r.borderStyle.BottomRight, r.bg, r.fg)
 
         // top & bottom edges
         for x := x0 + 1; x < x1; x++ {
-            buf.Set(origin.X + x, origin.Y + y0, r.borderStyle.Horizontal, r.bg, r.fg)
-            buf.Set(origin.X + x, origin.Y + y1, r.borderStyle.Horizontal, r.bg, r.fg)
+            buf.Set(vec.X + x, vec.Y + y0, r.borderStyle.Horizontal, r.bg, r.fg)
+            buf.Set(vec.X + x, vec.Y + y1, r.borderStyle.Horizontal, r.bg, r.fg)
         }
 
         // left & right edges
         for y := y0 + 1; y < y1; y++ {
-            buf.Set(origin.X + x0, origin.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
-            buf.Set(origin.X + x1, origin.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
+            buf.Set(vec.X + x0, vec.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
+            buf.Set(vec.X + x1, vec.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
         }
     }
 }

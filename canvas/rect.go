@@ -50,10 +50,10 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 	return r, nil
 }
 
-func (r *Rect) Draw(buf *core.Buffer, origin geom.Point) {
+func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
     for y := r.bounds.Pos.Y; y < r.bounds.Pos.Y+r.bounds.H; y++ {
             for x := r.bounds.Pos.X; x < r.bounds.Pos.X+r.bounds.W; x++ {
-                buf.Set(origin.X + x, origin.Y + y, r.ch, r.bg, r.fg)
+                buf.Set(vec.X + x, vec.Y + y, r.ch, r.bg, r.fg)
             }
     }
 }

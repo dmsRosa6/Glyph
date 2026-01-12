@@ -30,7 +30,7 @@ func NewText(x, y, layer int, value string, bg, fg core.Color) (*Text, error) {
 	return t, nil
 }
 
-func (t *Text) Draw(buf *core.Buffer, origin geom.Point) {
+func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 	x := t.Pos.X
 	y := t.Pos.Y
 
@@ -42,7 +42,7 @@ func (t *Text) Draw(buf *core.Buffer, origin geom.Point) {
 	
 		r := rune(t.Value[i])
 		
-		buf.Set(origin.X + x+i, origin.Y + y, r, t.Bg, t.Fg)
+		buf.Set(vec.X + x+i, vec.Y + y, r, t.Bg, t.Fg)
 	}
 }
 

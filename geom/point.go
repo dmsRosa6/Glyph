@@ -4,6 +4,17 @@ type Point struct {
 	X, Y int
 }
 
+func NewPoint(x,y int) *Point{
+	if x < 0 || y < 0 {
+		panic("Point coordinates need to be positive")
+	}
+	
+	return &Point{
+		X: x,
+		Y: y,
+	}
+}
+
 func (p *Point) AddVector(v Vector) {
 	p.X = p.X + v.X
 	p.Y = p.Y + v.Y
@@ -12,14 +23,4 @@ func (p *Point) AddVector(v Vector) {
 func (p *Point) SubVector(v Vector) {
 	p.X = p.X + v.X
 	p.Y = p.Y + v.Y
-}
-
-func (p *Point) AddPoint(p1 Point) {
-	p.X = p.X + p1.X
-	p.Y = p.Y + p1.Y
-}
-
-func (p *Point) SubPoint(p1 Point) {
-	p.X = p.X + p1.X
-	p.Y = p.Y + p1.Y
 }

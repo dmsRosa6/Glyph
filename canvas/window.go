@@ -94,16 +94,16 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
     return w, nil
 }
 
-func (w *Window) Draw(buf *core.Buffer, origin geom.Point) {
+func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
     
-    t := geom.Point{}
+    v := geom.Vector{}
 
-    t.AddPoint(origin)
-    t.AddPoint(*w.bounds.Pos)
+    v.AddVector(vec)
+    v.AddVector(*geom.VectorFromPoint(*w.bounds.Pos))
 
-    w.box.Draw(buf, origin)
+    w.box.Draw(buf, vec)
     if w.text != nil {
-        w.text.Draw(buf, t)
+        w.text.Draw(buf, v)
     }
 }
 

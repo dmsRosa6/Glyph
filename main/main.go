@@ -49,7 +49,7 @@ func main() {
 	go r.Run(c)
 	fmt.Scanln()
 
-	winPoint.Pos.AddVector(geom.Vector{5,0})
+	winPoint.Pos.AddVector(geom.Vector{X:5,Y:0})
 
 	r.RequestRedraw()
 

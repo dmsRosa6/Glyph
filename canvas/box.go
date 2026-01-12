@@ -85,13 +85,13 @@ func NewSimpleBox(
     })
 }
 
-func (b *Box) Draw(buf *core.Buffer, origin geom.Point){
-	t := geom.Point{}
-    t.AddPoint(origin)
-    t.AddPoint(*b.bounds.Pos)
+func (b *Box) Draw(buf *core.Buffer, vec geom.Vector){
+	v := geom.Vector{}
+    v.AddVector(vec)
+    v.AddVector(*geom.VectorFromPoint(*b.bounds.Pos))
     
-    b.composite.Draw(buf, t)
-	b.border.Draw(buf, origin)
+    b.composite.Draw(buf, v)
+	b.border.Draw(buf, vec)
 }
 
 func (r *Box) IsInBounds(parent geom.Bounds) bool{

@@ -6,7 +6,7 @@ import (
 )
 
 type Drawable interface{
-	Draw(buf *core.Buffer, origin geom.Point)
+	Draw(buf *core.Buffer, vec geom.Vector)
 	IsInBounds(parent geom.Bounds) bool
 	SetLayer(l int) error
 	GetLayer() int

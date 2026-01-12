@@ -76,6 +76,6 @@ func (c *Canvas) Compose() {
     c.Restore()
 
 	for _, s := range c.Shapes {
-		s.Draw(c.Buf, *c.bounds.Pos)
+		s.Draw(c.Buf, *geom.VectorFromPoint(*c.bounds.Pos))
     }
 }

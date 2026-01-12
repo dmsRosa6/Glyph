@@ -4,16 +4,19 @@ type Vector struct {
 	X, Y int
 }
 
-func (v Vector) Add(o Vector) Vector {
-	return Vector{
-		X: v.X + o.X,
-		Y: v.Y + o.Y,
-	}
+func VectorFromPoint(p Point) *Vector{
+	return &Vector{
+		X: p.X,
+		Y: p.Y,
+	} 
 }
 
-func (v Vector) Neg() Vector {
-	return Vector{
-		X: -v.X,
-		Y: -v.Y,
-	}
+func (v *Vector) AddVector(o Vector) {
+	v.X = v.X + o.X
+	v.Y = v.Y + o.Y
+}
+
+func (v *Vector) NegVector() {
+	v.X = -v.X
+	v.Y = -v.Y
 }

@@ -1,22 +1,36 @@
 package canvas
 
-type Anchor int
+import "github.com/dmsRosa6/glyph/geom"
+
+type AxisAnchor int
 
 const (
-	NoAnchor Anchor = iota
-	AnchorTop
-	AnchorCenter
-	AnchorBottom
+    NoAnchor AxisAnchor = iota
+    Start
+	Center
+    End
 )
 
+type Anchor struct {
+    V AxisAnchor
+    H AxisAnchor
+}
+
 type Layout struct{
-	anchor Anchor
+	computedPos *geom.Point
+	anchor *Anchor
 }
 
-type LayoutConfig struct{
-	Anchor Anchor
+func resolveAxis(anchor AxisAnchor, parentStart, parentSize, size, original int) int {
+    switch anchor {
+    case Start:
+        return parentStart
+    case Center:
+        return parentStart + (parentSize-size)/2
+    case End:
+        return parentStart + parentSize - size
+    default:
+        return original
+    }
 }
 
-func NewLayout(lc LayoutConfig) *Layout{
-	return &Layout{anchor: lc.Anchor}
-}

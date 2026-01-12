@@ -67,15 +67,6 @@ func (t *Text) IsInBounds(parent geom.Bounds) bool{
 	return true
 }
 
-func (t *Text) MoveTo(p *geom.Point) {
-	t.Pos = p
-}
-
-func (t *Text) Translate(v geom.Vector) {
-	t.Pos.AddVector(v)
-}
-
-
 func (r *Text) SetLayer(l int) error{
 	if l < 0{
 		return errors.New("Layers must be greater or equal to 0")

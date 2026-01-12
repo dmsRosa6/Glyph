@@ -78,14 +78,6 @@ func (r *Rect) IsInBounds(parent geom.Bounds) bool{
 	return true
 }
 
-func (r *Rect) MoveTo(p *geom.Point) {
-    r.bounds.Pos = p
-}
-
-func (r *Rect) Translate(v geom.Vector) {
-    r.bounds.Pos.AddVector(v)
-}
-
 func (r *Rect) SetLayer(l int) error{
 	if l < 0{
 		return errors.New("Layers must be greater or equal to 0")

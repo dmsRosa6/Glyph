@@ -74,8 +74,13 @@ func (c *Canvas) AddShape(s Drawable) {
 func (c *Canvas) Compose() {
     
     c.Restore()
-
 	for _, s := range c.Shapes {
+        l, ok := s.(Layoutable)
+
+        if ok {
+            l.Layout(*c.bounds)   
+        }
+
 		s.Draw(c.Buf, *geom.VectorFromPoint(*c.bounds.Pos))
     }
 }

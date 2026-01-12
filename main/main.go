@@ -28,10 +28,10 @@ func main() {
 		TitleXOffset:  0,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
-		Anchor: canvas.AnchorBottom,
+		Anchor: canvas.Anchor{canvas.Start, canvas.Center},
 	}
 
-	winPoint := geom.NewBounds(2, 2, 50, 20)
+	winPoint := geom.NewBounds(2, 2, 20, 10)
 
 	bgWin, _ := canvas.NewWindow(winPoint, bgCfg)
 	
@@ -47,11 +47,6 @@ func main() {
 	c.AddShape(bgWin)
 
 	go r.Run(c)
-	fmt.Scanln()
-
-	winPoint.Pos.AddVector(geom.Vector{X:5,Y:0})
-
-	r.RequestRedraw()
 
 	fmt.Scanln()
 	

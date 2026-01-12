@@ -13,10 +13,12 @@ type Composite struct{
 	children []Drawable
 
 	layer int
+	layout *Layout
 }
 
 type CompositeConfig struct {
 	Layer int
+	Anchor Anchor
 }
 
 //TODO probabily have like a composite with rect to accelarte things
@@ -26,6 +28,10 @@ func NewComposite(bounds *geom.Bounds,cfg CompositeConfig) (*Composite, error) {
     c :=  &Composite{
         bounds:   bounds,
         children: []Drawable{},
+		layout: &Layout{
+					computedPos: bounds.Pos,
+					anchor: &cfg.Anchor,
+				},
     }
 
 	if err := c.SetLayer(cfg.Layer); err != nil {
@@ -39,7 +45,7 @@ func (c *Composite) Draw(buf *core.Buffer, vec geom.Vector){
 	v := geom.Vector{}
 
 	v.AddVector(vec)
-	v.AddVector(*geom.VectorFromPoint(*c.bounds.Pos))
+	v.AddVector(*geom.VectorFromPoint(*c.layout.computedPos))
 	
 	for _, s := range c.children {
 		s.Draw(buf, v)
@@ -47,19 +53,19 @@ func (c *Composite) Draw(buf *core.Buffer, vec geom.Vector){
 }
 
 func (r *Composite) IsInBounds(parent geom.Bounds) bool{
-	if r.bounds.Pos.X < 0 {
+	if r.layout.computedPos.X < 0 {
 		return false
 	}
 
-	if r.bounds.Pos.Y < 0 {
+	if r.layout.computedPos.Y < 0 {
 		return false
 	}
 
-	if r.bounds.Pos.Y + r.bounds.H > parent.H {
+	if r.layout.computedPos.Y + r.bounds.H > parent.H {
 		return false
 	}
 
-	if r.bounds.Pos.X + r.bounds.W > parent.W {
+	if r.layout.computedPos.X + r.bounds.W > parent.W {
 		return false
 	}
 
@@ -96,4 +102,9 @@ func (r *Composite) SetLayer(l int) error{
 
 func (r *Composite) GetLayer() int{
     return r.layer
+}
+
+func (c *Composite) Layout(parent geom.Bounds) {
+    c.layout.computedPos.X = resolveAxis(c.layout.anchor.H, parent.Pos.X, parent.W, c.bounds.W, c.bounds.Pos.X)
+    c.layout.computedPos.Y = resolveAxis(c.layout.anchor.H, parent.Pos.Y, parent.H, c.bounds.H, c.bounds.Pos.Y)
 }

@@ -21,7 +21,7 @@ type Window struct {
 
     titleOffset int
 
-    anchor Anchor
+    layout *Layout
     layer int
 }
 
@@ -86,6 +86,10 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 
     w.bounds = bounds
     w.titleOffset = cfg.TitleXOffset
+    w.layout = &Layout{
+        computedPos: bounds.Pos,
+        anchor: &cfg.Anchor,
+    }
 
     if err = w.SetLayer(cfg.Layer); err != nil {
         return nil, err
@@ -99,7 +103,7 @@ func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
     v := geom.Vector{}
 
     v.AddVector(vec)
-    v.AddVector(*geom.VectorFromPoint(*w.bounds.Pos))
+    v.AddVector(*geom.VectorFromPoint(*w.layout.computedPos))
 
     w.box.Draw(buf, vec)
     if w.text != nil {
@@ -135,6 +139,7 @@ func (b *Window) RemoveChild(target Drawable) {
 	b.box.AddChild(target)
 }
 
-func (b *Window) Layout(parent geom.Bounds) {
-
+func (w *Window) Layout(parent geom.Bounds) {
+    w.layout.computedPos.X = resolveAxis(w.layout.anchor.H, parent.Pos.X, parent.W, w.bounds.W, w.bounds.Pos.X)
+    w.layout.computedPos.Y = resolveAxis(w.layout.anchor.V, parent.Pos.Y, parent.H, w.bounds.H, w.bounds.Pos.Y)
 }

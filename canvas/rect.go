@@ -13,6 +13,7 @@ type Rect struct {
 	fg core.Color
 	bg core.Color
 
+	layout *Layout
 	layer int
 }
 
@@ -20,12 +21,13 @@ type RectConfig struct {
     Ch     rune
     Fg, Bg core.Color
 
+	Anchor Anchor
 	Layer int
 }
 
 func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 	
-	//0 does not occupy any space so its fucks the layot
+	//0 does not occupy any space so its fucks the layout
 
 	var actualRune rune
 
@@ -40,6 +42,11 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
         ch:     actualRune,
         fg:     cfg.Fg,
         bg:     cfg.Bg,
+		layout : &Layout{
+					computedPos: bounds.Pos,
+					anchor: &cfg.Anchor,
+				},
+
     }
 
 	if err := r.SetLayer(cfg.Layer); err != nil {
@@ -90,4 +97,9 @@ func (r *Rect) SetLayer(l int) error{
 
 func (r *Rect) GetLayer() int{
     return r.layer
+}
+
+func (r *Rect) Layout(parent geom.Bounds) {
+    r.layout.computedPos.X = resolveAxis(r.layout.anchor.H, parent.Pos.X, parent.W, r.bounds.W, r.bounds.Pos.X)
+    r.layout.computedPos.Y = resolveAxis(r.layout.anchor.H, parent.Pos.Y, parent.H, r.bounds.H, r.bounds.Pos.Y)
 }

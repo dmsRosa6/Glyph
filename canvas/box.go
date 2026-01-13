@@ -13,6 +13,7 @@ type Box struct{
 	composite *Composite
 
     padding int
+    layout *Layout
     layer int
 }
 
@@ -23,6 +24,7 @@ type BoxConfig struct {
 
     Bg, Fg core.Color
 
+    Anchor Anchor
     Layer int
 }
 
@@ -46,6 +48,10 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     }
 
     b.border = br
+    b.layout = &Layout{
+					computedPos: bounds.Pos,
+					anchor: &cfg.Anchor,
+				}
 
     compositeBounds := geom.NewBounds(bounds.Pos.X + b.padding, bounds.Pos.Y + b.padding,
                                       bounds.W - 2*cfg.Padding, bounds.H - 2*cfg.Padding)
@@ -88,7 +94,7 @@ func NewSimpleBox(
 func (b *Box) Draw(buf *core.Buffer, vec geom.Vector){
 	v := geom.Vector{}
     v.AddVector(vec)
-    v.AddVector(*geom.VectorFromPoint(*b.bounds.Pos))
+    v.AddVector(*geom.VectorFromPoint(*b.layout.computedPos))
     
     b.composite.Draw(buf, v)
 	b.border.Draw(buf, vec)
@@ -121,4 +127,9 @@ func (b *Box) AddChild(child Drawable){
 
 func (b *Box) RemoveChild(target Drawable) {
 	b.composite.AddChild(target)
+}
+
+func (b *Box) Layout(parent geom.Bounds) {
+    b.layout.computedPos.X = resolveAxis(b.layout.anchor.H, parent.Pos.X, parent.W, b.bounds.W, b.bounds.Pos.X)
+    b.layout.computedPos.Y = resolveAxis(b.layout.anchor.H, parent.Pos.Y, parent.H, b.bounds.H, b.bounds.Pos.Y)
 }

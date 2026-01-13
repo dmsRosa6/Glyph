@@ -28,7 +28,6 @@ func main() {
 		TitleXOffset:  0,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
-		Anchor: canvas.Anchor{canvas.Start, canvas.Center},
 	}
 
 	winPoint := geom.NewBounds(2, 2, 20, 10)

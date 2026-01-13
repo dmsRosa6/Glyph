@@ -8,22 +8,32 @@ import (
 )
 
 type Text struct {
-	Pos   *geom.Point
-	Value string
-	Bg, Fg core.Color
+	pos   *geom.Point
+	value string
+	bg, fg core.Color
 	
+	layout *Layout
 	layer int
 }
 
-func NewText(x, y, layer int, value string, bg, fg core.Color) (*Text, error) {
+type TextConfig struct {
+    Value string
+	Bg, Fg core.Color
+	Anchor Anchor
+	Layer int
+}
+
+
+func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 	t := &Text{
-		Pos:   &geom.Point{X: x, Y: y},
-		Value: value,
-		Bg: bg,
-		Fg: fg,
+		pos:   pos,
+		value: cfg.Value,
+		bg: cfg.Bg,
+		fg: cfg.Fg,
+		layout: &Layout{anchor: &cfg.Anchor, computedPos: pos},
 	}
 
-	if err := t.SetLayer(layer); err != nil{
+	if err := t.SetLayer(cfg.Layer); err != nil{
 		return nil, err
 	}
 
@@ -31,36 +41,36 @@ func NewText(x, y, layer int, value string, bg, fg core.Color) (*Text, error) {
 }
 
 func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
-	x := t.Pos.X
-	y := t.Pos.Y
+	x := t.layout.computedPos.X
+	y := t.layout.computedPos.Y
 
-	for i := 0; i < len(t.Value); i++{
+	for i := 0; i < len(t.value); i++{
 		
-		if t.Fg.IsTransparent {
+		if t.fg.IsTransparent {
 			continue
 		}
 	
-		r := rune(t.Value[i])
+		r := rune(t.value[i])
 		
-		buf.Set(vec.X + x+i, vec.Y + y, r, t.Bg, t.Fg)
+		buf.Set(vec.X + x+i, vec.Y + y, r, t.bg, t.fg)
 	}
 }
 
 func (t *Text) IsInBounds(parent geom.Bounds) bool{
 
-	if t.Pos.X < 0 {
+	if t.pos.X < 0 {
 		return false
 	}
 
-	if t.Pos.Y < 0 {
+	if t.pos.Y < 0 {
 		return false
 	}
 
-	if t.Pos.Y + 1 > parent.H {
+	if t.pos.Y + 1 > parent.H {
 		return false
 	}
 
-	if t.Pos.X + len(t.Value) > parent.W {
+	if t.pos.X + len(t.value) > parent.W {
 		return false
 	}
 

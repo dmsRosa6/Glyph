@@ -66,14 +66,18 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 
     var text *Text
     if cfg.Title != "" {
-        text, err = NewText(
-            bounds.Pos.X+cfg.BoxConfig.Padding+cfg.TitleXOffset,
-            textY,
-            cfg.Layer,
-            cfg.Title,
-            core.Transparent,
-            cfg.TitleFg,
-        )
+
+        textPos := geom.NewPoint(bounds.Pos.X+cfg.BoxConfig.Padding+cfg.TitleXOffset, textY)
+        
+        textCfg := TextConfig{
+            Value : cfg.Title,
+            Fg : cfg.TitleFg,
+            Bg : core.Transparent,
+            Anchor : cfg.Anchor,
+            Layer : cfg.Layer,
+        }
+        
+        text, err = NewText(textPos,textCfg)
         if err != nil {
             return nil, err
         }

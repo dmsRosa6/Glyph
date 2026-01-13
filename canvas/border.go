@@ -109,6 +109,6 @@ func (r *Border) SetLayer(l int) error{
     return  nil
 }
 
-func (r *Border) getLayer() int{
+func (r *Border) GetLayer() int{
     return r.layer
 }

@@ -10,9 +10,8 @@ import (
 type Rect struct {
 	bounds *geom.Bounds
 	ch     rune
-	fg core.Color
-	bg core.Color
-
+	style *Style
+	parentStyle *Style
 	layout *Layout
 	layer int
 }
@@ -36,12 +35,31 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 	}else{
 		actualRune = cfg.Ch
 	}
+    var bg core.Color
+    var fg core.Color
+
+    if cfg.Bg == (core.Color{}){
+        bg = core.Transparent
+    }else{
+        bg = core.Transparent
+    }
+
+    if cfg.Fg == (core.Color{}){
+        fg = core.Transparent
+    }else{
+        fg = cfg.Fg
+    }
+
+    s := &Style{
+        Bg: bg,
+        Fg: fg,
+    }
+
 
 	r :=  &Rect{
         bounds: bounds,
         ch:     actualRune,
-        fg:     cfg.Fg,
-        bg:     cfg.Bg,
+		style: s,
 		layout : &Layout{
 					computedPos: bounds.Pos,
 					anchor: &cfg.Anchor,
@@ -60,7 +78,7 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
     for y := r.bounds.Pos.Y; y < r.bounds.Pos.Y+r.bounds.H; y++ {
             for x := r.bounds.Pos.X; x < r.bounds.Pos.X+r.bounds.W; x++ {
-                buf.Set(vec.X + x, vec.Y + y, r.ch, r.bg, r.fg)
+                buf.Set(vec.X + x, vec.Y + y, r.ch, r.style.Bg, r.style.Fg)
             }
     }
 }
@@ -102,4 +120,8 @@ func (r *Rect) GetLayer() int{
 func (r *Rect) Layout(parent geom.Bounds) {
     r.layout.computedPos.X = resolveAxis(r.layout.anchor.H, parent.Pos.X, parent.W, r.bounds.W, r.bounds.Pos.X)
     r.layout.computedPos.Y = resolveAxis(r.layout.anchor.H, parent.Pos.Y, parent.H, r.bounds.H, r.bounds.Pos.Y)
+}
+
+func (r *Rect) SetParentStyle(s *Style){
+    r.parentStyle = s
 }

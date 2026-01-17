@@ -18,7 +18,7 @@ type Window struct {
     box  *Box
     text *Text
     bounds *geom.Bounds
-
+    parentStyle *Style
     titleOffset int
 
     layout *Layout
@@ -136,6 +136,7 @@ func (r *Window) GetLayer() int{
 }
 
 func (b *Window) AddChild(child Drawable){
+    child.SetParentStyle(b.parentStyle)
     b.box.AddChild(child)
 }
 
@@ -146,4 +147,10 @@ func (b *Window) RemoveChild(target Drawable) {
 func (w *Window) Layout(parent geom.Bounds) {
     w.layout.computedPos.X = resolveAxis(w.layout.anchor.H, parent.Pos.X, parent.W, w.bounds.W, w.bounds.Pos.X)
     w.layout.computedPos.Y = resolveAxis(w.layout.anchor.V, parent.Pos.Y, parent.H, w.bounds.H, w.bounds.Pos.Y)
+}
+
+func (w *Window) SetParentStyle(s *Style){
+    w.parentStyle = s
+    w.box.SetParentStyle(s)
+    w.text.SetParentStyle(s)
 }

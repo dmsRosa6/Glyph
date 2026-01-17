@@ -10,24 +10,35 @@ type Canvas struct {
     bounds *geom.Bounds
 	Buf    *core.Buffer
 	Shapes []Drawable
-	Bg     core.Color
-	Fg     core.Color
-
+    style *Style
 	RequestedWidth int
 	RequestedHeight int
 
+    //TODO get back to the is dirty
     IsDirty bool
 }
 
 //TODO if the w,h logic changes dont forget the bound check
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 
+    if bg == (core.Color{}){
+       bg = core.White 
+    }
+
+    if fg == (core.Color{}){
+       fg = core.Black 
+    }
+
+    s := &Style{
+        Bg: bg,
+        Fg: fg,
+    }
+
     c := &Canvas{
         bounds: geom.NewBounds(0,0,w,h),
         Shapes:          []Drawable{},
         Buf:             core.NewBuffer(w, h, fg, bg),
-        Bg:              bg,
-        Fg:              fg,
+        style: s,
         RequestedWidth:  w,
         RequestedHeight: h,
     }
@@ -49,7 +60,7 @@ func (c *Canvas) ApplySize(termW, termH int) {
     actualW := min(termW, w)
     actualH := min(termH, h)
 
-    c.Buf = core.NewBuffer(actualW, actualH, c.Fg, c.Bg)
+    c.Buf = core.NewBuffer(actualW, actualH, c.style.Fg, c.style.Bg)
     c.IsDirty = true
 
     c.Compose()
@@ -67,6 +78,8 @@ func (c *Canvas) AddShape(s Drawable) {
             H: c.RequestedHeight}){
 		panic("Shape out of composite bounds")
 	}	
+
+    s.SetParentStyle(c.style)
 
 	c.Shapes = utils.InsertSortLayered(c.Shapes, s)
 }

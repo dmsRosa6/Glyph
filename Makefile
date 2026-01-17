@@ -1,5 +1,7 @@
-BIN := bin/glyph
+BIN  := bin/glyph
 MAIN := ./main
+
+.PHONY: build run run-bin debug debug-attach clean
 
 build:
 	go build -o $(BIN) $(MAIN)
@@ -9,9 +11,6 @@ run:
 
 run-bin: build
 	./$(BIN)
-
-debug: build
-	dlv debug $(MAIN) --tty=$$(tty)
-
-debug-attach:
-	dlv attach $$(pgrep glyph)
+	
+clean:
+	rm -f $(BIN)

@@ -10,6 +10,7 @@ type Drawable interface{
 	IsInBounds(parent geom.Bounds) bool
 	SetLayer(l int) error
 	GetLayer() int
+	SetParentStyle(style *Style)
 }
 
 type Moveable interface{

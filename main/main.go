@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-
+	
 	c := canvas.NewCanvas(60, 30, core.Black, core.White)
 	r := render.NewRenderer(render.LoopMode(0), 30)
 
@@ -28,20 +28,12 @@ func main() {
 		TitleXOffset:  0,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
+		//Anchor: canvas.Anchor{canvas.Start,canvas.Start},
 	}
 
 	winPoint := geom.NewBounds(2, 2, 20, 10)
 
 	bgWin, _ := canvas.NewWindow(winPoint, bgCfg)
-	
-	
-	rectCfg := canvas.RectConfig{
-		Bg: core.Red,
-	}
-
-	rect, _ := canvas.NewRect(geom.NewBounds(0, 0, 2, 2), rectCfg)
-	
-	bgWin.AddChild(rect)
 	
 	c.AddShape(bgWin)
 

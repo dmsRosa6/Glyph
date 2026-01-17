@@ -11,7 +11,7 @@ import (
 type Composite struct{
 	bounds *geom.Bounds
 	children []Drawable
-
+	parentStyle *Style
 	layer int
 	layout *Layout
 }
@@ -24,7 +24,7 @@ type CompositeConfig struct {
 //TODO probabily have like a composite with rect to accelarte things
 
 //TODO eventually probabily is nice to have it like i do on the canvas and have colors by default on the composite
-func NewComposite(bounds *geom.Bounds,cfg CompositeConfig) (*Composite, error) {
+func NewComposite(bounds *geom.Bounds, cfg CompositeConfig) (*Composite, error) {
     c :=  &Composite{
         bounds:   bounds,
         children: []Drawable{},
@@ -78,6 +78,8 @@ func (c *Composite) AddChild(child Drawable){
 		panic("Shape out of composite bounds")
 	}	
 
+	child.SetParentStyle(c.parentStyle)
+
 	c.children = utils.InsertSortLayered(c.children, child)
 }
 
@@ -107,4 +109,9 @@ func (r *Composite) GetLayer() int{
 func (c *Composite) Layout(parent geom.Bounds) {
     c.layout.computedPos.X = resolveAxis(c.layout.anchor.H, parent.Pos.X, parent.W, c.bounds.W, c.bounds.Pos.X)
     c.layout.computedPos.Y = resolveAxis(c.layout.anchor.H, parent.Pos.Y, parent.H, c.bounds.H, c.bounds.Pos.Y)
+}
+
+
+func (c *Composite) SetParentStyle(s *Style){
+    c.parentStyle = s
 }

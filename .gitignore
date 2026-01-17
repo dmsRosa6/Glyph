@@ -6,5 +6,6 @@ bin/
 *.swp
 
 enable_attach.sh
+attach_debug.sh
 
 notes.txt

@@ -11,7 +11,8 @@ type Box struct{
     bounds *geom.Bounds
 	border *Border
 	composite *Composite
-
+    style *Style
+    parentStyle *Style
     padding int
     layout *Layout
     layer int
@@ -42,6 +43,26 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     b.bounds = bounds
     b.padding = cfg.Padding
 
+    var bg core.Color
+    var fg core.Color
+
+    if cfg.Bg == (core.Color{}){
+        bg = core.Transparent
+    }else{
+        bg = core.Transparent
+    }
+
+    if cfg.Fg == (core.Color{}){
+        fg = core.Transparent
+    }else{
+        fg = cfg.Fg
+    }
+
+    s := &Style{
+        Bg: bg,
+        Fg: fg,
+    }
+
     br, err = NewBorder(bounds,cfg.BorderConfig)    
     if err != nil {
         return nil ,err
@@ -56,15 +77,14 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     compositeBounds := geom.NewBounds(bounds.Pos.X + b.padding, bounds.Pos.Y + b.padding,
                                       bounds.W - 2*cfg.Padding, bounds.H - 2*cfg.Padding)
 
-    c, err = NewComposite(compositeBounds, CompositeConfig{
-        Layer: cfg.Layer,
-    })
+    c, err = NewComposite(compositeBounds, CompositeConfig{Layer: cfg.Layer})
 
     if err != nil {
         return nil ,err
     }
 
     b.composite = c
+    b.style = s
 
     if err = b.SetLayer(cfg.Layer); err != nil {
         return nil ,err
@@ -75,7 +95,7 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
 
 func NewSimpleBox(
     x, y, w, h, thickness int,
-    bg, fg, borderBg, borderFg core.Color,
+    bg, fg, borderBg, borderFg core.Color, s *Style,
 ) (*Box, error) {
     bounds := geom.NewBounds(x,y,w,h)
     return NewBox(bounds, BoxConfig{
@@ -132,4 +152,10 @@ func (b *Box) RemoveChild(target Drawable) {
 func (b *Box) Layout(parent geom.Bounds) {
     b.layout.computedPos.X = resolveAxis(b.layout.anchor.H, parent.Pos.X, parent.W, b.bounds.W, b.bounds.Pos.X)
     b.layout.computedPos.Y = resolveAxis(b.layout.anchor.H, parent.Pos.Y, parent.H, b.bounds.H, b.bounds.Pos.Y)
+}
+
+func (b *Box) SetParentStyle(s *Style){
+    b.parentStyle = s
+    b.border.SetParentStyle(s)
+    b.composite.SetParentStyle(s)
 }

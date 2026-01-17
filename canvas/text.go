@@ -10,8 +10,8 @@ import (
 type Text struct {
 	pos   *geom.Point
 	value string
-	bg, fg core.Color
-	
+	style *Style
+	parentStyle *Style
 	layout *Layout
 	layer int
 }
@@ -25,11 +25,30 @@ type TextConfig struct {
 
 
 func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
+	var bg core.Color
+    var fg core.Color
+
+    if cfg.Bg == (core.Color{}){
+        bg = core.Transparent
+    }else{
+        bg = core.Transparent
+    }
+
+    if cfg.Fg == (core.Color{}){
+        fg = core.Transparent
+    }else{
+        fg = cfg.Fg
+    }
+
+    s := &Style{
+        Bg: bg,
+        Fg: fg,
+    }
+	
 	t := &Text{
 		pos:   pos,
 		value: cfg.Value,
-		bg: cfg.Bg,
-		fg: cfg.Fg,
+		style: s,
 		layout: &Layout{anchor: &cfg.Anchor, computedPos: pos},
 	}
 
@@ -46,13 +65,13 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 
 	for i := 0; i < len(t.value); i++{
 		
-		if t.fg.IsTransparent {
+		if t.style.Fg.IsTransparent {
 			continue
 		}
 	
 		r := rune(t.value[i])
 		
-		buf.Set(vec.X + x+i, vec.Y + y, r, t.bg, t.fg)
+		buf.Set(vec.X + x+i, vec.Y + y, r, t.style.Bg, t.style.Fg)
 	}
 }
 
@@ -88,4 +107,9 @@ func (r *Text) SetLayer(l int) error{
 
 func (r *Text) GetLayer() int{
     return r.layer
+}
+
+
+func (t *Text) SetParentStyle(s *Style){
+    t.parentStyle = s
 }

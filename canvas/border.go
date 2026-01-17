@@ -11,8 +11,8 @@ type Border struct{
     borderStyle BorderStyle
     bounds *geom.Bounds
 	thickness int
-	fg, bg core.Color
-
+    style *Style
+    parentStyle *Style
     layer int
 }
 
@@ -33,17 +33,36 @@ func DefaultBorderConfig() BorderConfig {
     }
 }
 
-func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
+func NewBorder(bounds *geom.Bounds,cfg BorderConfig) (*Border, error) {
     if cfg.Thickness < 1 {
         panic("border thickness must be >= 1")
+    }
+
+    var bg core.Color
+    var fg core.Color
+
+    if cfg.Bg == (core.Color{}){
+        bg = core.Transparent
+    }else{
+        bg = core.Transparent
+    }
+
+    if cfg.Fg == (core.Color{}){
+        fg = core.Transparent
+    }else{
+        fg = cfg.Fg
+    }
+
+    s := &Style{
+        Bg: bg,
+        Fg: fg,
     }
 
     b := &Border{
         bounds:     bounds,
         thickness:  cfg.Thickness,
         borderStyle: cfg.Style,
-        fg:         cfg.Fg,
-        bg:         cfg.Bg,
+        style: s,
     }
 
     if err := b.SetLayer(cfg.Layer); err != nil {
@@ -54,6 +73,17 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 }
 
 func (r *Border) Draw(buf *core.Buffer, vec geom.Vector) {
+    var borderStyleBg core.Color
+    var borderStyleFg core.Color
+    
+    if r.style.Bg == core.Transparent {
+        borderStyleBg = r.parentStyle.Bg
+        borderStyleFg = r.parentStyle.Fg
+    }else{
+        borderStyleBg = r.style.Bg
+        borderStyleFg = r.style.Fg
+    }
+
     for layer := 0; layer < r.thickness; layer++ {
         x0 := r.bounds.Pos.X + layer
         y0 := r.bounds.Pos.Y + layer
@@ -61,21 +91,21 @@ func (r *Border) Draw(buf *core.Buffer, vec geom.Vector) {
         y1 := r.bounds.Pos.Y + r.bounds.H - 1 - layer
 
         // corners
-        buf.Set(vec.X + x0, vec.Y + y0, r.borderStyle.TopLeft, r.bg, r.fg)
-        buf.Set(vec.X + x1, vec.Y + y0, r.borderStyle.TopRight, r.bg, r.fg)
-        buf.Set(vec.X + x0, vec.Y + y1, r.borderStyle.BottomLeft, r.bg, r.fg)
-        buf.Set(vec.X + x1, vec.Y + y1, r.borderStyle.BottomRight, r.bg, r.fg)
+        buf.Set(vec.X + x0, vec.Y + y0, r.borderStyle.TopLeft, borderStyleBg, borderStyleFg)
+        buf.Set(vec.X + x1, vec.Y + y0, r.borderStyle.TopRight, borderStyleBg, borderStyleFg)
+        buf.Set(vec.X + x0, vec.Y + y1, r.borderStyle.BottomLeft, borderStyleBg, borderStyleFg)
+        buf.Set(vec.X + x1, vec.Y + y1, r.borderStyle.BottomRight, borderStyleBg, borderStyleFg)
 
         // top & bottom edges
+        buf.Set(vec.X + x0, vec.Y + y0, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
         for x := x0 + 1; x < x1; x++ {
-            buf.Set(vec.X + x, vec.Y + y0, r.borderStyle.Horizontal, r.bg, r.fg)
-            buf.Set(vec.X + x, vec.Y + y1, r.borderStyle.Horizontal, r.bg, r.fg)
+            buf.Set(vec.X + x, vec.Y + y1, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
         }
 
         // left & right edges
         for y := y0 + 1; y < y1; y++ {
-            buf.Set(vec.X + x0, vec.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
-            buf.Set(vec.X + x1, vec.Y + y, r.borderStyle.Vertical, r.bg, r.fg)
+            buf.Set(vec.X + x0, vec.Y + y, r.borderStyle.Vertical, borderStyleBg, borderStyleFg)
+            buf.Set(vec.X + x1, vec.Y + y, r.borderStyle.Vertical, borderStyleBg, borderStyleFg)
         }
     }
 }
@@ -111,4 +141,8 @@ func (r *Border) SetLayer(l int) error{
 
 func (r *Border) GetLayer() int{
     return r.layer
+}
+
+func (r *Border) SetParentStyle(s *Style){
+    r.parentStyle = s
 }

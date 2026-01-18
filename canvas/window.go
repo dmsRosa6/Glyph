@@ -51,7 +51,9 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
     var err error
     var box *Box
 
-    box, err = NewBox(bounds, cfg.BoxConfig)
+    boxBounds := geom.NewBounds(0,0,bounds.W,bounds.H)
+
+    box, err = NewBox(boxBounds, cfg.BoxConfig)
     if err != nil {
         return nil, err
     }
@@ -67,7 +69,7 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
     var text *Text
     if cfg.Title != "" {
 
-        textPos := geom.NewPoint(bounds.Pos.X+cfg.BoxConfig.Padding+cfg.TitleXOffset, textY)
+        textPos := geom.NewPoint(cfg.BoxConfig.Padding+cfg.TitleXOffset, textY)
         
         textCfg := TextConfig{
             Value : cfg.Title,
@@ -109,7 +111,7 @@ func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
     v.AddVector(vec)
     v.AddVector(*geom.VectorFromPoint(*w.layout.computedPos))
 
-    w.box.Draw(buf, vec)
+    w.box.Draw(buf, v)
     if w.text != nil {
         w.text.Draw(buf, v)
     }

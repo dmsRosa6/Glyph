@@ -97,8 +97,8 @@ func (r *Border) Draw(buf *core.Buffer, vec geom.Vector) {
         buf.Set(vec.X + x1, vec.Y + y1, r.borderStyle.BottomRight, borderStyleBg, borderStyleFg)
 
         // top & bottom edges
-        buf.Set(vec.X + x0, vec.Y + y0, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
         for x := x0 + 1; x < x1; x++ {
+            buf.Set(vec.X + x, vec.Y, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
             buf.Set(vec.X + x, vec.Y + y1, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
         }
 

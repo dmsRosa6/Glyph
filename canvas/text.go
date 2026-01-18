@@ -109,7 +109,6 @@ func (r *Text) GetLayer() int{
     return r.layer
 }
 
-
 func (t *Text) SetParentStyle(s *Style){
     t.parentStyle = s
 }

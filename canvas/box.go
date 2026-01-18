@@ -63,7 +63,9 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
         Fg: fg,
     }
 
-    br, err = NewBorder(bounds,cfg.BorderConfig)    
+    borderBounds := geom.NewBounds(0,0,bounds.W,bounds.H)
+
+    br, err = NewBorder(borderBounds,cfg.BorderConfig)    
     if err != nil {
         return nil ,err
     }
@@ -74,7 +76,7 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
 					anchor: &cfg.Anchor,
 				}
 
-    compositeBounds := geom.NewBounds(bounds.Pos.X + b.padding, bounds.Pos.Y + b.padding,
+    compositeBounds := geom.NewBounds(b.padding, b.padding,
                                       bounds.W - 2*cfg.Padding, bounds.H - 2*cfg.Padding)
 
     c, err = NewComposite(compositeBounds, CompositeConfig{Layer: cfg.Layer})
@@ -117,7 +119,7 @@ func (b *Box) Draw(buf *core.Buffer, vec geom.Vector){
     v.AddVector(*geom.VectorFromPoint(*b.layout.computedPos))
     
     b.composite.Draw(buf, v)
-	b.border.Draw(buf, vec)
+	b.border.Draw(buf, v)
 }
 
 func (r *Box) IsInBounds(parent geom.Bounds) bool{

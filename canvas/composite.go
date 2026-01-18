@@ -12,18 +12,17 @@ type Composite struct{
 	bounds *geom.Bounds
 	children []Drawable
 	parentStyle *Style
+	style Style
 	layer int
 	layout *Layout
 }
 
 type CompositeConfig struct {
+	Style Style
 	Layer int
 	Anchor Anchor
 }
 
-//TODO probabily have like a composite with rect to accelarte things
-
-//TODO eventually probabily is nice to have it like i do on the canvas and have colors by default on the composite
 func NewComposite(bounds *geom.Bounds, cfg CompositeConfig) (*Composite, error) {
     c :=  &Composite{
         bounds:   bounds,
@@ -32,7 +31,8 @@ func NewComposite(bounds *geom.Bounds, cfg CompositeConfig) (*Composite, error) 
 					computedPos: bounds.Pos,
 					anchor: &cfg.Anchor,
 				},
-    }
+		style: cfg.Style,
+		}
 
 	if err := c.SetLayer(cfg.Layer); err != nil {
 		return nil, err

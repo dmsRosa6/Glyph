@@ -18,16 +18,13 @@ type Rect struct {
 
 type RectConfig struct {
     Ch     rune
-    Fg, Bg core.Color
+	Style Style
 
 	Anchor Anchor
 	Layer int
 }
 
 func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
-	
-	//0 does not occupy any space so its fucks the layout
-
 	var actualRune rune
 
 	if cfg.Ch == 0 {
@@ -35,26 +32,8 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 	}else{
 		actualRune = cfg.Ch
 	}
-    var bg core.Color
-    var fg core.Color
 
-    if cfg.Bg == (core.Color{}){
-        bg = core.Transparent
-    }else{
-        bg = core.Transparent
-    }
-
-    if cfg.Fg == (core.Color{}){
-        fg = core.Transparent
-    }else{
-        fg = cfg.Fg
-    }
-
-    s := &Style{
-        Bg: bg,
-        Fg: fg,
-    }
-
+    s := ResolveStyle(cfg.Style, *NewTransparentStyle())
 
 	r :=  &Rect{
         bounds: bounds,
@@ -76,9 +55,15 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 }
 
 func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
+
+	s := ResolveStyle(*r.style, *r.parentStyle)
+
+	fg := s.Fg
+	bg := s.Bg
+
     for y := r.bounds.Pos.Y; y < r.bounds.Pos.Y+r.bounds.H; y++ {
             for x := r.bounds.Pos.X; x < r.bounds.Pos.X+r.bounds.W; x++ {
-                buf.Set(vec.X + x, vec.Y + y, r.ch, r.style.Bg, r.style.Fg)
+                buf.Set(vec.X + x, vec.Y + y, r.ch, bg, fg)
             }
     }
 }

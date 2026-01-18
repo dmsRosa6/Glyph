@@ -18,8 +18,8 @@ type Border struct{
 
 type BorderConfig struct {
     Thickness int
-    Style     BorderStyle
-    Fg, Bg    core.Color
+    BorderStyle     BorderStyle
+    Style Style
 
     Layer int
 }
@@ -27,9 +27,8 @@ type BorderConfig struct {
 func DefaultBorderConfig() BorderConfig {
     return BorderConfig{
         Thickness: 1,
-        Style: EmptyBorder,
-        Fg: core.White,
-        Bg: core.Transparent,
+        BorderStyle: EmptyBorder,
+        Style: Style{Bg: core.Transparent, Fg: core.White},
     }
 }
 
@@ -38,30 +37,12 @@ func NewBorder(bounds *geom.Bounds,cfg BorderConfig) (*Border, error) {
         panic("border thickness must be >= 1")
     }
 
-    var bg core.Color
-    var fg core.Color
-
-    if cfg.Bg == (core.Color{}){
-        bg = core.Transparent
-    }else{
-        bg = core.Transparent
-    }
-
-    if cfg.Fg == (core.Color{}){
-        fg = core.Transparent
-    }else{
-        fg = cfg.Fg
-    }
-
-    s := &Style{
-        Bg: bg,
-        Fg: fg,
-    }
+    s := ResolveStyle(cfg.Style,*NewTransparentStyle())
 
     b := &Border{
         bounds:     bounds,
         thickness:  cfg.Thickness,
-        borderStyle: cfg.Style,
+        borderStyle: cfg.BorderStyle,
         style: s,
     }
 
@@ -76,13 +57,10 @@ func (r *Border) Draw(buf *core.Buffer, vec geom.Vector) {
     var borderStyleBg core.Color
     var borderStyleFg core.Color
     
-    if r.style.Bg == core.Transparent {
-        borderStyleBg = r.parentStyle.Bg
-        borderStyleFg = r.parentStyle.Fg
-    }else{
-        borderStyleBg = r.style.Bg
-        borderStyleFg = r.style.Fg
-    }
+    s := ResolveStyle(*r.style,*r.parentStyle)
+
+    borderStyleBg = s.Bg
+    borderStyleFg = s.Fg
 
     for layer := 0; layer < r.thickness; layer++ {
         x0 := r.bounds.Pos.X + layer

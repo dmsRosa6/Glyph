@@ -9,15 +9,18 @@ import (
 //TODO i removed the old state comparation, eventually come to this again
 func cellToANSI(c core.Cell) string {
 	seq := ""
-	
-	if(!c.Fg.IsTransparent){
-		seq += fgToANSI(c.Fg)
-	}
 
 	if(!c.Bg.IsTransparent){
 		seq += bgToANSI(c.Bg)
 	}
-	seq += string(c.Ch)
+	
+	if(!c.Fg.IsTransparent){
+		seq += fgToANSI(c.Fg)
+		seq += string(c.Ch)
+	}else{
+		seq += " "
+	}
+	
 	return seq
 }
 

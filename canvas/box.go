@@ -24,7 +24,7 @@ type BoxConfig struct {
     Padding int
 
     Bg, Fg core.Color
-
+    Style Style
     Anchor Anchor
     Layer int
 }
@@ -43,25 +43,7 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     b.bounds = bounds
     b.padding = cfg.Padding
 
-    var bg core.Color
-    var fg core.Color
-
-    if cfg.Bg == (core.Color{}){
-        bg = core.Transparent
-    }else{
-        bg = core.Transparent
-    }
-
-    if cfg.Fg == (core.Color{}){
-        fg = core.Transparent
-    }else{
-        fg = cfg.Fg
-    }
-
-    s := &Style{
-        Bg: bg,
-        Fg: fg,
-    }
+    s := ResolveStyle(cfg.Style, *NewTransparentStyle())
 
     borderBounds := geom.NewBounds(0,0,bounds.W,bounds.H)
 
@@ -104,9 +86,8 @@ func NewSimpleBox(
         Padding: thickness,
         BorderConfig: BorderConfig{
             Thickness: thickness,
-            Style: UniformBorderStyle(' '),
-            Fg: borderFg,
-            Bg: borderBg,
+            BorderStyle: UniformBorderStyle(' '),
+            Style: Style{Bg: bg, Fg: fg},
         },
         Bg: bg,
         Fg: fg,

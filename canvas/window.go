@@ -20,7 +20,8 @@ type Window struct {
     bounds *geom.Bounds
     parentStyle *Style
     titleOffset int
-
+    
+    style *Style
     layout *Layout
     layer int
 }
@@ -100,6 +101,9 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
     if err = w.SetLayer(cfg.Layer); err != nil {
         return nil, err
     }
+    w.style = box.style
+
+    box.SetParentStyle(w.style)
 
     return w, nil
 }
@@ -138,7 +142,7 @@ func (r *Window) GetLayer() int{
 }
 
 func (b *Window) AddChild(child Drawable){
-    child.SetParentStyle(b.parentStyle)
+    child.SetParentStyle(b.style)
     b.box.AddChild(child)
 }
 
@@ -154,5 +158,4 @@ func (w *Window) Layout(parent geom.Bounds) {
 func (w *Window) SetParentStyle(s *Style){
     w.parentStyle = s
     w.box.SetParentStyle(s)
-    w.text.SetParentStyle(s)
 }

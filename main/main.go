@@ -34,8 +34,6 @@ func main() {
 
 	bgWin, _ := canvas.NewWindow(winPoint, bgCfg)
 	
-	c.AddShape(bgWin)
-
 	rec,_ := canvas.NewRect(
 		geom.NewBounds(1,1,2,2),
 		canvas.RectConfig{
@@ -48,6 +46,8 @@ func main() {
 	)
 
 	bgWin.AddChild(rec)
+
+	c.AddShape(bgWin)
 
 	go r.Run(c)
 

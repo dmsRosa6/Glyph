@@ -8,7 +8,7 @@ import (
 )
 
 type Text struct {
-	pos   *geom.Point
+	bounds geom.Bounds
 	value string
 	style *Style
 	parentStyle *Style
@@ -28,17 +28,9 @@ func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 	var bg core.Color
     var fg core.Color
 
-    if cfg.Bg == (core.Color{}){
-        bg = core.Transparent
-    }else{
-        bg = core.Transparent
-    }
+	bg = core.Transparent
 
-    if cfg.Fg == (core.Color{}){
-        fg = core.Transparent
-    }else{
-        fg = cfg.Fg
-    }
+	fg = cfg.Fg
 
     s := &Style{
         Bg: bg,
@@ -46,7 +38,7 @@ func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
     }
 	
 	t := &Text{
-		pos:   pos,
+		bounds:  *geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1),
 		value: cfg.Value,
 		style: s,
 		layout: &Layout{anchor: &cfg.Anchor, computedPos: pos},
@@ -64,10 +56,6 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 	y := t.layout.computedPos.Y
 
 	for i := 0; i < len(t.value); i++{
-		
-		if t.style.Fg.IsTransparent {
-			continue
-		}
 	
 		r := rune(t.value[i])
 		
@@ -77,19 +65,19 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 
 func (t *Text) IsInBounds(parent geom.Bounds) bool{
 
-	if t.pos.X < 0 {
+	if t.bounds.Pos.X < 0 {
 		return false
 	}
 
-	if t.pos.Y < 0 {
+	if t.bounds.Pos.Y < 0 {
 		return false
 	}
 
-	if t.pos.Y + 1 > parent.H {
+	if t.bounds.Pos.Y + t.bounds.H > parent.H {
 		return false
 	}
 
-	if t.pos.X + len(t.value) > parent.W {
+	if t.bounds.Pos.X + t.bounds.W > parent.W {
 		return false
 	}
 
@@ -111,4 +99,11 @@ func (r *Text) GetLayer() int{
 
 func (t *Text) SetParentStyle(s *Style){
     t.parentStyle = s
+	t.style.Bg = s.Bg
+}
+
+func (t *Text) Layout(parent geom.Bounds){
+	t.layout.computedPos.X = resolveAxis(t.layout.anchor.H, parent.Pos.X, parent.W, t.bounds.W, t.bounds.Pos.X)
+    t.layout.computedPos.Y = resolveAxis(t.layout.anchor.V, parent.Pos.Y, parent.H, t.bounds.H, t.bounds.Pos.Y)
+
 }

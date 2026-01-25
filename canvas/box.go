@@ -125,6 +125,7 @@ func (r *Box) GetLayer() int{
 }
 
 func (b *Box) AddChild(child Drawable){
+    child.SetParentStyle(b.style)
     b.composite.AddChild(child)
 }
 

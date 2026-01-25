@@ -151,8 +151,8 @@ func (b *Window) RemoveChild(target Drawable) {
 }
 
 func (w *Window) Layout(parent geom.Bounds) {
-    w.layout.computedPos.X = resolveAxis(w.layout.anchor.H, parent.Pos.X, parent.W, w.bounds.W, w.bounds.Pos.X)
-    w.layout.computedPos.Y = resolveAxis(w.layout.anchor.V, parent.Pos.Y, parent.H, w.bounds.H, w.bounds.Pos.Y)
+    w.layout.computedPos.X = resolveAxis(w.layout.anchor.H, parent.W, w.bounds.W, w.bounds.Pos.X)
+    w.layout.computedPos.Y = resolveAxis(w.layout.anchor.V, parent.H, w.bounds.H, w.bounds.Pos.Y)
 }
 
 func (w *Window) SetParentStyle(s *Style){

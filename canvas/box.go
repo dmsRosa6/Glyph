@@ -23,13 +23,11 @@ type BoxConfig struct {
 
     Padding int
 
-    Bg, Fg core.Color
     Style Style
     Anchor Anchor
     Layer int
 }
 
-//TODO Add colors to the composite
 func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     if cfg.Padding < 0 {
         panic("padding must be >= 0")
@@ -77,23 +75,6 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
     return b, nil
 }
 
-func NewSimpleBox(
-    x, y, w, h, thickness int,
-    bg, fg, borderBg, borderFg core.Color, s *Style,
-) (*Box, error) {
-    bounds := geom.NewBounds(x,y,w,h)
-    return NewBox(bounds, BoxConfig{
-        Padding: thickness,
-        BorderConfig: BorderConfig{
-            Thickness: thickness,
-            BorderStyle: UniformBorderStyle(' '),
-            Style: Style{Bg: bg, Fg: fg},
-        },
-        Bg: bg,
-        Fg: fg,
-    })
-}
-
 func (b *Box) Draw(buf *core.Buffer, vec geom.Vector){
 	v := geom.Vector{}
     v.AddVector(vec)
@@ -134,8 +115,8 @@ func (b *Box) RemoveChild(target Drawable) {
 }
 
 func (b *Box) Layout(parent geom.Bounds) {
-    b.layout.computedPos.X = resolveAxis(b.layout.anchor.H, parent.Pos.X, parent.W, b.bounds.W, b.bounds.Pos.X)
-    b.layout.computedPos.Y = resolveAxis(b.layout.anchor.H, parent.Pos.Y, parent.H, b.bounds.H, b.bounds.Pos.Y)
+    b.layout.computedPos.X = resolveAxis(b.layout.anchor.H, parent.W, b.bounds.W, b.bounds.Pos.X)
+    b.layout.computedPos.Y = resolveAxis(b.layout.anchor.H, parent.H, b.bounds.H, b.bounds.Pos.Y)
 }
 
 func (b *Box) SetParentStyle(s *Style){

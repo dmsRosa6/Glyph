@@ -16,7 +16,7 @@ func main() {
 
 	bgCfg := canvas.WindowConfig{
 		BoxConfig: canvas.BoxConfig{
-			Padding: 3,
+			Padding: 1,
 			BorderConfig: canvas.BorderConfig{
 				Thickness: 1,
 				BorderStyle:     canvas.DoubleLine,
@@ -27,22 +27,24 @@ func main() {
 		TitleXOffset:  0,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
-		//Anchor: canvas.Anchor{canvas.Start,canvas.Start},
+		//Anchor: canvas.Anchor{canvas.Start,canvas.Center},
 	}
 
-	winPoint := geom.NewBounds(0, 0, 20, 10)
+	winPoint := geom.NewBounds(0, 2, 20, 10)
 
 	bgWin, _ := canvas.NewWindow(winPoint, bgCfg)
 	
 	rec,_ := canvas.NewRect(
-		geom.NewBounds(1,1,2,2),
+		geom.NewBounds(0,0,2,2),
 		canvas.RectConfig{
 			Ch: '*',
 			Style: canvas.Style{
-				Fg: core.Transparent,
+				Fg: core.Black,
 				Bg: core.Red,
-			},
+			},	
+			Anchor: canvas.Anchor{canvas.End,canvas.End},
 		},
+		
 	)
 
 	bgWin.AddChild(rec)

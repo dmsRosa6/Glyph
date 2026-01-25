@@ -56,13 +56,16 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 
 func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
 
+	rectX := r.layout.computedPos.X
+	rectY := r.layout.computedPos.Y
+
 	s := ResolveStyle(*r.style, *r.parentStyle)
 
 	fg := s.Fg
 	bg := s.Bg
 
-    for y := r.bounds.Pos.Y; y < r.bounds.Pos.Y+r.bounds.H; y++ {
-            for x := r.bounds.Pos.X; x < r.bounds.Pos.X+r.bounds.W; x++ {
+    for y := rectY; y < rectY+r.bounds.H; y++ {
+            for x := rectX; x < rectX+r.bounds.W; x++ {
                 buf.Set(vec.X + x, vec.Y + y, r.ch, bg, fg)
             }
     }
@@ -103,8 +106,8 @@ func (r *Rect) GetLayer() int{
 }
 
 func (r *Rect) Layout(parent geom.Bounds) {
-    r.layout.computedPos.X = resolveAxis(r.layout.anchor.H, parent.Pos.X, parent.W, r.bounds.W, r.bounds.Pos.X)
-    r.layout.computedPos.Y = resolveAxis(r.layout.anchor.H, parent.Pos.Y, parent.H, r.bounds.H, r.bounds.Pos.Y)
+    r.layout.computedPos.X = resolveAxis(r.layout.anchor.H, parent.W, r.bounds.W, r.bounds.Pos.X)
+    r.layout.computedPos.Y = resolveAxis(r.layout.anchor.H, parent.H, r.bounds.H, r.bounds.Pos.Y)
 }
 
 func (r *Rect) SetParentStyle(s *Style){

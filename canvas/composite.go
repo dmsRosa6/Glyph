@@ -48,6 +48,13 @@ func (c *Composite) Draw(buf *core.Buffer, vec geom.Vector){
 	v.AddVector(*geom.VectorFromPoint(*c.layout.computedPos))
 	
 	for _, s := range c.children {
+
+		l, ok := s.(Layoutable)
+
+        if ok {
+            l.Layout(*c.bounds)   
+        }
+
 		s.Draw(buf, v)
     }
 }
@@ -107,8 +114,8 @@ func (r *Composite) GetLayer() int{
 }
 
 func (c *Composite) Layout(parent geom.Bounds) {
-    c.layout.computedPos.X = resolveAxis(c.layout.anchor.H, parent.Pos.X, parent.W, c.bounds.W, c.bounds.Pos.X)
-    c.layout.computedPos.Y = resolveAxis(c.layout.anchor.H, parent.Pos.Y, parent.H, c.bounds.H, c.bounds.Pos.Y)
+    c.layout.computedPos.X = resolveAxis(c.layout.anchor.H, parent.W, c.bounds.W, c.bounds.Pos.X)
+    c.layout.computedPos.Y = resolveAxis(c.layout.anchor.H, parent.H, c.bounds.H, c.bounds.Pos.Y)
 }
 
 

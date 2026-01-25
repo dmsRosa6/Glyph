@@ -21,14 +21,14 @@ type Layout struct{
 	anchor *Anchor
 }
 
-func resolveAxis(anchor AxisAnchor, parentStart, parentSize, size, original int) int {
+func resolveAxis(anchor AxisAnchor, parentSize, size, original int) int {
     switch anchor {
     case Start:
-        return parentStart
+        return 0
     case Center:
-        return parentStart + (parentSize-size)/2
+        return (parentSize-size)/2
     case End:
-        return parentStart + parentSize - size
+        return parentSize - size
     default:
         return original
     }

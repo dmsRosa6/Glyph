@@ -103,7 +103,7 @@ func (t *Text) SetParentStyle(s *Style){
 }
 
 func (t *Text) Layout(parent geom.Bounds){
-	t.layout.computedPos.X = resolveAxis(t.layout.anchor.H, parent.Pos.X, parent.W, t.bounds.W, t.bounds.Pos.X)
-    t.layout.computedPos.Y = resolveAxis(t.layout.anchor.V, parent.Pos.Y, parent.H, t.bounds.H, t.bounds.Pos.Y)
+	t.layout.computedPos.X = resolveAxis(t.layout.anchor.H, parent.W, t.bounds.W, t.bounds.Pos.X)
+    t.layout.computedPos.Y = resolveAxis(t.layout.anchor.V, parent.H, t.bounds.H, t.bounds.Pos.Y)
 
 }

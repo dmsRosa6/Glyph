@@ -20,7 +20,7 @@ func cellToANSI(c core.Cell) string {
 	}
 
 	if(c.Ch == 0){
-		seq += " "
+		//seq += " "
 	}
 	
 	return seq

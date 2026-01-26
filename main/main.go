@@ -58,7 +58,6 @@ func main() {
 					Fg: core.White,
 					Bg: core.Green,
 				},
-				BorderStyle: canvas.DoubleLine,
 			},
 			Style: canvas.Style{
 				Fg: core.Green,

@@ -129,3 +129,11 @@ func (r *Border) GetLayer() int{
 func (r *Border) SetParentStyle(s *Style){
     r.parentStyle = s
 }
+
+func (r *Border) SetBorderStyle(s BorderStyle){
+    if(s == BorderStyle{}){
+        s = EmptyBorder
+    }
+    
+    r.borderStyle = s
+}

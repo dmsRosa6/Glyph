@@ -33,6 +33,7 @@ func DefaultBorderConfig() BorderConfig {
 }
 
 func NewBorder(bounds *geom.Bounds,cfg BorderConfig) (*Border, error) {
+    //TODO maybe put a default behaviour here
     if cfg.Thickness < 1 {
         panic("border thickness must be >= 1")
     }
@@ -48,6 +49,10 @@ func NewBorder(bounds *geom.Bounds,cfg BorderConfig) (*Border, error) {
 
     if err := b.SetLayer(cfg.Layer); err != nil {
         return nil ,err
+    }
+
+    if(cfg.BorderStyle == BorderStyle{}){
+        b.borderStyle = EmptyBorder
     }
 
     return b, nil

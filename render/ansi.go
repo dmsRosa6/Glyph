@@ -17,7 +17,9 @@ func cellToANSI(c core.Cell) string {
 	if(!c.Fg.IsTransparent){
 		seq += fgToANSI(c.Fg)
 		seq += string(c.Ch)
-	}else{
+	}
+
+	if(c.Ch == 0){
 		seq += " "
 	}
 	

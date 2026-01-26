@@ -27,29 +27,49 @@ func main() {
 		TitleXOffset:  0,
 		TitlePosition: canvas.TitleTop,
 		TitleFg:       core.DarkGray,
-		//Anchor: canvas.Anchor{canvas.Start,canvas.Center},
+		Anchor: canvas.Anchor{canvas.Start,canvas.Start},
 	}
 
-	winPoint := geom.NewBounds(0, 2, 20, 10)
+	winPoint := geom.NewBounds(0, 0, 20, 10)
 
 	bgWin, _ := canvas.NewWindow(winPoint, bgCfg)
 	
 	rec,_ := canvas.NewRect(
 		geom.NewBounds(0,0,2,2),
 		canvas.RectConfig{
-			Ch: '*',
 			Style: canvas.Style{
 				Fg: core.Black,
 				Bg: core.Red,
 			},	
-			Anchor: canvas.Anchor{canvas.End,canvas.End},
+			Anchor: canvas.Anchor{canvas.Start,canvas.Start},
 		},
 		
 	)
 
+	box, _ := canvas.NewBox(
+		geom.NewBounds(0, 0, 30, 5),
+		canvas.BoxConfig{
+			Padding: 1,
+			//Anchor: canvas.Anchor{canvas.Start,canvas.Start},
+			Layer:   0,
+			BorderConfig: canvas.BorderConfig{
+				Thickness: 1,
+				Style: canvas.Style{
+					Fg: core.White,
+					Bg: core.Green,
+				},
+				BorderStyle: canvas.DoubleLine,
+			},
+			Style: canvas.Style{
+				Fg: core.Green,
+				Bg: core.Green,
+			},
+		},
+	)
+
 	bgWin.AddChild(rec)
 
-	c.AddShape(bgWin)
+	c.AddShape(box)
 
 	go r.Run(c)
 

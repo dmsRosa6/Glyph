@@ -13,9 +13,6 @@ type Canvas struct {
     style *Style
 	RequestedWidth int
 	RequestedHeight int
-
-    //TODO get back to the is dirty
-    IsDirty bool
 }
 
 //TODO if the w,h logic changes dont forget the bound check
@@ -61,7 +58,6 @@ func (c *Canvas) ApplySize(termW, termH int) {
     actualH := min(termH, h)
 
     c.Buf = core.NewBuffer(actualW, actualH, c.style.Fg, c.style.Bg)
-    c.IsDirty = true
 
     c.Compose()
 }

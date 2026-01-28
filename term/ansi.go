@@ -1,4 +1,4 @@
-package render
+package term
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 )
 
 //TODO i removed the old state comparation, eventually come to this again
-func cellToANSI(c core.Cell) string {
+func CellToANSI(c core.Cell) string {
 	seq := ""
 
 	if(!c.Bg.IsTransparent){
@@ -20,7 +20,7 @@ func cellToANSI(c core.Cell) string {
 	}
 
 	if(c.Ch == 0){
-		//seq += " "
+		seq += " "
 	}
 	
 	return seq

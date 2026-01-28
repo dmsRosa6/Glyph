@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dmsRosa6/glyph/canvas"
+	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/term"
 )
 
@@ -45,12 +46,15 @@ func NewRenderer(mode LoopMode, fps int) *Renderer {
     return r
 }
 
-//TODO probably pass this to another palce
 func (r *Renderer) Init() {
-    os.Stdout.Write([]byte("\x1b[?1049h")) // alt screen
-    os.Stdout.Write([]byte("\x1b[3J"))     // clear scrollback
-    os.Stdout.Write([]byte("\x1b[2J"))     // clear screen
-    os.Stdout.Write([]byte("\x1b[H"))      // move cursor home
+    // Hide cursor
+    fmt.Fprint(r.out, "\x1b[?25l")
+    // Enter alternate screen
+    fmt.Fprint(r.out, "\x1b[?1049h")
+    // Clear screen
+    fmt.Fprint(r.out, "\x1b[2J")
+    // Move cursor home
+    fmt.Fprint(r.out, "\x1b[H")
 }
 
 func (r *Renderer) Run(c *canvas.Canvas) {
@@ -66,7 +70,7 @@ func (r *Renderer) Run(c *canvas.Canvas) {
     applySize := func() {
     size, err := term.TermSize()
     if err != nil {
-            return
+            panic("something went wrong resizing")
         }
         c.ApplySize(size.Cols, size.Rows)
     }
@@ -117,19 +121,12 @@ func (r *Renderer) RequestRedraw() {
 }
 
 func (r *Renderer) render(c *canvas.Canvas) {
-    fmt.Fprint(r.out, "\x1b[H")
+    
+    fmt.Fprint(r.out, "\x1b[H") //move cursor home
 
     c.Compose()
 
-    buf := c.Buf
-
-    for y := 0; y < buf.H; y++ {
-        for x := 0; x < buf.W; x++ {
-            r.out.WriteString(cellToANSI(*buf.Cells[y][x]))
-        }
-        r.out.WriteByte('\n')
-    }
-
+    r.Flush(c.Buf)
     r.out.Flush()
 }
 
@@ -141,4 +138,14 @@ func (r *Renderer) restore() {
 func (r *Renderer) Stop() {
     r.cancel()
     r.restore()
+}
+
+
+func (r *Renderer) Flush(buf *core.Buffer){
+    for y := 0; y < buf.H; y++ {
+        for x := 0; x < buf.W; x++ {
+            cell := buf.Cells[y][x]
+            r.out.WriteString(fmt.Sprintf("\x1b[%d;%dH%s", y+1, x+1, term.CellToANSI(*cell)))
+        }
+    }
 }

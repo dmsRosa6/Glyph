@@ -32,7 +32,7 @@ func WatchResize(onResize func()) {
 			if timer != nil {
 				timer.Stop()
 			}
-			timer = time.AfterFunc(50*time.Millisecond, onResize)
+			timer = time.AfterFunc(200*time.Millisecond, onResize)
 		}
 	}()
 

@@ -34,6 +34,10 @@ func (b *Buffer) Clear() {
 }
 
 func (b *Buffer) Set(x, y int, ch rune, bg, fg Color){
+    if y >= b.H || x >= b.W {
+        return
+    }
+
     b.Cells[y][x] = NewCell(ch, fg, bg)
 }
 

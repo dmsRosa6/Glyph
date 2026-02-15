@@ -15,7 +15,6 @@ type Canvas struct {
 	RequestedHeight int
 }
 
-//TODO if the w,h logic changes dont forget the bound check
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 
     if bg == (core.Color{}){
@@ -58,12 +57,12 @@ func (c *Canvas) ApplySize(termW, termH int) {
     actualH := min(termH, h)
 
     c.Buf = core.NewBuffer(actualW, actualH, c.style.Fg, c.style.Bg)
-
+    c.Buf.Activate()
     c.Compose()
 }
 
 func (c *Canvas) Restore() {
-	c.Buf.Clear()
+	c.Buf.Clear(c.style.Fg, c.style.Bg)
 }
 
 func (c *Canvas) AddShape(s Drawable) {

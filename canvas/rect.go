@@ -107,7 +107,7 @@ func (r *Rect) GetLayer() int{
 
 func (r *Rect) Layout(parent geom.Bounds) {
     r.layout.computedPos.X = resolveAxis(r.layout.anchor.H, parent.W, r.bounds.W, r.bounds.Pos.X)
-    r.layout.computedPos.Y = resolveAxis(r.layout.anchor.H, parent.H, r.bounds.H, r.bounds.Pos.Y)
+    r.layout.computedPos.Y = resolveAxis(r.layout.anchor.V, parent.H, r.bounds.H, r.bounds.Pos.Y)
 }
 
 func (r *Rect) SetParentStyle(s *Style){

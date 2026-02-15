@@ -70,7 +70,7 @@ func (r *Renderer) Run(c *canvas.Canvas) {
     applySize := func() {
     size, err := term.TermSize()
     if err != nil {
-            panic("something went wrong resizing")
+            //panic("something went wrong resizing")
         }
         c.ApplySize(size.Cols, size.Rows)
     }
@@ -140,12 +140,12 @@ func (r *Renderer) Stop() {
     r.restore()
 }
 
-
 func (r *Renderer) Flush(buf *core.Buffer){
-    for y := 0; y < buf.H; y++ {
-        for x := 0; x < buf.W; x++ {
-            cell := buf.Cells[y][x]
-            r.out.WriteString(fmt.Sprintf("\x1b[%d;%dH%s", y+1, x+1, term.CellToANSI(*cell)))
+    cells, width, height := buf.GetCells()
+    for y := 0; y < height; y++ {
+        for x := 0; x < width; x++ {
+            cell := cells[y][x]
+            fmt.Fprintf(r.out, "\x1b[%d;%dH%s", y+1, x+1, term.CellToANSI(*cell))
         }
     }
 }

@@ -57,7 +57,6 @@ func (c *Canvas) ApplySize(termW, termH int) {
     actualH := min(termH, h)
 
     c.Buf = core.NewBuffer(actualW, actualH, c.style.Fg, c.style.Bg)
-    c.Buf.Activate()
     c.Compose()
 }
 

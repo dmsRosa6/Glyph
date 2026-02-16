@@ -14,6 +14,7 @@ type Rect struct {
 	parentStyle *Style
 	layout *Layout
 	layer int
+	clip geom.Bounds
 }
 
 type RectConfig struct {
@@ -43,6 +44,7 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 					computedPos: bounds.Pos,
 					anchor: &cfg.Anchor,
 				},
+		clip: *geom.NewBounds(-1,-1,-1,-1),
 
     }
 
@@ -58,14 +60,25 @@ func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
 
 	rectX := r.layout.computedPos.X
 	rectY := r.layout.computedPos.Y
+	boundW := r.bounds.W
+	boundH := r.bounds.H
+	
+	isValid := r.clip.ValidateNoPanic()
+
+	if isValid {
+		rectX = rectX + r.clip.Pos.X
+		rectY = rectY + r.clip.Pos.Y
+		boundW = r.clip.W
+		boundH = r.clip.H
+	}
 
 	s := ResolveStyle(*r.style, *r.parentStyle)
 
 	fg := s.Fg
 	bg := s.Bg
 
-    for y := rectY; y < rectY+r.bounds.H; y++ {
-            for x := rectX; x < rectX+r.bounds.W; x++ {
+    for y := rectY; y < rectY+boundH; y++ {
+            for x := rectX; x < rectX+boundW; x++ {
                 buf.Set(vec.X + x, vec.Y + y, r.ch, bg, fg)
             }
     }
@@ -112,4 +125,9 @@ func (r *Rect) Layout(parent geom.Bounds) {
 
 func (r *Rect) SetParentStyle(s *Style){
     r.parentStyle = s
+}
+
+func (r *Rect) SetClip(c geom.Bounds){
+	c.ValidateIfInsideBounds(*r.bounds)
+	r.clip = c
 }

@@ -27,5 +27,11 @@ type Composable interface {
 	RemoveChild(target Drawable)
 }
 
+type Clippable interface {
+    Drawable
+    SetClip(clip geom.Bounds)
+}
+
+
 
 

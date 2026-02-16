@@ -17,7 +17,21 @@ func NewBounds(x, y, w, h int) *Bounds {
 }
 
 func (b *Bounds) Validate() {
-    if b.W <= 0 || b.H <= 0 {
+    if b.Pos.Y < 0 || b.Pos.X < 0 || b.W < 0 || b.H < 0 {
         panic("bounds width and height must be > 0")
     }
+}
+
+func (b *Bounds) ValidateIfInsideBounds(other Bounds) {
+    if b.Pos.X < 0 || b.Pos.Y < 0 || b.W < 0 || b.H < 0 {
+        panic("bounds width and height must be >= 0")
+    }
+    if b.Pos.X+b.W > other.W || b.Pos.Y+b.H > other.H {
+        panic("bounds exceed parent bounds")
+    }
+}
+
+
+func (b *Bounds) ValidateNoPanic() bool{
+    return b.Pos.Y >= 0 && b.Pos.X >= 0 && b.W >= 0 && b.H >= 0
 }

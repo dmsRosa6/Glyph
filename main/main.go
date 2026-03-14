@@ -10,51 +10,39 @@ import (
 )
 
 func main() {
-	
 	c := canvas.NewCanvas(80, 40, core.Black, core.White)
-	r := render.NewRenderer(render.LoopMode(0), 30)
-
-	bgCfg2 := canvas.WindowConfig{
-		BoxConfig: canvas.BoxConfig{
-			Padding: 1,
-			BorderConfig: canvas.BorderConfig{
-				Thickness: 1,
-				BorderStyle:     canvas.DoubleLine,
-				Style: canvas.Style{Fg:core.Gray, Bg: core.Transparent},
-			},
+	r := render.NewRenderer(render.LoopMode(1), 60)
+	boxCfg := canvas.BoxConfig{
+		Padding: 1,
+		BorderConfig: canvas.BorderConfig{
+			Thickness:   1,
+			BorderStyle: canvas.SingleLine,
+			Style:       canvas.Style{Fg: core.Gray, Bg: core.Transparent},
 		},
-		Title:         "Diogo",
-		TitleXOffset:  0,
-		TitlePosition: canvas.TitleTop,
-		TitleFg:       core.DarkGray,
-		Anchor: canvas.Anchor{canvas.Center,canvas.Center},
+		Style: canvas.Style{Fg: core.White, Bg: core.Transparent},
+		Anchor: canvas.Anchor{canvas.Start, canvas.Start},
 	}
-	
-	winPoint2 := geom.NewBounds(0, 0, 20, 10)
 
-	bgWin2, _ := canvas.NewWindow(winPoint2, bgCfg2)
+	mainBox, _ := canvas.NewBox(geom.NewBounds(0, 0, 30, 15), boxCfg)
 
-	rec,_ := canvas.NewRect(
-		geom.NewBounds(0,0,8,4),
-		canvas.RectConfig{
-			Style: canvas.Style{
-				Fg: core.Black,
-				Bg: core.Red,
-			},	
-			Anchor: canvas.Anchor{canvas.Center,canvas.Center},
-		},
-		
-	)
+	list, _ := canvas.NewList(canvas.ListConfig{
+		Box:     mainBox,
+		Style:   canvas.Style{Fg: core.White, Bg: core.Transparent},
+		Anchor:  canvas.Anchor{canvas.Start, canvas.Start},
+		Padding: 1,
+		Layer:   0,
+	})
 
-	rec.SetClip(*geom.NewBounds(0,0,16,2))
-
-	bgWin2.AddChild(rec)
-
-	c.AddShape(bgWin2)
-
+	for i := 0; i < 3; i++ {
+		itemBox, _ := canvas.NewBox(geom.NewBounds(0, 4*i, 30, 5), boxCfg)
+		list.AddItem(itemBox)
+	}
+ 
+	c.AddShape(list)
 	go r.Run(c)
 
 	fmt.Scanln()
-
 	r.Stop()
+
+	fmt.Println("Done")
 }

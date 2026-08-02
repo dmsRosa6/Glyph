@@ -3,6 +3,7 @@ package canvas
 import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/term"
 )
 
 // Canvas owns the actual pixel buffer and treats the whole screen as a
@@ -19,6 +20,15 @@ type Canvas struct {
 	RequestedHeight int
 }
 
+func NewMaxSizeCanvas(fg, bg core.Color) *Canvas {
+	size, err := term.TermSize()
+	if err != nil {
+		panic("Could not retrieve terminal size")
+	}
+
+	return NewCanvas(size.Cols-1, size.Rows-1, fg, bg)
+}
+
 // NewCanvas: default-substitution keys off core.Transparent, not the
 // zero-value core.Color{} (which has the same field values as
 // core.Black, so an explicitly-passed Black used to silently become
@@ -32,7 +42,6 @@ func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 	}
 
 	// NewContainer only errors if Layer < 0, and NewCanvas never passes
-	// a caller-supplied layer here -- this can't actually fail.
 	root, err := NewContainer(geom.NewBounds(0, 0, w, h), ContainerConfig{
 		Style: Style{Bg: bg, Fg: fg},
 	})
@@ -107,3 +116,4 @@ func (c *Canvas) Compose() {
 	c.Restore()
 	c.root.Draw(c.Buf, geom.Vector{})
 }
+

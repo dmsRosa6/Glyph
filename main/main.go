@@ -38,7 +38,7 @@ func statusItem(width int, label string, color core.Color) *canvas.Bordered {
 }
 
 func main() {
-	c := canvas.NewCanvas(50, 20, core.White, core.Black)
+	c := canvas.NewMaxSizeCanvas(core.White, core.Black)
 	r := render.NewRenderer(render.OnDemand, 0)
 
 	// The whole UI lives in one Window: a double-line border, a title on
@@ -101,3 +101,4 @@ func main() {
 
 	r.Stop()
 }
+

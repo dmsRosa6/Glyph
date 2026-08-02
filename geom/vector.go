@@ -4,11 +4,11 @@ type Vector struct {
 	X, Y int
 }
 
-func VectorFromPoint(p Point) *Vector{
+func VectorFromPoint(p Point) *Vector {
 	return &Vector{
 		X: p.X,
 		Y: p.Y,
-	} 
+	}
 }
 
 func (v *Vector) AddVector(o Vector) {

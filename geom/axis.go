@@ -2,7 +2,7 @@ package geom
 
 type Axis int
 
-const(
+const (
 	XAxis Axis = iota
 	YAxis
 )

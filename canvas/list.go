@@ -1,70 +1,60 @@
 package canvas
 
-import (
-	"errors"
+import "github.com/dmsRosa6/glyph/geom"
 
-	"github.com/dmsRosa6/glyph/core"
-	"github.com/dmsRosa6/glyph/geom"
-)
-
+// List is now just a Container with StackLayout -- there's no bespoke
+// items []*Box anymore. Because of that, List.AddChild (promoted
+// straight from *Container) accepts ANY Drawable, not only boxed items;
+// AddItem below is a convenience for the common "bordered row" case, not
+// the only way to put something in a list.
 type List struct {
-	items       []*Box
-	box         *Box
-	layer       int
-	parentStyle *Style
-	style       *Style
+	*Container
+	itemStyle   Style
+	itemPadding int
 }
 
 type ListConfig struct {
-	Box    *Box
-	Style  Style
-	Layer  int
-	Anchor Anchor
-	Padding int
+	Style       Style
+	ItemPadding int
+	Anchor      Anchor
+	Layer       int
 }
 
-func NewList(cfg ListConfig) (*List, error) {
-	l := &List{
-		box:   cfg.Box,
-		items: []*Box{},
-		layer: cfg.Layer,
-		style: &cfg.Style,
+func NewList(bounds *geom.Bounds, cfg ListConfig) (*List, error) {
+	c, err := NewContainer(bounds, ContainerConfig{
+		Style:  cfg.Style,
+		Layer:  cfg.Layer,
+		Anchor: cfg.Anchor,
+		Layout: StackLayout{},
+	})
+	if err != nil {
+		return nil, err
 	}
-	return l, nil
+
+	return &List{
+		Container:   c,
+		itemStyle:   cfg.Style,
+		itemPadding: cfg.ItemPadding,
+	}, nil
 }
 
-func (l *List) Draw(buf *core.Buffer, vec geom.Vector) {
-	v := vec
+// AddItem creates a bordered, padded box of the given height (full list
+// width) and stacks it as the next item. If you don't want the
+// per-item border/padding, skip this and call list.AddChild directly
+// with whatever Drawable you want stacked instead.
+func (l *List) AddItem(height int) (*Bordered, error) {
+	bounds := geom.NewBounds(0, 0, l.bounds.W, height)
 
-	for _, item := range l.items {
-		item.Draw(buf, v)
+	box, err := NewBox(bounds, BoxConfig{
+		Padding:      l.itemPadding,
+		Style:        l.itemStyle,
+		Layer:        l.GetLayer(),
+		BorderConfig: DefaultBorderConfig(),
+	})
+	if err != nil {
+		return nil, err
 	}
-}
 
-func (l *List) IsInBounds(parent geom.Bounds) bool {
-	return l.box.IsInBounds(parent)
-}
-
-func (l *List) SetLayer(lay int) error {
-	if lay < 0 {
-		return errors.New("")
-	}
-	l.layer = lay
-	return nil
-}
-
-func (l *List) GetLayer() int {
-	return l.layer
-}
-
-func (l *List) SetParentStyle(s *Style) {
-	l.parentStyle = s
-	l.box.SetParentStyle(s)
-	for _, item := range l.items {
-		item.SetParentStyle(s)
-	}
-}
-
-func (l *List) AddItem(item *Box) {
-	l.items = append(l.items, item)
+	l.AddChild(box)
+	return box, nil
 }

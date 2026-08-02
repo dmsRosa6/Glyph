@@ -1,8 +1,6 @@
 package canvas
 
 import (
-	"errors"
-
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
 )
@@ -10,152 +8,128 @@ import (
 type TitlePosition int
 
 const (
-    TitleTop TitlePosition = iota
-    TitleBottom
+	TitleTop TitlePosition = iota
+	TitleBottom
 )
 
+// Window is a Bordered box with a title Text overlaid on the frame.
+// The title genuinely isn't reducible to Container/Bordered alone (it
+// sits on the border itself, outside the padded content area), so this
+// stays a small dedicated composition -- but it's built on Bordered
+// instead of owning a border and a content container directly.
 type Window struct {
-    box  *Box
-    text *Text
-    bounds *geom.Bounds
-    parentStyle *Style
-    titleOffset int
-    
-    style *Style
-    layout *Layout
-    layer int
+	BaseNode
+	box  *Bordered
+	text *Text
 }
 
 type WindowConfig struct {
-    BoxConfig BoxConfig
+	BoxConfig BoxConfig
 
-    Title          string
-    TitleXOffset   int
-    TitlePosition  TitlePosition
-    TitleFg        core.Color
+	Title         string
+	TitleXOffset  int
+	TitlePosition TitlePosition
+	TitleFg       core.Color
 
-    Anchor Anchor
-    Layer int
+	Anchor Anchor
+	Layer  int
 }
 
 func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
+	if cfg.Title != "" {
+		innerWidth := bounds.W - 2*cfg.BoxConfig.Padding
 
-    if cfg.Title != "" {
-        innerWidth := bounds.W - 2*cfg.BoxConfig.Padding
+		if cfg.TitleXOffset < 0 ||
+			cfg.TitleXOffset+len(cfg.Title) > innerWidth {
+			panic("title out of window bounds")
+		}
+	}
 
-        if cfg.TitleXOffset < 0 ||
-            cfg.TitleXOffset+len(cfg.Title) > innerWidth {
-            panic("title out of window bounds")
-        }
-    }
+	base, err := newBaseNode(bounds, cfg.Anchor, cfg.BoxConfig.Style, cfg.Layer)
+	if err != nil {
+		return nil, err
+	}
 
-    var err error
-    var box *Box
+	boxBounds := geom.NewBounds(0, 0, bounds.W, bounds.H)
+	box, err := NewBox(boxBounds, cfg.BoxConfig)
+	if err != nil {
+		return nil, err
+	}
 
-    boxBounds := geom.NewBounds(0,0,bounds.W,bounds.H)
+	var textY int
+	if cfg.TitlePosition == TitleBottom {
+		textY = bounds.H - 1
+	}
 
-    box, err = NewBox(boxBounds, cfg.BoxConfig)
-    if err != nil {
-        return nil, err
-    }
+	var text *Text
+	if cfg.Title != "" {
+		textPos := geom.NewPoint(cfg.BoxConfig.Padding+cfg.TitleXOffset, textY)
 
-    var textY int
-    switch cfg.TitlePosition {
-    case TitleTop:
-        textY = 0
-    case TitleBottom:
-        textY =  bounds.H - 1
-    }
+		text, err = NewText(textPos, TextConfig{
+			Value: cfg.Title,
+			Fg:    cfg.TitleFg,
+			Layer: cfg.Layer,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 
-    var text *Text
-    if cfg.Title != "" {
+	w := &Window{
+		BaseNode: base,
+		box:      box,
+		text:     text,
+	}
 
-        textPos := geom.NewPoint(cfg.BoxConfig.Padding+cfg.TitleXOffset, textY)
-        
-        textCfg := TextConfig{
-            Value : cfg.Title,
-            Fg : cfg.TitleFg,
-            Bg : core.Transparent,
-            Anchor : cfg.Anchor,
-            Layer : cfg.Layer,
-        }
-        
-        text, err = NewText(textPos,textCfg)
-        if err != nil {
-            return nil, err
-        }
-    }
+	box.SetParentStyle(w.ResolvedStyle())
+	if text != nil {
+		text.SetParentStyle(box.ResolvedStyle())
+	}
 
-    w :=  &Window{
-        box:  box,
-        text: text,
-    }
-
-    w.bounds = bounds
-    w.titleOffset = cfg.TitleXOffset
-    w.layout = &Layout{
-        computedPos: bounds.Pos,
-        anchor: &cfg.Anchor,
-    }
-
-    if err = w.SetLayer(cfg.Layer); err != nil {
-        return nil, err
-    }
-    w.style = box.style
-
-    box.SetParentStyle(w.style)
-
-    return w, nil
+	return w, nil
 }
 
 func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
-    
-    v := geom.Vector{}
+	v := geom.Vector{X: vec.X + w.computedPos.X, Y: vec.Y + w.computedPos.Y}
 
-    v.AddVector(vec)
-    v.AddVector(*geom.VectorFromPoint(*w.layout.computedPos))
-
-    w.box.Draw(buf, v)
-    if w.text != nil {
-        w.text.Draw(buf, v)
-    }
-}
-
-func (w *Window) IsInBounds(parent geom.Bounds) bool {
-    return w.box.IsInBounds(parent)
-}
-
-func (r *Window) SetLayer(l int) error{
-    if l < 0{
-		return errors.New("Layers must be greater or equal to 0")
+	w.box.Draw(buf, v)
+	if w.text != nil {
+		w.text.Draw(buf, v)
 	}
-    
-    r.box.border.SetLayer(l)
-    r.box.composite.SetLayer(l)
-    r.layer = l
-
-    return nil
 }
 
-func (r *Window) GetLayer() int{
-    return r.layer
+func (w *Window) AddChild(child Drawable) {
+	w.box.AddChild(child)
 }
 
-func (b *Window) AddChild(child Drawable){
-    child.SetParentStyle(b.style)
-    b.box.AddChild(child)
+func (w *Window) RemoveChild(target Drawable) {
+	w.box.RemoveChild(target)
 }
 
-func (b *Window) RemoveChild(target Drawable) {
-	b.box.AddChild(target)
+func (w *Window) SetLayer(l int) error {
+	if err := w.BaseNode.SetLayer(l); err != nil {
+		return err
+	}
+	if w.text != nil {
+		if err := w.text.SetLayer(l); err != nil {
+			return err
+		}
+	}
+	return w.box.SetLayer(l)
 }
 
-func (w *Window) Layout(parent geom.Bounds) {
-    w.layout.computedPos.X = resolveAxis(w.layout.anchor.H, parent.W, w.bounds.W, w.bounds.Pos.X)
-    w.layout.computedPos.Y = resolveAxis(w.layout.anchor.V, parent.H, w.bounds.H, w.bounds.Pos.Y)
+func (w *Window) SetParentStyle(s *Style) {
+	w.BaseNode.SetParentStyle(s)
+	w.box.SetParentStyle(w.ResolvedStyle())
+	if w.text != nil {
+		w.text.SetParentStyle(w.box.ResolvedStyle())
+	}
 }
 
-func (w *Window) SetParentStyle(s *Style){
-    w.parentStyle = s
-    w.box.SetParentStyle(s)
+func (w *Window) SetInvalidator(fn func()) {
+	w.BaseNode.SetInvalidator(fn)
+	w.box.SetInvalidator(fn)
+	if w.text != nil {
+		w.text.SetInvalidator(fn)
+	}
 }

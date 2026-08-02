@@ -1,139 +1,90 @@
 package canvas
 
 import (
-	"errors"
-
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-type Border struct{
-    borderStyle BorderStyle
-    bounds *geom.Bounds
-	thickness int
-    style *Style
-    parentStyle *Style
-    layer int
+type Border struct {
+	BaseNode
+	borderStyle BorderStyle
+	thickness   int
 }
 
 type BorderConfig struct {
-    Thickness int
-    BorderStyle     BorderStyle
-    Style Style
+	Thickness   int
+	BorderStyle BorderStyle
+	Style       Style
 
-    Layer int
+	Anchor Anchor
+	Layer  int
 }
 
 func DefaultBorderConfig() BorderConfig {
-    return BorderConfig{
-        Thickness: 1,
-        BorderStyle: EmptyBorder,
-        Style: Style{Bg: core.Transparent, Fg: core.White},
-    }
+	return BorderConfig{
+		Thickness:   1,
+		BorderStyle: EmptyBorder,
+		Style:       Style{Bg: core.Transparent, Fg: core.White},
+	}
 }
 
-func NewBorder(bounds *geom.Bounds,cfg BorderConfig) (*Border, error) {
-    //TODO maybe put a default behaviour here
-    if cfg.Thickness < 1 {
-        panic("border thickness must be >= 1")
-    }
-
-    s := ResolveStyle(cfg.Style,*NewTransparentStyle())
-
-    b := &Border{
-        bounds:     bounds,
-        thickness:  cfg.Thickness,
-        borderStyle: cfg.BorderStyle,
-        style: s,
-    }
-
-    if err := b.SetLayer(cfg.Layer); err != nil {
-        return nil ,err
-    }
-
-    if(cfg.BorderStyle == BorderStyle{}){
-        b.borderStyle = EmptyBorder
-    }
-
-    return b, nil
-}
-
-func (r *Border) Draw(buf *core.Buffer, vec geom.Vector) {
-    var borderStyleBg core.Color
-    var borderStyleFg core.Color
-    
-    s := ResolveStyle(*r.style,*r.parentStyle)
-
-    borderStyleBg = s.Bg
-    borderStyleFg = s.Fg
-
-    for layer := 0; layer < r.thickness; layer++ {
-        x0 := r.bounds.Pos.X + layer
-        y0 := r.bounds.Pos.Y + layer
-        x1 := r.bounds.Pos.X + r.bounds.W - 1 - layer
-        y1 := r.bounds.Pos.Y + r.bounds.H - 1 - layer
-
-        // corners
-        buf.Set(vec.X + x0, vec.Y + y0, r.borderStyle.TopLeft, borderStyleBg, borderStyleFg)
-        buf.Set(vec.X + x1, vec.Y + y0, r.borderStyle.TopRight, borderStyleBg, borderStyleFg)
-        buf.Set(vec.X + x0, vec.Y + y1, r.borderStyle.BottomLeft, borderStyleBg, borderStyleFg)
-        buf.Set(vec.X + x1, vec.Y + y1, r.borderStyle.BottomRight, borderStyleBg, borderStyleFg)
-
-        // top & bottom edges
-        for x := x0 + 1; x < x1; x++ {
-            buf.Set(vec.X + x, vec.Y, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
-            buf.Set(vec.X + x, vec.Y + y1, r.borderStyle.Horizontal, borderStyleBg, borderStyleFg)
-        }
-
-        // left & right edges
-        for y := y0 + 1; y < y1; y++ {
-            buf.Set(vec.X + x0, vec.Y + y, r.borderStyle.Vertical, borderStyleBg, borderStyleFg)
-            buf.Set(vec.X + x1, vec.Y + y, r.borderStyle.Vertical, borderStyleBg, borderStyleFg)
-        }
-    }
-}
-
-func (r *Border) IsInBounds(parent geom.Bounds) bool{
-	if r.bounds.Pos.X < 0 {
-		return false
+func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
+	if cfg.Thickness < 1 {
+		panic("border thickness must be >= 1")
 	}
 
-	if r.bounds.Pos.Y < 0 {
-		return false
+	style := cfg.BorderStyle
+	if style == (BorderStyle{}) {
+		style = EmptyBorder
 	}
 
-	if r.bounds.Pos.Y + r.bounds.H > parent.H {
-		return false
+	base, err := newBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	if err != nil {
+		return nil, err
 	}
 
-	if r.bounds.Pos.X + r.bounds.W > parent.W {
-		return false
+	return &Border{
+		BaseNode:    base,
+		borderStyle: style,
+		thickness:   cfg.Thickness,
+	}, nil
+}
+
+func (b *Border) Draw(buf *core.Buffer, vec geom.Vector) {
+	s := b.Style()
+	ox, oy := b.computedPos.X, b.computedPos.Y
+
+	for layer := 0; layer < b.thickness; layer++ {
+		x0 := ox + layer
+		y0 := oy + layer
+		x1 := ox + b.bounds.W - 1 - layer
+		y1 := oy + b.bounds.H - 1 - layer
+
+		// corners
+		buf.Set(vec.X+x0, vec.Y+y0, b.borderStyle.TopLeft, s.Bg, s.Fg)
+		buf.Set(vec.X+x1, vec.Y+y0, b.borderStyle.TopRight, s.Bg, s.Fg)
+		buf.Set(vec.X+x0, vec.Y+y1, b.borderStyle.BottomLeft, s.Bg, s.Fg)
+		buf.Set(vec.X+x1, vec.Y+y1, b.borderStyle.BottomRight, s.Bg, s.Fg)
+
+		// top & bottom edges -- previously the top edge used vec.Y with
+		// no "+ y0" offset at all, so it ignored both the border's own
+		// origin and the per-layer thickness offset.
+		for x := x0 + 1; x < x1; x++ {
+			buf.Set(vec.X+x, vec.Y+y0, b.borderStyle.Horizontal, s.Bg, s.Fg)
+			buf.Set(vec.X+x, vec.Y+y1, b.borderStyle.Horizontal, s.Bg, s.Fg)
+		}
+
+		// left & right edges
+		for y := y0 + 1; y < y1; y++ {
+			buf.Set(vec.X+x0, vec.Y+y, b.borderStyle.Vertical, s.Bg, s.Fg)
+			buf.Set(vec.X+x1, vec.Y+y, b.borderStyle.Vertical, s.Bg, s.Fg)
+		}
 	}
-
-	return true
 }
 
-func (r *Border) SetLayer(l int) error{
-    if l < 0{
-		return errors.New("Layers must be greater or equal to 0")
+func (b *Border) SetBorderStyle(s BorderStyle) {
+	if s == (BorderStyle{}) {
+		s = EmptyBorder
 	}
-
-    r.layer = l
-    return  nil
-}
-
-func (r *Border) GetLayer() int{
-    return r.layer
-}
-
-func (r *Border) SetParentStyle(s *Style){
-    r.parentStyle = s
-}
-
-func (r *Border) SetBorderStyle(s BorderStyle){
-    if(s == BorderStyle{}){
-        s = EmptyBorder
-    }
-    
-    r.borderStyle = s
+	b.borderStyle = s
 }

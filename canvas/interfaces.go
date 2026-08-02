@@ -5,15 +5,24 @@ import (
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-type Drawable interface{
+type Drawable interface {
 	Draw(buf *core.Buffer, vec geom.Vector)
 	IsInBounds(parent geom.Bounds) bool
 	SetLayer(l int) error
 	GetLayer() int
 	SetParentStyle(style *Style)
+
+	// SetInvalidator wires up the callback a node (or anything nested
+	// inside it) should call after a background update to ask for a
+	// redraw. Containers propagate this to their children the same way
+	// they already propagate SetParentStyle. Every shape gets a working
+	// no-op implementation for free via BaseNode, so this never panics
+	// on an unattached node -- it just does nothing until something
+	// wires it up (Canvas/Renderer does this automatically).
+	SetInvalidator(fn func())
 }
 
-type Moveable interface{
+type Moveable interface {
 	MoveTo(p *geom.Point)
 	Translate(v geom.Vector)
 }
@@ -28,10 +37,6 @@ type Composable interface {
 }
 
 type Clippable interface {
-    Drawable
-    SetClip(clip geom.Bounds)
+	Drawable
+	SetClip(clip geom.Bounds)
 }
-
-
-
-

@@ -7,31 +7,37 @@ type Style struct {
 	Fg core.Color
 }
 
-func NewTransparentStyle() *Style{
+func NewTransparentStyle() *Style {
 	return &Style{
 		Bg: core.Transparent,
 		Fg: core.Transparent,
 	}
 }
 
-func ResolveStyle(style, parent Style) *Style{
-
-	newStyle := Style{Fg: style.Fg}
-
-	if style.Fg.IsTransparent{
-		newStyle.Bg = core.Transparent
-		return &newStyle
+// ResolveStyle merges a shape's own style with its parent's.
+//
+// core.Transparent is the ONLY "inherit from parent" sentinel, for both
+// Fg and Bg, applied symmetrically. Previously Bg additionally treated
+// the zero-value core.Color{} as "unset" -- but core.Color{} has the same
+// field values as core.Black, so an explicitly-set Black background was
+// indistinguishable from "not set" and got silently replaced by the
+// parent's background. That special case is gone: if you want to inherit,
+// set Transparent; anything else (including Black) is taken literally.
+// Fg no longer has the side effect of forcing Bg transparent too --
+// each channel resolves independently.
+func ResolveStyle(style, parent Style) *Style {
+	resolved := Style{
+		Fg: style.Fg,
+		Bg: style.Bg,
 	}
 
-	if parent.Bg == (core.Color{}) {
-		parent.Bg = core.Transparent
+	if style.Fg == core.Transparent {
+		resolved.Fg = parent.Fg
 	}
 
-    if style.Bg == (core.Color{}) || style.Bg == core.Transparent{
-        newStyle.Bg = parent.Bg
-    }else{
-        newStyle.Bg = style.Bg
-    }
+	if style.Bg == core.Transparent {
+		resolved.Bg = parent.Bg
+	}
 
-	return &newStyle
+	return &resolved
 }

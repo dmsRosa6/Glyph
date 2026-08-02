@@ -1,126 +1,43 @@
 package canvas
 
-import (
-	"errors"
-
-	"github.com/dmsRosa6/glyph/core"
-	"github.com/dmsRosa6/glyph/geom"
-)
-
-type Box struct{
-    bounds *geom.Bounds
-	border *Border
-	composite *Composite
-    style *Style
-    parentStyle *Style
-    padding int
-    layout *Layout
-    layer int
-}
+import "github.com/dmsRosa6/glyph/geom"
 
 type BoxConfig struct {
-    BorderConfig BorderConfig
+	BorderConfig BorderConfig
 
-    Padding int
+	Padding int
 
-    Style Style
-    Anchor Anchor
-    Layer int
+	Style  Style
+	Anchor Anchor
+	Layer  int
 }
 
-func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Box,error) {
-    if cfg.Padding < 0 {
-        panic("padding must be >= 0")
-    }
+// NewBox is a convenience constructor for the common case: a bordered,
+// padded container that holds freely-positioned children. There's no
+// bespoke Box type anymore -- this just wires up a Container (the
+// content) inside a Bordered (the frame), which is exactly what the old
+// hand-written Box did, minus the duplicated layering/style-cascade code.
+func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
+	if cfg.Padding < 0 {
+		panic("padding must be >= 0")
+	}
 
-    b := &Box{}
-    var br *Border
-    var err error
-    var c *Composite
+	innerW := bounds.W - 2*cfg.Padding
+	innerH := bounds.H - 2*cfg.Padding
+	if innerW < 0 || innerH < 0 {
+		panic("padding too large for box bounds")
+	}
 
-    b.bounds = bounds
-    b.padding = cfg.Padding
+	contentBounds := geom.NewBounds(cfg.Padding, cfg.Padding, innerW, innerH)
+	content, err := NewContainer(contentBounds, ContainerConfig{Layer: cfg.Layer})
+	if err != nil {
+		return nil, err
+	}
 
-    s := ResolveStyle(cfg.Style, *NewTransparentStyle())
-
-    borderBounds := geom.NewBounds(0,0,bounds.W,bounds.H)
-
-    br, err = NewBorder(borderBounds,cfg.BorderConfig)    
-    if err != nil {
-        return nil ,err
-    }
-
-    b.border = br
-    b.layout = &Layout{
-					computedPos: bounds.Pos,
-					anchor: &cfg.Anchor,
-				}
-
-    compositeBounds := geom.NewBounds(b.padding, b.padding,
-                                      bounds.W - 2*cfg.Padding, bounds.H - 2*cfg.Padding)
-
-    c, err = NewComposite(compositeBounds, CompositeConfig{Layer: cfg.Layer})
-
-    if err != nil {
-        return nil ,err
-    }
-
-    b.composite = c
-    b.style = s
-
-    if err = b.SetLayer(cfg.Layer); err != nil {
-        return nil ,err
-    }
-
-    return b, nil
-}
-
-func (b *Box) Draw(buf *core.Buffer, vec geom.Vector){
-	v := geom.Vector{}
-    v.AddVector(vec)
-    v.AddVector(*geom.VectorFromPoint(*b.layout.computedPos))
-    
-    b.composite.Draw(buf, v)
-	b.border.Draw(buf, v)
-}
-
-func (r *Box) IsInBounds(parent geom.Bounds) bool{
-	return r.composite.IsInBounds(parent) && r.border.IsInBounds(parent)	
-}
-
-
-func (r *Box) SetLayer(l int) error{
-    if l < 0{
-		return errors.New("Layers must be greater or equal to 0")
-	} 
-	
-	r.layer = l
-    r.border.SetLayer(l)
-    r.composite.SetLayer(l)
-
-	return nil
-}
-
-func (r *Box) GetLayer() int{
-    return r.layer
-}
-
-func (b *Box) AddChild(child Drawable){
-    child.SetParentStyle(b.style)
-    b.composite.AddChild(child)
-}
-
-func (b *Box) RemoveChild(target Drawable) {
-	b.composite.AddChild(target)
-}
-
-func (b *Box) Layout(parent geom.Bounds) {
-    b.layout.computedPos.X = resolveAxis(b.layout.anchor.H, parent.W, b.bounds.W, b.bounds.Pos.X)
-    b.layout.computedPos.Y = resolveAxis(b.layout.anchor.H, parent.H, b.bounds.H, b.bounds.Pos.Y)
-}
-
-func (b *Box) SetParentStyle(s *Style){
-    b.parentStyle = s
-    b.border.SetParentStyle(s)
-    b.composite.SetParentStyle(s)
+	return NewBordered(bounds, content, BorderedConfig{
+		BorderConfig: cfg.BorderConfig,
+		Style:        cfg.Style,
+		Anchor:       cfg.Anchor,
+		Layer:        cfg.Layer,
+	})
 }

@@ -3,91 +3,107 @@ package canvas
 import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
-	"github.com/dmsRosa6/glyph/utils"
 )
 
+// Canvas owns the actual pixel buffer and treats the whole screen as a
+// single full-size Container -- the root of the tree, not a fourth
+// reimplementation of "add a child, check bounds, propagate style,
+// propagate invalidator, iterate and draw." Every one of those
+// responsibilities is exactly Container's job already; Canvas just
+// delegates to it instead of keeping its own copy in sync by hand.
 type Canvas struct {
-    bounds *geom.Bounds
-	Buf    *core.Buffer
-	Shapes []Drawable
-    style *Style
-	RequestedWidth int
+	root *Container
+	Buf  *core.Buffer
+
+	RequestedWidth  int
 	RequestedHeight int
 }
 
+// NewCanvas: default-substitution keys off core.Transparent, not the
+// zero-value core.Color{} (which has the same field values as
+// core.Black, so an explicitly-passed Black used to silently become
+// White).
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
+	if bg == core.Transparent {
+		bg = core.White
+	}
+	if fg == core.Transparent {
+		fg = core.Black
+	}
 
-    if bg == (core.Color{}){
-       bg = core.White 
-    }
+	// NewContainer only errors if Layer < 0, and NewCanvas never passes
+	// a caller-supplied layer here -- this can't actually fail.
+	root, err := NewContainer(geom.NewBounds(0, 0, w, h), ContainerConfig{
+		Style: Style{Bg: bg, Fg: fg},
+	})
+	if err != nil {
+		panic(err)
+	}
 
-    if fg == (core.Color{}){
-       fg = core.Black 
-    }
-
-    s := &Style{
-        Bg: bg,
-        Fg: fg,
-    }
-
-    c := &Canvas{
-        bounds: geom.NewBounds(0,0,w,h),
-        Shapes:          []Drawable{},
-        Buf:             core.NewBuffer(w, h, fg, bg),
-        style: s,
-        RequestedWidth:  w,
-        RequestedHeight: h,
-    }
-
-    return c
+	return &Canvas{
+		root:            root,
+		Buf:             core.NewBuffer(w, h, fg, bg),
+		RequestedWidth:  w,
+		RequestedHeight: h,
+	}
 }
 
 func (c *Canvas) ApplySize(termW, termH int) {
-    w := c.RequestedWidth
-    h := c.RequestedHeight
+	w := c.RequestedWidth
+	h := c.RequestedHeight
 
-    if w <= 0 {
-        w = termW
-    }
-    if h <= 0 {
-        h = termH
-    }
+	if w <= 0 {
+		w = termW
+	}
+	if h <= 0 {
+		h = termH
+	}
 
-    actualW := min(termW, w)
-    actualH := min(termH, h)
+	actualW := min(termW, w)
+	actualH := min(termH, h)
 
-    c.Buf = core.NewBuffer(actualW, actualH, c.style.Fg, c.style.Bg)
-    c.Compose()
+	s := c.root.Style()
+	c.Buf = core.NewBuffer(actualW, actualH, s.Fg, s.Bg)
+	c.Compose()
 }
 
 func (c *Canvas) Restore() {
-	c.Buf.Clear(c.style.Fg, c.style.Bg)
+	s := c.root.Style()
+	c.Buf.Clear(s.Fg, s.Bg)
 }
 
+// AddShape delegates straight to the root Container's AddChild: same
+// bounds check, same style propagation, same invalidator propagation,
+// same layer-sorted insertion every nested Container already gives its
+// children. Nothing about being "the top" needs its own version of this.
 func (c *Canvas) AddShape(s Drawable) {
-    if !s.IsInBounds(
-        geom.Bounds{
-            Pos: &geom.Point{X:0, Y:0},
-            W: c.RequestedWidth,
-            H: c.RequestedHeight}){
-		panic("Shape out of composite bounds")
-	}	
+	c.root.AddChild(s)
+}
 
-    s.SetParentStyle(c.style)
+// SetInvalidator wires up the redraw callback for the whole tree, called
+// by Renderer.Run. Container.SetInvalidator already handles reaching
+// children added before this was called (the normal order: build the
+// tree, then hand it to a Renderer) -- Canvas doesn't need its own copy
+// of that logic.
+func (c *Canvas) SetInvalidator(fn func()) {
+	c.root.SetInvalidator(fn)
+}
 
-	c.Shapes = utils.InsertSortLayered(c.Shapes, s)
+// Shapes returns the top-level shapes currently on the canvas. This is
+// deliberately a read-only accessor, not an exported slice -- the old
+// Canvas.Shapes was a public field, which meant anyone could mutate it
+// directly (`c.Shapes = append(...)`) and skip AddShape's bounds check,
+// style propagation, and invalidator wiring entirely. That's the same
+// class of bug as the old List building a Box by hand instead of going
+// through NewBox: an escape hatch around the constructor that leaves the
+// tree in a half-wired state.
+func (c *Canvas) Shapes() []Drawable {
+	out := make([]Drawable, len(c.root.children))
+	copy(out, c.root.children)
+	return out
 }
 
 func (c *Canvas) Compose() {
-    
-    c.Restore()
-	for _, s := range c.Shapes {
-        l, ok := s.(Layoutable)
-
-        if ok {
-            l.Layout(*c.bounds)   
-        }
-
-		s.Draw(c.Buf, *geom.VectorFromPoint(*c.bounds.Pos))
-    }
+	c.Restore()
+	c.root.Draw(c.Buf, geom.Vector{})
 }

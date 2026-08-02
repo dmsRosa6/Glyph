@@ -1,109 +1,83 @@
 package canvas
 
 import (
-	"errors"
+	"sync"
 
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
+// Text always draws with a transparent background, so it blends with
+// whatever is behind it rather than punching an opaque box.
 type Text struct {
-	bounds geom.Bounds
+	BaseNode
+
+	mu    sync.RWMutex
 	value string
-	style *Style
-	parentStyle *Style
-	layout *Layout
-	layer int
 }
 
 type TextConfig struct {
-    Value string
-	Bg, Fg core.Color
+	Value  string
+	Fg     core.Color
 	Anchor Anchor
-	Layer int
+	Layer  int
 }
 
-
 func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
-	var bg core.Color
-    var fg core.Color
+	bounds := geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1)
+	style := Style{Bg: core.Transparent, Fg: cfg.Fg}
 
-	bg = core.Transparent
-
-	fg = cfg.Fg
-
-    s := &Style{
-        Bg: bg,
-        Fg: fg,
-    }
-	
-	t := &Text{
-		bounds:  *geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1),
-		value: cfg.Value,
-		style: s,
-		layout: &Layout{anchor: &cfg.Anchor, computedPos: pos},
-	}
-
-	if err := t.SetLayer(cfg.Layer); err != nil{
+	base, err := newBaseNode(bounds, cfg.Anchor, style, cfg.Layer)
+	if err != nil {
 		return nil, err
 	}
 
-	return t, nil
+	return &Text{BaseNode: base, value: cfg.Value}, nil
 }
 
 func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
-	x := t.layout.computedPos.X
-	y := t.layout.computedPos.Y
+	t.mu.RLock()
+	value := t.value
+	t.mu.RUnlock()
 
-	for i := 0; i < len(t.value); i++{
-	
-		r := rune(t.value[i])
-		
-		buf.Set(vec.X + x+i, vec.Y + y, r, t.style.Bg, t.style.Fg)
+	s := t.Style()
+	x, y := t.computedPos.X, t.computedPos.Y
+
+	for i := 0; i < len(value); i++ {
+		buf.Set(vec.X+x+i, vec.Y+y, rune(value[i]), s.Bg, s.Fg)
 	}
 }
 
-func (t *Text) IsInBounds(parent geom.Bounds) bool{
-
-	if t.bounds.Pos.X < 0 {
-		return false
+// SetValue updates the text's content and asks the renderer for a
+// redraw. Safe to call concurrently, including from a background
+// goroutine -- this IS the "let a component refresh itself via a
+// goroutine" hook: hold a reference to a Text, spin up a goroutine, call
+// SetValue on whatever schedule you want.
+//
+//	clock, _ := canvas.NewText(pos, canvas.TextConfig{Value: "00:00:00"})
+//	go func() {
+//	    for range time.Tick(time.Second) {
+//	        clock.SetValue(time.Now().Format("15:04:05"))
+//	    }
+//	}()
+//
+// The node's width is fixed at construction (from the initial value's
+// length) since that's what everything else's bounds-checking and
+// layout is computed against. A longer replacement is truncated to fit;
+// construct with your expected max width if the value can grow.
+func (t *Text) SetValue(v string) {
+	t.mu.Lock()
+	if len(v) > t.bounds.W {
+		v = v[:t.bounds.W]
 	}
+	t.value = v
+	t.mu.Unlock()
 
-	if t.bounds.Pos.Y < 0 {
-		return false
-	}
-
-	if t.bounds.Pos.Y + t.bounds.H > parent.H {
-		return false
-	}
-
-	if t.bounds.Pos.X + t.bounds.W > parent.W {
-		return false
-	}
-
-	return true
+	t.Invalidate()
 }
 
-func (r *Text) SetLayer(l int) error{
-	if l < 0{
-		return errors.New("Layers must be greater or equal to 0")
-	} 
-
-	r.layer = l
-	return nil
-}
-
-func (r *Text) GetLayer() int{
-    return r.layer
-}
-
-func (t *Text) SetParentStyle(s *Style){
-    t.parentStyle = s
-	t.style.Bg = s.Bg
-}
-
-func (t *Text) Layout(parent geom.Bounds){
-	t.layout.computedPos.X = resolveAxis(t.layout.anchor.H, parent.W, t.bounds.W, t.bounds.Pos.X)
-    t.layout.computedPos.Y = resolveAxis(t.layout.anchor.V, parent.H, t.bounds.H, t.bounds.Pos.Y)
-
+func (t *Text) Value() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.value
 }

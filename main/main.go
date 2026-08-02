@@ -9,40 +9,95 @@ import (
 	"github.com/dmsRosa6/glyph/render"
 )
 
-func main() {
-	c := canvas.NewCanvas(80, 40, core.Black, core.White)
-	r := render.NewRenderer(render.LoopMode(1), 60)
-	boxCfg := canvas.BoxConfig{
+func statusItem(width int, label string, color core.Color) *canvas.Bordered {
+	bounds := geom.NewBounds(0, 0, width, 3)
+
+	box, err := canvas.NewBox(bounds, canvas.BoxConfig{
 		Padding: 1,
+		Style:   canvas.Style{Bg: core.Transparent, Fg: color},
 		BorderConfig: canvas.BorderConfig{
 			Thickness:   1,
-			BorderStyle: canvas.SingleLine,
-			Style:       canvas.Style{Fg: core.Gray, Bg: core.Transparent},
+			BorderStyle: canvas.Rounded,
+			Style:       canvas.Style{Bg: core.Transparent, Fg: color},
 		},
-		Style: canvas.Style{Fg: core.White, Bg: core.Transparent},
-		Anchor: canvas.Anchor{canvas.Start, canvas.Start},
-	}
-
-	mainBox, _ := canvas.NewBox(geom.NewBounds(0, 0, 30, 15), boxCfg)
-
-	list, _ := canvas.NewList(canvas.ListConfig{
-		Box:     mainBox,
-		Style:   canvas.Style{Fg: core.White, Bg: core.Transparent},
-		Anchor:  canvas.Anchor{canvas.Start, canvas.Start},
-		Padding: 1,
-		Layer:   0,
 	})
-
-	for i := 0; i < 3; i++ {
-		itemBox, _ := canvas.NewBox(geom.NewBounds(0, 4*i, 30, 5), boxCfg)
-		list.AddItem(itemBox)
+	if err != nil {
+		panic(err)
 	}
- 
-	c.AddShape(list)
+
+	text, err := canvas.NewText(&geom.Point{X: 0, Y: 0}, canvas.TextConfig{
+		Value: label,
+		Fg:    color,
+	})
+	if err != nil {
+		panic(err)
+	}
+	box.AddChild(text)
+
+	return box
+}
+
+func main() {
+	c := canvas.NewCanvas(50, 20, core.White, core.Black)
+	r := render.NewRenderer(render.OnDemand, 0)
+
+	// The whole UI lives in one Window: a double-line border, a title on
+	// the frame itself, padded content.
+	win, err := canvas.NewWindow(geom.NewBounds(1, 1, 48, 18), canvas.WindowConfig{
+		BoxConfig: canvas.BoxConfig{
+			Padding: 1,
+			BorderConfig: canvas.BorderConfig{
+				Thickness:   1,
+				BorderStyle: canvas.DoubleLine,
+				Style:       canvas.Style{Bg: core.Transparent, Fg: core.White},
+			},
+		},
+		Title:         "SYSTEM STATUS",
+		TitleXOffset:  1,
+		TitlePosition: canvas.TitleTop,
+		TitleFg:       core.Yellow,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	innerWidth := 46 // window content width: 48 - 2*padding
+
+	// A plain Rect used as a colored divider line, not a text label.
+	divider, err := canvas.NewRect(geom.NewBounds(0, 0, innerWidth, 1), canvas.RectConfig{
+		Ch:    '─',
+		Style: canvas.Style{Bg: core.Transparent, Fg: core.White},
+	})
+	if err != nil {
+		panic(err)
+	}
+	win.AddChild(divider)
+
+	statusList, err := canvas.NewList(geom.NewBounds(0, 2, innerWidth, 9), canvas.ListConfig{})
+	if err != nil {
+		panic(err)
+	}
+	statusList.AddChild(statusItem(innerWidth, "> CPU      OK", core.Green))
+	statusList.AddChild(statusItem(innerWidth, "> MEMORY   WARN", core.Yellow))
+	statusList.AddChild(statusItem(innerWidth, "> DISK     ERROR", core.Red))
+	win.AddChild(statusList)
+
+	footer, err := canvas.NewText(&geom.Point{X: 0, Y: 15}, canvas.TextConfig{
+		Value:  "v1.0.0",
+		Fg:     core.White,
+		Anchor: canvas.Anchor{H: canvas.End},
+	})
+	if err != nil {
+		panic(err)
+	}
+	win.AddChild(footer)
+
+	c.AddShape(win)
+
 	go r.Run(c)
 
+	fmt.Println("Press ENTER to stop...")
 	fmt.Scanln()
-	r.Stop()
 
-	fmt.Println("Done")
+	r.Stop()
 }

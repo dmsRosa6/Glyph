@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
@@ -54,7 +53,7 @@ func main() {
 		},
 		Title:         "SYSTEM STATUS",
 		TitleXOffset:  1,
-		TitlePosition: canvas.TitleTop,
+		TitlePosition: canvas.TitleBottom,
 		TitleFg:       core.Yellow,
 	})
 	if err != nil {
@@ -96,7 +95,6 @@ func main() {
 
 	go r.Run(c)
 
-	fmt.Println("Press ENTER to stop...")
 	fmt.Scanln()
 
 	r.Stop()

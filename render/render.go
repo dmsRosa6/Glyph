@@ -46,7 +46,6 @@ func NewRenderer(mode LoopMode, fps int) *Renderer {
 }
 
 func (r *Renderer) Init() {
-    fmt.Fprint(r.out, "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l")
     fmt.Fprint(r.out, "\x1b[?25l")
     fmt.Fprint(r.out, "\x1b[?1049h")
     fmt.Fprint(r.out, "\x1b[2J")

@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-
+	"github.com/dmsRosa6/glyph/app"
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
@@ -38,8 +37,13 @@ func statusItem(width int, label string, color core.Color) *canvas.Bordered {
 }
 
 func main() {
-	c := canvas.NewMaxSizeCanvas(core.White, core.Black)
-	r := render.NewRenderer(render.OnDemand, 0)
+
+	appCfg := app.AppConfig{
+		Bg: &core.Black,
+		RenderMode: render.OnDemand,
+	}
+
+	a, _ := app.NewApp(appCfg)
 
 	// The whole UI lives in one Window: a double-line border, a title on
 	// the frame itself, padded content.
@@ -92,13 +96,8 @@ func main() {
 	}
 	win.AddChild(footer)
 
-	c.AddShape(win)
+	a.Canvas.AddShape(win)
 
-	go r.Run(c)
-
-	fmt.Println("Press ENTER to stop...")
-	fmt.Scanln()
-
-	r.Stop()
+	a.Run()
 }
 

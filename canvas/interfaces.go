@@ -3,6 +3,7 @@ package canvas
 import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/input"
 )
 
 type Drawable interface {
@@ -39,4 +40,8 @@ type Composable interface {
 type Clippable interface {
 	Drawable
 	SetClip(clip geom.Bounds)
+}
+
+type Focusable interface {
+    HandleInput(e input.Event) bool
 }

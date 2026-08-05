@@ -58,7 +58,7 @@ func main() {
 		},
 		Title:         "SYSTEM STATUS",
 		TitleXOffset:  1,
-		TitlePosition: canvas.TitleTop,
+		TitlePosition: canvas.TitleBottom,
 		TitleFg:       core.Yellow,
 	})
 	if err != nil {

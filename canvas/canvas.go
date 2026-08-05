@@ -3,15 +3,11 @@ package canvas
 import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/input"
 	"github.com/dmsRosa6/glyph/term"
 )
 
-// Canvas owns the actual pixel buffer and treats the whole screen as a
-// single full-size Container -- the root of the tree, not a fourth
-// reimplementation of "add a child, check bounds, propagate style,
-// propagate invalidator, iterate and draw." Every one of those
-// responsibilities is exactly Container's job already; Canvas just
-// delegates to it instead of keeping its own copy in sync by hand.
+
 type Canvas struct {
 	root *Container
 	Buf  *core.Buffer
@@ -29,10 +25,6 @@ func NewMaxSizeCanvas(fg, bg core.Color) *Canvas {
 	return NewCanvas(size.Cols-1, size.Rows-1, fg, bg)
 }
 
-// NewCanvas: default-substitution keys off core.Transparent, not the
-// zero-value core.Color{} (which has the same field values as
-// core.Black, so an explicitly-passed Black used to silently become
-// White).
 func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 	if bg == core.Transparent {
 		bg = core.White
@@ -46,6 +38,7 @@ func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 		Style: Style{Bg: bg, Fg: fg},
 	})
 	if err != nil {
+		//TODO we dont need to panic move this
 		panic(err)
 	}
 
@@ -115,5 +108,30 @@ func (c *Canvas) Shapes() []Drawable {
 func (c *Canvas) Compose() {
 	c.Restore()
 	c.root.Draw(c.Buf, geom.Vector{})
+}
+
+func (c *Canvas) HandleInput(e input.Event) (bool, error) {
+	var m = map[input.Key] func() (bool, error){
+    input.KeyEnter: func() (bool, error) {
+		c.root.style = &Style{Fg: core.Red, Bg: core.DarkGray}
+		
+		return true, nil
+	},
+	}
+
+	f := m[e.Key];
+
+	if f != nil {
+		
+		reRender, err := f()
+		if err != nil {
+			return false, err
+		}
+
+
+		return reRender, nil
+	}
+
+	return false, nil;
 }
 

@@ -16,7 +16,7 @@ const (
 	KeyRight
 	KeyEnter
 	KeyEsc
-	KeyCtrlC
+	KeyCtrlC //Reserved to kill process cleanly
 )
 
 type Event struct {

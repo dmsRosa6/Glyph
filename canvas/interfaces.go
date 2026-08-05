@@ -43,5 +43,5 @@ type Clippable interface {
 }
 
 type Focusable interface {
-    HandleInput(e input.Event) bool
+    HandleInput(e input.Event) (bool, error)
 }

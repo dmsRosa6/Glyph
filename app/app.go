@@ -20,7 +20,6 @@ type App struct {
     Canvas  *canvas.Canvas
     Renderer *render.Renderer
     Input    *input.Manager
-    focused  canvas.Focusable
 }
 
 func NewApp(cfg AppConfig) (*App, error) {
@@ -73,14 +72,19 @@ func (a *App) Run() {
     
 	a.Input.Start()
 	for ev := range a.Input.Events() {
-        if ev.Key == input.KeyCtrlC  || ev.Key == input.KeyEnter{
+        //filter out special ones
+		if ev.Key == input.KeyCtrlC{
             a.Stop()
             return
         }
-        if a.focused != nil {
-            a.focused.HandleInput(ev)
-            a.Renderer.RequestRedraw()
-        }
+
+        if f, ok := any(a.Canvas).(canvas.Focusable); ok {
+            reRender, _ := f.HandleInput(ev)
+		
+			if a.Renderer.Mode == render.LoopMode(0) && reRender{
+				a.Renderer.RequestRedraw()
+			}
+		}
     }
 }
 

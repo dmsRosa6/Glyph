@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -18,15 +19,15 @@ import (
 // the way the old List only accepted *Box.
 type Container struct {
 	BaseNode
-	children []Drawable
-	layout   LayoutPolicy
+	children []framework.Drawable
+	layout   framework.LayoutPolicy
 }
 
 type ContainerConfig struct {
-	Style  Style
+	Style  framework.Style
 	Layer  int
-	Anchor Anchor
-	Layout LayoutPolicy // defaults to FreeLayout if nil
+	Anchor framework.Anchor
+	Layout framework.LayoutPolicy // defaults to FreeLayout if nil
 }
 
 func NewContainer(bounds *geom.Bounds, cfg ContainerConfig) (*Container, error) {
@@ -37,12 +38,12 @@ func NewContainer(bounds *geom.Bounds, cfg ContainerConfig) (*Container, error) 
 
 	policy := cfg.Layout
 	if policy == nil {
-		policy = FreeLayout{}
+		policy = framework.FreeLayout{}
 	}
 
 	return &Container{
 		BaseNode: base,
-		children: []Drawable{},
+		children: []framework.Drawable{},
 		layout:   policy,
 	}, nil
 }
@@ -73,7 +74,7 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 // the container itself sits in *its* parent, a different coordinate
 // space than where a child sits within the container. Insertion order
 // doesn't matter here anymore since Draw sorts by layer every frame.
-func (c *Container) AddChild(child Drawable) {
+func (c *Container) AddChild(child framework.Drawable) {
 	if !child.IsInBounds(c.LocalFrame()) {
 		panic("shape out of container bounds")
 	}
@@ -84,7 +85,7 @@ func (c *Container) AddChild(child Drawable) {
 	c.children = append(c.children, child)
 }
 
-func (c *Container) RemoveChild(target Drawable) {
+func (c *Container) RemoveChild(target framework.Drawable) {
 	for i, child := range c.children {
 		if child == target {
 			c.children = append(c.children[:i], c.children[i+1:]...)
@@ -93,7 +94,7 @@ func (c *Container) RemoveChild(target Drawable) {
 	}
 }
 
-func (c *Container) SetParentStyle(s *Style) {
+func (c *Container) SetParentStyle(s *framework.Style) {
 	c.BaseNode.SetParentStyle(s)
 	for _, child := range c.children {
 		child.SetParentStyle(c.ResolvedStyle())

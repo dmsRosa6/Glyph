@@ -2,11 +2,10 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
-	"github.com/dmsRosa6/glyph/input"
 	"github.com/dmsRosa6/glyph/term"
 )
-
 
 type Canvas struct {
 	root *Container
@@ -35,10 +34,10 @@ func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 
 	// NewContainer only errors if Layer < 0, and NewCanvas never passes
 	root, err := NewContainer(geom.NewBounds(0, 0, w, h), ContainerConfig{
-		Style: Style{Bg: bg, Fg: fg},
+		Style: framework.Style{Bg: bg, Fg: fg},
 	})
 	if err != nil {
-		//TODO we dont need to panic move this
+		// TODO we dont need to panic move this
 		panic(err)
 	}
 
@@ -78,7 +77,7 @@ func (c *Canvas) Restore() {
 // bounds check, same style propagation, same invalidator propagation,
 // same layer-sorted insertion every nested Container already gives its
 // children. Nothing about being "the top" needs its own version of this.
-func (c *Canvas) AddShape(s Drawable) {
+func (c *Canvas) AddShape(s framework.Drawable) {
 	c.root.AddChild(s)
 }
 
@@ -99,8 +98,8 @@ func (c *Canvas) SetInvalidator(fn func()) {
 // class of bug as the old List building a Box by hand instead of going
 // through NewBox: an escape hatch around the constructor that leaves the
 // tree in a half-wired state.
-func (c *Canvas) Shapes() []Drawable {
-	out := make([]Drawable, len(c.root.children))
+func (c *Canvas) Shapes() []framework.Drawable {
+	out := make([]framework.Drawable, len(c.root.children))
 	copy(out, c.root.children)
 	return out
 }
@@ -110,28 +109,30 @@ func (c *Canvas) Compose() {
 	c.root.Draw(c.Buf, geom.Vector{})
 }
 
-func (c *Canvas) HandleInput(e input.Event) (bool, error) {
-	var m = map[input.Key] func() (bool, error){
-    input.KeyEnter: func() (bool, error) {
-		c.root.style = &Style{Fg: core.Red, Bg: core.DarkGray}
-		
-		return true, nil
-	},
-	}
-
-	f := m[e.Key];
-
-	if f != nil {
-		
-		reRender, err := f()
-		if err != nil {
-			return false, err
-		}
-
-
-		return reRender, nil
-	}
-
-	return false, nil;
+func (c *Canvas) CollectFocusable() []framework.Focusable {
+	var out []framework.Focusable
+	collectFocusable(c.root.children, &out)
+	return out
 }
 
+func collectFocusable(children []framework.Drawable, out *[]framework.Focusable) {
+	for _, child := range children {
+		if f, ok := child.(framework.Focusable); ok {
+			*out = append(*out, f)
+			// A focusable node's children are reached via Enter(),
+			// not flattened here -- so if it's ALSO a container, stop.
+			continue
+		}
+		// Not focusable itself, but might still hold focusable
+		// descendants deeper down (e.g. a plain Container wrapping
+		// focusable widgets) -- keep walking those.
+		if cont, ok := child.(*Container); ok {
+			collectFocusable(cont.children, out)
+		}
+		if b, ok := child.(*Bordered); ok {
+			if cont, ok := b.content.(*Container); ok {
+				collectFocusable(cont.children, out)
+			}
+		}
+	}
+}

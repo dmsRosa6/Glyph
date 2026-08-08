@@ -5,6 +5,7 @@ import (
 
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/input"
 	"github.com/dmsRosa6/glyph/render"
 	"github.com/dmsRosa6/glyph/term"
@@ -20,6 +21,7 @@ type App struct {
     Canvas  *canvas.Canvas
     Renderer *render.Renderer
     Input    *input.Manager
+	Focus    *input.FocusManager
 }
 
 func NewApp(cfg AppConfig) (*App, error) {
@@ -68,24 +70,46 @@ func NewApp(cfg AppConfig) (*App, error) {
 }
 
 func (a *App) Run() {
-	go a.Renderer.Run(a.Canvas)
-    
-	a.Input.Start()
-	for ev := range a.Input.Events() {
-        //filter out special ones
-		if ev.Key == input.KeyCtrlC{
-            a.Stop()
-            return
-        }
+	a.Renderer.Start(a.Canvas)
+	a.Focus = input.NewFocusManager(a.Canvas.CollectFocusable())
+    a.Input.Start()
 
-        if f, ok := any(a.Canvas).(canvas.Focusable); ok {
-            reRender, _ := f.HandleInput(ev)
-		
-			if a.Renderer.Mode == render.LoopMode(0) && reRender{
+	for ev := range a.Input.Events() {
+		if ev.Key == framework.KeyCtrlC {
+			a.Stop()
+			return
+		}
+
+		if ev.Key == framework.KeyEnter {
+			if !a.Focus.Enter() {
+				// nothing to drill into -- let the current widget's own
+				// bound action (if any) handle Enter itself
+				if f := a.Focus.Current(); f != nil {
+					f.HandleInput(ev)
+				}
+			}
+			a.Renderer.RequestRedraw()
+			continue
+		}
+		if ev.Key == framework.KeyEsc {
+			a.Focus.Exit()
+			a.Renderer.RequestRedraw()
+			continue
+		}
+
+		if ev.Key == framework.KeyTab {
+			a.Focus.Next()
+			a.Renderer.RequestRedraw()
+			continue
+		}
+
+		if f := a.Focus.Current(); f != nil {
+			reRender, _ := f.HandleInput(ev)
+			if reRender {
 				a.Renderer.RequestRedraw()
 			}
 		}
-    }
+	}
 }
 
 func (a *App) Stop() {

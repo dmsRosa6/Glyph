@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -19,13 +20,13 @@ type Text struct {
 type TextConfig struct {
 	Value  string
 	Fg     core.Color
-	Anchor Anchor
+	Anchor framework.Anchor
 	Layer  int
 }
 
 func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 	bounds := geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1)
-	style := Style{Bg: core.Transparent, Fg: cfg.Fg}
+	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
 	base, err := newBaseNode(bounds, cfg.Anchor, style, cfg.Layer)
 	if err != nil {

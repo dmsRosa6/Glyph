@@ -1,9 +1,8 @@
-package canvas
+package framework
 
 import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/geom"
-	"github.com/dmsRosa6/glyph/input"
 )
 
 type Drawable interface {
@@ -41,7 +40,15 @@ type Clippable interface {
 	Drawable
 	SetClip(clip geom.Bounds)
 }
-
 type Focusable interface {
-    HandleInput(e input.Event) (bool, error)
+    Drawable
+    HandleInput(ev Event) (bool, error)
+    Focus()
+    Blur()
+    IsFocused() bool
+}
+
+type FocusContainer interface {
+	Focusable
+	FocusableChildren() []Focusable
 }

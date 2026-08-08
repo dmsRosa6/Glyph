@@ -1,14 +1,17 @@
 package canvas
 
-import "github.com/dmsRosa6/glyph/geom"
+import (
+	"github.com/dmsRosa6/glyph/framework"
+	"github.com/dmsRosa6/glyph/geom"
+)
 
 type BoxConfig struct {
 	BorderConfig BorderConfig
 
 	Padding int
 
-	Style  Style
-	Anchor Anchor
+	Style  framework.Style
+	Anchor framework.Anchor
 	Layer  int
 }
 

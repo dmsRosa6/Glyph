@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -16,7 +17,7 @@ import (
 // right, instead of N places to independently get it wrong.
 type BaseNode struct {
 	bounds *geom.Bounds
-	anchor Anchor
+	anchor framework.Anchor
 
 	// computedPos is always a COPY of bounds.Pos, taken once at
 	// construction and updated in place by Layout()/SetComputedPos().
@@ -24,8 +25,8 @@ type BaseNode struct {
 	// layout can never corrupt the originally-declared bounds.
 	computedPos geom.Point
 
-	style       *Style
-	parentStyle *Style
+	style       *framework.Style
+	parentStyle *framework.Style
 	layer       int
 
 	// invalidate is how this node (or a goroutine holding a reference to
@@ -35,12 +36,12 @@ type BaseNode struct {
 	invalidate func()
 }
 
-func newBaseNode(bounds *geom.Bounds, anchor Anchor, style Style, layer int) (BaseNode, error) {
+func newBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int) (BaseNode, error) {
 	n := BaseNode{
 		bounds:      bounds,
 		anchor:      anchor,
 		computedPos: *bounds.Pos, // copy, deliberately not the same pointer
-		style:       ResolveStyle(style, *NewTransparentStyle()),
+		style:       framework.ResolveStyle(style, *framework.NewTransparentStyle()),
 	}
 
 	if err := n.SetLayer(layer); err != nil {
@@ -62,25 +63,25 @@ func (n *BaseNode) GetLayer() int {
 	return n.layer
 }
 
-func (n *BaseNode) SetParentStyle(s *Style) {
+func (n *BaseNode) SetParentStyle(s *framework.Style) {
 	n.parentStyle = s
 }
 
 // Style returns this node's fully resolved style. Never dereferences a
 // nil parentStyle -- a node drawn before being attached to a parent just
 // resolves against fully transparent instead of panicking.
-func (n *BaseNode) Style() Style {
-	parent := Style{Bg: core.Transparent, Fg: core.Transparent}
+func (n *BaseNode) Style() framework.Style {
+	parent := framework.Style{Bg: core.Transparent, Fg: core.Transparent}
 	if n.parentStyle != nil {
 		parent = *n.parentStyle
 	}
-	return *ResolveStyle(*n.style, parent)
+	return *framework.ResolveStyle(*n.style, parent)
 }
 
 // ResolvedStyle hands this node's resolved style down as a child's
 // parentStyle, so style inheritance chains through every level instead
 // of skipping the container's own style.
-func (n *BaseNode) ResolvedStyle() *Style {
+func (n *BaseNode) ResolvedStyle() *framework.Style {
 	s := n.Style()
 	return &s
 }
@@ -123,8 +124,8 @@ func (n *BaseNode) IsInBounds(parent geom.Bounds) bool {
 }
 
 func (n *BaseNode) Layout(parent geom.Bounds) {
-	n.computedPos.X = resolveAxis(n.anchor.H, parent.W, n.bounds.W, n.bounds.Pos.X)
-	n.computedPos.Y = resolveAxis(n.anchor.V, parent.H, n.bounds.H, n.bounds.Pos.Y)
+	n.computedPos.X = framework.ResolveAxis(n.anchor.H, parent.W, n.bounds.W, n.bounds.Pos.X)
+	n.computedPos.Y = framework.ResolveAxis(n.anchor.V, parent.H, n.bounds.H, n.bounds.Pos.Y)
 }
 
 // LocalFrame is the zero-origin bounds children should be laid out and
@@ -152,6 +153,6 @@ func (n *BaseNode) SetComputedPos(x, y int) {
 // AnchorH exposes the horizontal anchor so a LayoutPolicy can still honor
 // it (e.g. centering a child horizontally) even when it's overriding Y
 // outright.
-func (n *BaseNode) AnchorH() AxisAnchor {
+func (n *BaseNode) AnchorH() framework.AxisAnchor {
 	return n.anchor.H
 }

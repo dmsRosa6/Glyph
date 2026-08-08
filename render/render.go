@@ -53,6 +53,11 @@ func (r *Renderer) Init() {
     r.out.Flush()
 }
 
+func (r *Renderer) Start(c *canvas.Canvas) {
+	go r.Run(c)
+}
+
+
 func (r *Renderer) Run(c *canvas.Canvas) {
 	// Wire self-refresh: any node in the tree calling Invalidate() (e.g.
 	// via Text.SetValue from a background goroutine) now reaches

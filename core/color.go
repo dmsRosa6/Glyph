@@ -26,4 +26,6 @@ var (
 	Yellow      = Color{R: 255, G: 255, B: 0, IsTransparent: false}
 	Gray        = Color{R: 180, G: 180, B: 180, IsTransparent: false}
 	DarkGray    = Color{R: 80, G: 80, B: 80, IsTransparent: false}
+	Cyan    = Color{R: 0, G: 255, B: 255, IsTransparent: false}
+	Magenta    = Color{R: 255, G: 0, B: 255, IsTransparent: false}
 )

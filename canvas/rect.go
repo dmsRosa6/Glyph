@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -13,9 +14,9 @@ type Rect struct {
 
 type RectConfig struct {
 	Ch    rune
-	Style Style
+	Style framework.Style
 
-	Anchor Anchor
+	Anchor framework.Anchor
 	Layer  int
 }
 

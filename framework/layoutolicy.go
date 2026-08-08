@@ -1,6 +1,8 @@
-package canvas
+package framework
 
-import "github.com/dmsRosa6/glyph/geom"
+import (
+	"github.com/dmsRosa6/glyph/geom"
+)
 
 // LayoutPolicy decides where each child sits within a Container's
 // interior. Container calls Arrange once per Draw, before drawing each
@@ -56,7 +58,7 @@ func (StackLayout) Arrange(children []Drawable, frame geom.Bounds) {
 			continue
 		}
 		w, h := lt.Size()
-		x := resolveAxis(lt.AnchorH(), frame.W, w, 0)
+		x := ResolveAxis(lt.AnchorH(), frame.W, w, 0)
 		lt.SetComputedPos(x, y)
 		y += h
 	}

@@ -1,6 +1,9 @@
 package canvas
 
-import "github.com/dmsRosa6/glyph/geom"
+import (
+	"github.com/dmsRosa6/glyph/framework"
+	"github.com/dmsRosa6/glyph/geom"
+)
 
 // List is now just a Container with StackLayout -- there's no bespoke
 // items []*Box anymore. Because of that, List.AddChild (promoted
@@ -9,14 +12,14 @@ import "github.com/dmsRosa6/glyph/geom"
 // the only way to put something in a list.
 type List struct {
 	*Container
-	itemStyle   Style
+	itemStyle   framework.Style
 	itemPadding int
 }
 
 type ListConfig struct {
-	Style       Style
+	Style       framework.Style
 	ItemPadding int
-	Anchor      Anchor
+	Anchor      framework.Anchor
 	Layer       int
 }
 
@@ -25,7 +28,7 @@ func NewList(bounds *geom.Bounds, cfg ListConfig) (*List, error) {
 		Style:  cfg.Style,
 		Layer:  cfg.Layer,
 		Anchor: cfg.Anchor,
-		Layout: StackLayout{},
+		Layout: framework.StackLayout{},
 	})
 	if err != nil {
 		return nil, err

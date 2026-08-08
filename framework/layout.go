@@ -1,4 +1,4 @@
-package canvas
+package framework
 
 type AxisAnchor int
 
@@ -14,7 +14,7 @@ type Anchor struct {
 	H AxisAnchor
 }
 
-func resolveAxis(anchor AxisAnchor, parentSize, size, original int) int {
+func ResolveAxis(anchor AxisAnchor, parentSize, size, original int) int {
 	switch anchor {
 	case Start:
 		return 0

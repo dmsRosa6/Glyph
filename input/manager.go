@@ -3,26 +3,9 @@ package input
 import (
 	"context"
 
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/term"
 )
-
-type Key int
-
-const (
-	KeyRune Key = iota
-	KeyUp
-	KeyDown
-	KeyLeft
-	KeyRight
-	KeyEnter
-	KeyEsc
-	KeyCtrlC //Reserved to kill process cleanly
-)
-
-type Event struct {
-	Key  Key
-	Rune rune
-}
 
 // decodeState tracks how far into a multi-byte escape sequence we are.
 type decodeState int
@@ -34,7 +17,7 @@ const (
 )
 
 type Manager struct {
-	events  chan Event
+	events  chan framework.Event
 	ctx     context.Context
 	cancel  context.CancelFunc
 	restore func()
@@ -50,7 +33,7 @@ func NewManager() (*Manager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Manager{
-		events:  make(chan Event, 16),
+		events:  make(chan framework.Event, 16),
 		ctx:     ctx,
 		cancel:  cancel,
 		restore: restore,
@@ -58,7 +41,7 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
-func (m *Manager) Events() <-chan Event { return m.events }
+func (m *Manager) Events() <-chan framework.Event { return m.events }
 
 func (m *Manager) Start() {
 	go m.run()
@@ -97,7 +80,7 @@ func (m *Manager) run() {
 			// mid-way through decoding an escape sequence, the silence
 			// means it was a lone ESC press, not the start of one.
 			if state == stateEsc {
-				m.send(Event{Key: KeyEsc})
+				m.send(framework.Event{Key: framework.KeyEsc})
 				state = stateNormal
 			}
 			continue
@@ -116,20 +99,20 @@ func (m *Manager) run() {
 				// ESC wasn't followed by '[', so it was a lone ESC.
 				// Emit it, then process ch as a fresh normal byte —
 				// it hasn't been consumed yet.
-				m.send(Event{Key: KeyEsc})
+				m.send(framework.Event{Key: framework.KeyEsc})
 				state = m.handleNormal(ch)
 			}
 
 		case stateEscBracket:
 			switch ch {
 			case 'A':
-				m.send(Event{Key: KeyUp})
+				m.send(framework.Event{Key: framework.KeyUp})
 			case 'B':
-				m.send(Event{Key: KeyDown})
+				m.send(framework.Event{Key: framework.KeyDown})
 			case 'C':
-				m.send(Event{Key: KeyRight})
+				m.send(framework.Event{Key: framework.KeyRight})
 			case 'D':
-				m.send(Event{Key: KeyLeft})
+				m.send(framework.Event{Key: framework.KeyLeft})
 			default:
 				// unrecognized escape sequence — drop it silently
 			}
@@ -146,18 +129,20 @@ func (m *Manager) handleNormal(ch byte) decodeState {
 	case 0x1b: // ESC
 		return stateEsc
 	case 0x03: // Ctrl+C
-		m.send(Event{Key: KeyCtrlC})
+		m.send(framework.Event{Key: framework.KeyCtrlC})
 	case '\r', '\n':
-		m.send(Event{Key: KeyEnter})
+		m.send(framework.Event{Key: framework.KeyEnter})
+	case '\t':
+		m.send(framework.Event{Key: framework.KeyTab})
 	default:
-		m.send(Event{Key: KeyRune, Rune: rune(ch)})
+		m.send(framework.Event{Key: framework.KeyRune, Rune: rune(ch)})
 	}
 	return stateNormal
 }
 
 // send drops the event if the channel is full rather than blocking
 // the whole read loop on a slow consumer.
-func (m *Manager) send(e Event) {
+func (m *Manager) send(e framework.Event) {
 	select {
 	case m.events <- e:
 	default:

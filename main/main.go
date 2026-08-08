@@ -4,6 +4,7 @@ import (
 	"github.com/dmsRosa6/glyph/app"
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 	"github.com/dmsRosa6/glyph/render"
 )
@@ -13,11 +14,11 @@ func statusItem(width int, label string, color core.Color) *canvas.Bordered {
 
 	box, err := canvas.NewBox(bounds, canvas.BoxConfig{
 		Padding: 1,
-		Style:   canvas.Style{Bg: core.Transparent, Fg: color},
+		Style:   framework.Style{Bg: core.Transparent, Fg: color},
 		BorderConfig: canvas.BorderConfig{
 			Thickness:   1,
 			BorderStyle: canvas.Rounded,
-			Style:       canvas.Style{Bg: core.Transparent, Fg: color},
+			Style:       framework.Style{Bg: core.Transparent, Fg: color},
 		},
 	})
 	if err != nil {
@@ -35,69 +36,34 @@ func statusItem(width int, label string, color core.Color) *canvas.Bordered {
 
 	return box
 }
-
 func main() {
+	a, _ := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: render.FixedFPS})
 
-	appCfg := app.AppConfig{
-		Bg: &core.Black,
-		RenderMode: render.OnDemand,
-	}
-
-	a, _ := app.NewApp(appCfg)
-
-	// The whole UI lives in one Window: a double-line border, a title on
-	// the frame itself, padded content.
-	win, err := canvas.NewWindow(geom.NewBounds(1, 1, 48, 18), canvas.WindowConfig{
-		BoxConfig: canvas.BoxConfig{
-			Padding: 1,
-			BorderConfig: canvas.BorderConfig{
-				Thickness:   1,
-				BorderStyle: canvas.DoubleLine,
-				Style:       canvas.Style{Bg: core.Transparent, Fg: core.White},
-			},
-		},
-		Title:         "SYSTEM STATUS",
-		TitleXOffset:  1,
-		TitlePosition: canvas.TitleBottom,
-		TitleFg:       core.Yellow,
+	// Box A: a container that drills into Box B on Enter (no action of
+	// its own bound to Enter, and it has a focusable child).
+	boxA, _ := canvas.NewFocusableBox(geom.NewBounds(2, 2, 20, 8), canvas.FocusableBoxConfig{
+		Padding: 1, BorderConfig: canvas.DefaultBorderConfig(),
+		Style:      framework.Style{Bg: core.White, Fg: core.White},
+		FocusStyle: framework.Style{Bg: core.Red, Fg: core.Red},
 	})
-	if err != nil {
-		panic(err)
-	}
 
-	innerWidth := 46 // window content width: 48 - 2*padding
-
-	// A plain Rect used as a colored divider line, not a text label.
-	divider, err := canvas.NewRect(geom.NewBounds(0, 0, innerWidth, 1), canvas.RectConfig{
-		Ch:    '─',
-		Style: canvas.Style{Bg: core.Transparent, Fg: core.White},
+	// Box B: lives inside Box A, has no children, so Enter falls through
+	// to its own bound action instead of drilling further.
+	boxB, _ := canvas.NewFocusableBox(geom.NewBounds(0, 0, 14, 4), canvas.FocusableBoxConfig{
+		Padding: 1, BorderConfig: canvas.DefaultBorderConfig(),
+		Style:      framework.Style{Bg: core.Blue, Fg: core.Blue},
+		FocusStyle: framework.Style{Bg: core.Red, Fg: core.Red},
 	})
-	if err != nil {
-		panic(err)
-	}
-	win.AddChild(divider)
-
-	statusList, err := canvas.NewList(geom.NewBounds(0, 2, innerWidth, 9), canvas.ListConfig{})
-	if err != nil {
-		panic(err)
-	}
-	statusList.AddChild(statusItem(innerWidth, "> CPU      OK", core.Green))
-	statusList.AddChild(statusItem(innerWidth, "> MEMORY   WARN", core.Yellow))
-	statusList.AddChild(statusItem(innerWidth, "> DISK     ERROR", core.Red))
-	win.AddChild(statusList)
-
-	footer, err := canvas.NewText(&geom.Point{X: 0, Y: 15}, canvas.TextConfig{
-		Value:  "v1.0.0",
-		Fg:     core.White,
-		Anchor: canvas.Anchor{H: canvas.End},
+	boxB.BindAction(framework.KeyEnter, func(n *canvas.FocusableBaseNode, ev framework.Event) (bool, error) {
+		boxA, _ = canvas.NewFocusableBox(geom.NewBounds(0, 0, 14, 4), canvas.FocusableBoxConfig{
+		Padding: 1, BorderConfig: canvas.DefaultBorderConfig(),
+		Style:      framework.Style{Bg: core.White, Fg: core.White},
+		FocusStyle: framework.Style{Bg: core.Red, Fg: core.Red},
 	})
-	if err != nil {
-		panic(err)
-	}
-	win.AddChild(footer)
+		return true, nil // triggers a redraw
+	})
+	boxA.AddChild(boxB)
 
-	a.Canvas.AddShape(win)
-
+	a.Canvas.AddShape(boxA)
 	a.Run()
 }
-

@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -31,7 +32,7 @@ type WindowConfig struct {
 	TitlePosition TitlePosition
 	TitleFg       core.Color
 
-	Anchor Anchor
+	Anchor framework.Anchor
 	Layer  int
 }
 
@@ -98,11 +99,11 @@ func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
 	}
 }
 
-func (w *Window) AddChild(child Drawable) {
+func (w *Window) AddChild(child framework.Drawable) {
 	w.box.AddChild(child)
 }
 
-func (w *Window) RemoveChild(target Drawable) {
+func (w *Window) RemoveChild(target framework.Drawable) {
 	w.box.RemoveChild(target)
 }
 
@@ -118,7 +119,7 @@ func (w *Window) SetLayer(l int) error {
 	return w.box.SetLayer(l)
 }
 
-func (w *Window) SetParentStyle(s *Style) {
+func (w *Window) SetParentStyle(s *framework.Style) {
 	w.BaseNode.SetParentStyle(s)
 	w.box.SetParentStyle(w.ResolvedStyle())
 	if w.text != nil {

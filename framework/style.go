@@ -1,4 +1,4 @@
-package canvas
+package framework
 
 import "github.com/dmsRosa6/glyph/core"
 

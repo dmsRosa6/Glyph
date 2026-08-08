@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -14,17 +15,17 @@ type Border struct {
 type BorderConfig struct {
 	Thickness   int
 	BorderStyle BorderStyle
-	Style       Style
+	Style       framework.Style
 
-	Anchor Anchor
+	Anchor framework.Anchor
 	Layer  int
 }
 
 func DefaultBorderConfig() BorderConfig {
 	return BorderConfig{
 		Thickness:   1,
-		BorderStyle: EmptyBorder,
-		Style:       Style{Bg: core.Transparent, Fg: core.White},
+		BorderStyle: SingleLine,
+		Style:       framework.Style{Bg: core.Transparent, Fg: core.White},
 	}
 }
 

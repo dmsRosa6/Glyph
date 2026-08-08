@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -18,17 +19,17 @@ import (
 type Bordered struct {
 	BaseNode
 	border  *Border
-	content Drawable
+	content framework.Drawable
 }
 
 type BorderedConfig struct {
 	BorderConfig BorderConfig
-	Style        Style
-	Anchor       Anchor
+	Style        framework.Style
+	Anchor       framework.Anchor
 	Layer        int
 }
 
-func NewBordered(bounds *geom.Bounds, content Drawable, cfg BorderedConfig) (*Bordered, error) {
+func NewBordered(bounds *geom.Bounds, content framework.Drawable, cfg BorderedConfig) (*Bordered, error) {
 	base, err := newBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
@@ -55,7 +56,7 @@ func NewBordered(bounds *geom.Bounds, content Drawable, cfg BorderedConfig) (*Bo
 func (b *Bordered) Draw(buf *core.Buffer, vec geom.Vector) {
 	v := geom.Vector{X: vec.X + b.computedPos.X, Y: vec.Y + b.computedPos.Y}
 
-	if l, ok := b.content.(Layoutable); ok {
+	if l, ok := b.content.(framework.Layoutable); ok {
 		l.Layout(b.LocalFrame())
 	}
 	b.content.Draw(buf, v)
@@ -66,16 +67,16 @@ func (b *Bordered) Draw(buf *core.Buffer, vec geom.Vector) {
 // Container). Panics if the content doesn't accept children -- e.g.
 // wrapping a bare Text in a border and then calling AddChild on it isn't
 // meaningful.
-func (b *Bordered) AddChild(child Drawable) {
-	c, ok := b.content.(Composable)
+func (b *Bordered) AddChild(child framework.Drawable) {
+	c, ok := b.content.(framework.Composable)
 	if !ok {
 		panic("Bordered content does not accept children")
 	}
 	c.AddChild(child)
 }
 
-func (b *Bordered) RemoveChild(target Drawable) {
-	if c, ok := b.content.(Composable); ok {
+func (b *Bordered) RemoveChild(target framework.Drawable) {
+	if c, ok := b.content.(framework.Composable); ok {
 		c.RemoveChild(target)
 	}
 }
@@ -90,7 +91,7 @@ func (b *Bordered) SetLayer(l int) error {
 	return b.content.SetLayer(l)
 }
 
-func (b *Bordered) SetParentStyle(s *Style) {
+func (b *Bordered) SetParentStyle(s *framework.Style) {
 	b.BaseNode.SetParentStyle(s)
 	b.border.SetParentStyle(b.ResolvedStyle())
 	b.content.SetParentStyle(b.ResolvedStyle())

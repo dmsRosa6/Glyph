@@ -1,36 +1,113 @@
+# Glyph
+
+![glyph logo](go_glyph.png)
+
+A terminal UI framework for Go.
+
+Glyph provides a small set of composable primitives — containers, borders,
+text, lists, and focusable widgets — for building interactive terminal
+applications without wiring up rendering, layout, and input handling by
+hand.
+
 ## Features
 
-- **Component-Based Architecture**  
-  Build UIs using reusable components such as `Box`, `Window`, and other primitives.
+- **Composable widgets.** A single `Container` type parameterized by a
+  `LayoutPolicy` replaces the need for separate container types — free
+  positioning and stacked layouts are both just configuration.
+- **Style inheritance.** Colors and styles cascade from parent to child
+  automatically, with `Transparent` as an explicit "inherit" value.
+- **Focus management.** Tab/Enter/Esc navigation, including drilling into
+  nested focusable containers and back out.
+- **Self-refreshing components.** Any widget can update its own state from
+  a background goroutine and trigger a redraw.
+- **Two render modes.** Fixed frame rate, or on-demand redraw only when
+  something actually changes.
 
-- **Composite Components**  
-  Components can contain other components, enabling hierarchical layouts and structured UI trees.
+## Installation
 
-- **Custom Rendering Engine**  
-  Internal rendering pipeline that manages drawing order, composition, and screen buffering.
+```bash
+go get github.com/dmsRosa6/glyph
+```
 
-- **Dual Rendering Modes**
-  - **Immediate Mode** – Render on demand when explicitly triggered.
-  - **Continuous Mode** – Automatic re-rendering loop for dynamic interfaces with fps.
+## Quick start
 
-- **Viewport & Clipping Support**  
-  Built-in clipping system that ensures components render only within their visible boundaries.
+```go
+package main
 
-- **Canvas Abstraction**  
-  Low-level drawing surface responsible for rune placement, layering, and buffer management.
+import (
+	"github.com/dmsRosa6/glyph/app"
+	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/render"
+)
 
-- **Layout Control**
-  - Absolute positioning
-  - Nested positioning via parent offsets
-  - Boundary-aware rendering
+func main() {
+	a, err := app.NewApp(app.AppConfig{
+		Bg:         &core.Black,
+		RenderMode: render.FixedFPS,
+	})
+	if err != nil {
+		panic(err)
+	}
 
-- **Window System**
-  - Composable windows
-  - Structured content areas
-  - Encapsulated rendering logic
+	// build your UI, then:
+	a.Run()
+}
+```
 
-- **Minimal & Dependency-Light**  
-  Focused on understanding core TUI mechanics without heavy abstractions.
+See the `main/` directory for a fuller example, including bordered boxes,
+a focusable widget tree, a stacked list, and a self-updating clock.
 
-- **Built for Learning**  
-  *Still adding
+## Widgets
+
+- **Rect** — a filled rectangle of a single character, with optional
+  clipping.
+- **Text** — a single line of styled text. Can be updated at runtime,
+  including from a background goroutine, and will ask for a redraw when
+  it changes.
+- **Border** — draws a frame (corners, edges) around a bounds. Comes with
+  a few built-in styles (single line, double line, thick, rounded) and
+  supports custom ones.
+- **Bordered** — wraps any single widget with a `Border`. This is the
+  general "frame around something" primitive.
+- **Box** — a convenience constructor for the common case: a bordered,
+  padded container that holds freely-positioned children.
+- **Button** — a focusable widget with a bound action. Rendering is not
+  yet implemented.
+- **FocusableBox** — a bordered, padded, focusable container. Supports a
+  distinct style while focused, and can hold further focusable children
+  that `FocusManager.Enter()` can drill into.
+- **List** — a container with a stacked layout, plus a convenience
+  method for adding bordered, padded rows.
+- **Window** — a `Box` with a title overlaid on the border itself.
+
+## Render modes
+
+Passed as `RenderMode` in `app.AppConfig`.
+
+- **FixedFPS** — redraws on a fixed timer regardless of whether anything
+  changed. Simple and predictable, at the cost of drawing frames that
+  don't need it.
+- **OnDemand** — only redraws when something explicitly asks for it. I need to define better when its needed to be called :)
+
+## The `framework` package
+
+`framework` holds the shared contracts every other package depends on,
+with no rendering or terminal logic of its own.
+
+- **interfaces.go** — the core interfaces: `Drawable` (can be drawn and
+  positioned), `Focusable` (can take input and focus), `Composable` (can
+  hold children), `Layoutable`, `Clippable`, and `ChildrenLister` (lets a
+  container expose its children without callers needing to know its
+  concrete type).
+- **style.go** — `Style` and `ResolveStyle`, the parent/child style
+  inheritance logic. `Transparent` is the sentinel that means "inherit."
+- **layout.go** — `Anchor` and axis resolution for positioning a widget
+  within its parent (start, center, end, or an explicit position).
+- **layoutpolicy.go** — `LayoutPolicy` and its two implementations,
+  `FreeLayout` (children keep their own declared position) and
+  `StackLayout` (children stack top to bottom).
+- **event.go** — `Event` and `Key`, the input event types produced by
+  `input.Manager` and consumed by focusable widgets.
+
+
+## Still Adding stuff...

@@ -11,20 +11,50 @@ type Canvas struct {
 	root *Container
 	Buf  *core.Buffer
 
+	// RequestedWidth/RequestedHeight, 0 means "auto -- always track the
+	// terminal's current size." A positive value is a hard request that
+	// ApplySize will still cap at the terminal's current size, but will
+	// never grow past even if the terminal is bigger. This is preserved
+	// as-given (never resolved into a concrete number at construction
+	// time) specifically so a full-screen Canvas keeps auto-tracking on
+	// every resize instead of freezing at whatever size the terminal
+	// happened to be when the app launched.
 	RequestedWidth  int
 	RequestedHeight int
 }
 
-func NewMaxSizeCanvas(fg, bg core.Color) *Canvas {
+// NewCanvas creates a Canvas that always fills the terminal: it has no
+// fixed size of its own, so every resize (including the very first
+// frame) makes it exactly as big as the current terminal window.
+func NewCanvas(fg, bg core.Color) *Canvas {
 	size, err := term.TermSize()
 	if err != nil {
-		panic("Could not retrieve terminal size")
+		panic("could not retrieve terminal size")
 	}
-
-	return NewCanvas(size.Cols-1, size.Rows-1, fg, bg)
+	return newCanvas(0, 0, fg, bg, size.Cols, size.Rows)
 }
 
-func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
+// NewFixedSizeCanvas creates a Canvas locked to exactly w x h. It will
+// still shrink if the terminal becomes smaller than that (ApplySize caps
+// at the terminal's current size either way -- there's no way to draw
+// past the edge of the actual window), but it will never grow past w x h
+// even if the terminal is larger.
+func NewFixedSizeCanvas(w, h int, fg, bg core.Color) *Canvas {
+	if w <= 0 || h <= 0 {
+		panic("fixed size canvas requires width and height > 0")
+	}
+	size, err := term.TermSize()
+	if err != nil {
+		panic("could not retrieve terminal size")
+	}
+	return newCanvas(w, h, fg, bg, size.Cols, size.Rows)
+}
+
+// newCanvas is the shared constructor. reqW/reqH are the caller's
+// request (0 == auto); termW/termH are only used to pick the actual
+// starting size for the very first frame, before any resize event has
+// happened.
+func newCanvas(reqW, reqH int, fg, bg core.Color, termW, termH int) *Canvas {
 	if bg == core.Transparent {
 		bg = core.White
 	}
@@ -32,39 +62,54 @@ func NewCanvas(w, h int, fg, bg core.Color) *Canvas {
 		fg = core.Black
 	}
 
-	// NewContainer only errors if Layer < 0, and NewCanvas never passes
+	w := reqW
+	if w <= 0 {
+		w = termW
+	}
+	h := reqH
+	if h <= 0 {
+		h = termH
+	}
+
+	// NewContainer only errors if Layer < 0, and this never passes one.
 	root, err := NewContainer(geom.NewBounds(0, 0, w, h), ContainerConfig{
 		Style: framework.Style{Bg: bg, Fg: fg},
 	})
 	if err != nil {
-		// TODO we dont need to panic move this
 		panic(err)
 	}
 
 	return &Canvas{
 		root:            root,
 		Buf:             core.NewBuffer(w, h, fg, bg),
-		RequestedWidth:  w,
-		RequestedHeight: h,
+		RequestedWidth:  reqW,
+		RequestedHeight: reqH,
 	}
 }
 
+// ApplySize recomputes the Canvas's actual size against the terminal's
+// current dimensions. Called on every resize event, and once up front
+// before the first frame. Auto dimensions (RequestedWidth/Height <= 0)
+// always follow the terminal exactly; a fixed dimension is capped at the
+// terminal's current size but never grows past its requested value.
 func (c *Canvas) ApplySize(termW, termH int) {
 	w := c.RequestedWidth
-	h := c.RequestedHeight
-
 	if w <= 0 {
 		w = termW
+	} else {
+		w = min(w, termW)
 	}
+
+	h := c.RequestedHeight
 	if h <= 0 {
 		h = termH
+	} else {
+		h = min(h, termH)
 	}
 
-	actualW := min(termW, w)
-	actualH := min(termH, h)
-
 	s := c.root.Style()
-	c.Buf = core.NewBuffer(actualW, actualH, s.Fg, s.Bg)
+	c.root.Resize(w, h)
+	c.Buf = core.NewBuffer(w, h, s.Fg, s.Bg)
 	c.Compose()
 }
 
@@ -91,17 +136,11 @@ func (c *Canvas) SetInvalidator(fn func()) {
 }
 
 // Shapes returns the top-level shapes currently on the canvas. This is
-// deliberately a read-only accessor, not an exported slice -- the old
-// Canvas.Shapes was a public field, which meant anyone could mutate it
-// directly (`c.Shapes = append(...)`) and skip AddShape's bounds check,
-// style propagation, and invalidator wiring entirely. That's the same
-// class of bug as the old List building a Box by hand instead of going
-// through NewBox: an escape hatch around the constructor that leaves the
-// tree in a half-wired state.
+// deliberately a read-only accessor, not an exported slice -- direct
+// mutation would skip AddShape's bounds check, style propagation, and
+// invalidator wiring entirely.
 func (c *Canvas) Shapes() []framework.Drawable {
-	out := make([]framework.Drawable, len(c.root.children))
-	copy(out, c.root.children)
-	return out
+	return c.root.Children()
 }
 
 func (c *Canvas) Compose() {
@@ -111,7 +150,7 @@ func (c *Canvas) Compose() {
 
 func (c *Canvas) CollectFocusable() []framework.Focusable {
 	var out []framework.Focusable
-	collectFocusable(c.root.children, &out)
+	collectFocusable(c.root.Children(), &out)
 	return out
 }
 
@@ -124,15 +163,10 @@ func collectFocusable(children []framework.Drawable, out *[]framework.Focusable)
 			continue
 		}
 		// Not focusable itself, but might still hold focusable
-		// descendants deeper down (e.g. a plain Container wrapping
-		// focusable widgets) -- keep walking those.
-		if cont, ok := child.(*Container); ok {
-			collectFocusable(cont.children, out)
-		}
-		if b, ok := child.(*Bordered); ok {
-			if cont, ok := b.content.(*Container); ok {
-				collectFocusable(cont.children, out)
-			}
+		// descendants deeper down -- ask if it can hand us its
+		// children without caring what concrete type it is.
+		if cl, ok := child.(framework.ChildrenLister); ok {
+			collectFocusable(cl.Children(), out)
 		}
 	}
 }

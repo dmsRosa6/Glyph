@@ -1,8 +1,9 @@
-package canvas
+package widgets
 
 import (
 	"sync"
 
+	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
@@ -11,7 +12,7 @@ import (
 // Text always draws with a transparent background, so it blends with
 // whatever is behind it rather than punching an opaque box.
 type Text struct {
-	BaseNode
+	base.BaseNode
 
 	mu    sync.RWMutex
 	value string
@@ -28,12 +29,12 @@ func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 	bounds := geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1)
 	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
-	base, err := newBaseNode(bounds, cfg.Anchor, style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Text{BaseNode: base, value: cfg.Value}, nil
+	return &Text{BaseNode: bn, value: cfg.Value}, nil
 }
 
 func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
@@ -42,7 +43,8 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 	t.mu.RUnlock()
 
 	s := t.Style()
-	x, y := t.computedPos.X, t.computedPos.Y
+	pos := t.ComputedPos()
+	x, y := pos.X, pos.Y
 
 	for i := 0; i < len(value); i++ {
 		buf.Set(vec.X+x+i, vec.Y+y, rune(value[i]), s.Bg, s.Fg)
@@ -55,12 +57,12 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 // goroutine" hook: hold a reference to a Text, spin up a goroutine, call
 // SetValue on whatever schedule you want.
 //
-//	clock, _ := canvas.NewText(pos, canvas.TextConfig{Value: "00:00:00"})
-//	go func() {
-//	    for range time.Tick(time.Second) {
-//	        clock.SetValue(time.Now().Format("15:04:05"))
-//	    }
-//	}()
+//  clock, _ := widgets.NewText(pos, widgets.TextConfig{Value: "00:00:00"})
+//  go func() {
+//      for range time.Tick(time.Second) {
+//          clock.SetValue(time.Now().Format("15:04:05"))
+//      }
+//  }()
 //
 // The node's width is fixed at construction (from the initial value's
 // length) since that's what everything else's bounds-checking and
@@ -68,8 +70,9 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 // construct with your expected max width if the value can grow.
 func (t *Text) SetValue(v string) {
 	t.mu.Lock()
-	if len(v) > t.bounds.W {
-		v = v[:t.bounds.W]
+	w, _ := t.Size()
+	if len(v) > w {
+		v = v[:w]
 	}
 	t.value = v
 	t.mu.Unlock()

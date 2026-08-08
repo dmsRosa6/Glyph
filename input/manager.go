@@ -11,9 +11,9 @@ import (
 type decodeState int
 
 const (
-	stateNormal decodeState = iota
-	stateEsc          // just saw 0x1b, waiting to see if more follows
-	stateEscBracket   // saw ESC [, waiting for the final letter
+	stateNormal     decodeState = iota
+	stateEsc                    // just saw 0x1b, waiting to see if more follows
+	stateEscBracket             // saw ESC [, waiting for the final letter
 )
 
 type Manager struct {

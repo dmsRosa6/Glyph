@@ -1,4 +1,4 @@
-package canvas
+package base
 
 import (
 	"errors"
@@ -36,7 +36,7 @@ type BaseNode struct {
 	invalidate func()
 }
 
-func newBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int) (BaseNode, error) {
+func NewBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int) (BaseNode, error) {
 	n := BaseNode{
 		bounds:      bounds,
 		anchor:      anchor,
@@ -155,4 +155,17 @@ func (n *BaseNode) SetComputedPos(x, y int) {
 // outright.
 func (n *BaseNode) AnchorH() framework.AxisAnchor {
 	return n.anchor.H
+}
+
+func (n *BaseNode) ComputedPos() geom.Point {
+    return n.computedPos
+}
+
+func (n *BaseNode) Bounds() *geom.Bounds {
+    return n.bounds
+}
+
+func (n *BaseNode) Resize(w, h int) {
+	n.bounds.W = w
+	n.bounds.H = h
 }

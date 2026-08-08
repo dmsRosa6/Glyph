@@ -1,23 +1,25 @@
 package main
 
 import (
+	"time"
+
 	"github.com/dmsRosa6/glyph/app"
-	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 	"github.com/dmsRosa6/glyph/render"
+	"github.com/dmsRosa6/glyph/widgets"
 )
 
-func statusItem(width int, label string, color core.Color) *canvas.Bordered {
+func statusItem(width int, label string, color core.Color) *widgets.Bordered {
 	bounds := geom.NewBounds(0, 0, width, 3)
 
-	box, err := canvas.NewBox(bounds, canvas.BoxConfig{
+	box, err := widgets.NewBox(bounds, widgets.BoxConfig{
 		Padding: 1,
 		Style:   framework.Style{Bg: core.Transparent, Fg: color},
-		BorderConfig: canvas.BorderConfig{
+		BorderConfig: widgets.BorderConfig{
 			Thickness:   1,
-			BorderStyle: canvas.Rounded,
+			BorderStyle: widgets.Rounded,
 			Style:       framework.Style{Bg: core.Transparent, Fg: color},
 		},
 	})
@@ -25,7 +27,7 @@ func statusItem(width int, label string, color core.Color) *canvas.Bordered {
 		panic(err)
 	}
 
-	text, err := canvas.NewText(&geom.Point{X: 0, Y: 0}, canvas.TextConfig{
+	text, err := widgets.NewText(&geom.Point{X: 0, Y: 0}, widgets.TextConfig{
 		Value: label,
 		Fg:    color,
 	})
@@ -36,34 +38,112 @@ func statusItem(width int, label string, color core.Color) *canvas.Bordered {
 
 	return box
 }
+
+func focusDrillDemo() *widgets.FocusableBox {
+	outer, err := widgets.NewFocusableBox(geom.NewBounds(2, 2, 24, 8), widgets.FocusableBoxConfig{
+		Padding:      1,
+		BorderConfig: widgets.DefaultBorderConfig(),
+		Style:        framework.Style{Bg: core.Transparent, Fg: core.White},
+		FocusStyle:   framework.Style{Bg: core.Transparent, Fg: core.Red},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	inner, err := widgets.NewFocusableBox(geom.NewBounds(0, 0, 14, 4), widgets.FocusableBoxConfig{
+		Padding:      1,
+		BorderConfig: widgets.DefaultBorderConfig(),
+		Style:        framework.Style{Bg: core.Transparent, Fg: core.Blue},
+		FocusStyle:   framework.Style{Bg: core.Transparent, Fg: core.Red},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	label, err := widgets.NewText(&geom.Point{X: 0, Y: 0}, widgets.TextConfig{
+		Value: "Enter->drill",
+		Fg:    core.White,
+	})
+	if err != nil {
+		panic(err)
+	}
+	inner.AddChild(label)
+
+	outer.AddChild(inner)
+	return outer
+}
+
+func listDemo(width int) *widgets.List {
+	list, err := widgets.NewList(geom.NewBounds(28, 2, width, 12), widgets.ListConfig{
+		Style:       framework.Style{Bg: core.Transparent, Fg: core.Green},
+		ItemPadding: 1,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < 3; i++ {
+		row, err := list.AddItem(4)
+		if err != nil {
+			panic(err)
+		}
+		text, err := widgets.NewText(&geom.Point{X: 0, Y: 0}, widgets.TextConfig{
+			Value: "row",
+			Fg:    core.Green,
+		})
+		if err != nil {
+			panic(err)
+		}
+		row.AddChild(text)
+	}
+
+	return list
+}
+
+func clockWindow() *widgets.Window {
+	win, err := widgets.NewWindow(geom.NewBounds(0,0, 20, 5), widgets.WindowConfig{
+		BoxConfig: widgets.BoxConfig{
+			Padding: 1,
+			Style:   framework.Style{Bg: core.Transparent, Fg: core.Yellow},
+			BorderConfig: widgets.BorderConfig{
+				Thickness:   1,
+				BorderStyle: widgets.DoubleLine,
+				Style:       framework.Style{Bg: core.Transparent, Fg: core.Yellow},
+			},
+			Anchor: framework.Anchor{V: framework.End, H: framework.Center},
+		},
+		Title:   " clock ",
+		TitleFg: core.Yellow,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	clock, err := widgets.NewText(&geom.Point{X: 0, Y: 0}, widgets.TextConfig{
+		Value: "00:00:00",
+		Fg:    core.Yellow,
+	})
+	if err != nil {
+		panic(err)
+	}
+	win.AddChild(clock)
+
+	go func() {
+		for range time.Tick(time.Second) {
+			clock.SetValue(time.Now().Format("15:04:05"))
+		}
+	}()
+
+	return win
+}
+
 func main() {
-	a, _ := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: render.FixedFPS})
+	a, err := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: render.FixedFPS})
+	if err != nil {
+		panic(err)
+	}
 
-	// Box A: a container that drills into Box B on Enter (no action of
-	// its own bound to Enter, and it has a focusable child).
-	boxA, _ := canvas.NewFocusableBox(geom.NewBounds(2, 2, 20, 8), canvas.FocusableBoxConfig{
-		Padding: 1, BorderConfig: canvas.DefaultBorderConfig(),
-		Style:      framework.Style{Bg: core.White, Fg: core.White},
-		FocusStyle: framework.Style{Bg: core.Red, Fg: core.Red},
-	})
+	a.Canvas.AddShape(clockWindow())
 
-	// Box B: lives inside Box A, has no children, so Enter falls through
-	// to its own bound action instead of drilling further.
-	boxB, _ := canvas.NewFocusableBox(geom.NewBounds(0, 0, 14, 4), canvas.FocusableBoxConfig{
-		Padding: 1, BorderConfig: canvas.DefaultBorderConfig(),
-		Style:      framework.Style{Bg: core.Blue, Fg: core.Blue},
-		FocusStyle: framework.Style{Bg: core.Red, Fg: core.Red},
-	})
-	boxB.BindAction(framework.KeyEnter, func(n *canvas.FocusableBaseNode, ev framework.Event) (bool, error) {
-		boxA, _ = canvas.NewFocusableBox(geom.NewBounds(0, 0, 14, 4), canvas.FocusableBoxConfig{
-		Padding: 1, BorderConfig: canvas.DefaultBorderConfig(),
-		Style:      framework.Style{Bg: core.White, Fg: core.White},
-		FocusStyle: framework.Style{Bg: core.Red, Fg: core.Red},
-	})
-		return true, nil // triggers a redraw
-	})
-	boxA.AddChild(boxB)
-
-	a.Canvas.AddShape(boxA)
 	a.Run()
 }

@@ -46,28 +46,21 @@ func NewRenderer(mode LoopMode, fps int) *Renderer {
 }
 
 func (r *Renderer) Init() {
-    fmt.Fprint(r.out, "\x1b[?25l")
-    fmt.Fprint(r.out, "\x1b[?1049h")
-    fmt.Fprint(r.out, "\x1b[2J")
-    fmt.Fprint(r.out, "\x1b[H")
-    r.out.Flush()
+	fmt.Fprint(r.out, "\x1b[?25l")
+	fmt.Fprint(r.out, "\x1b[?1049h")
+	fmt.Fprint(r.out, "\x1b[2J")
+	fmt.Fprint(r.out, "\x1b[H")
+	r.out.Flush()
 }
 
 func (r *Renderer) Start(c *canvas.Canvas) {
 	go r.Run(c)
 }
 
-
 func (r *Renderer) Run(c *canvas.Canvas) {
-	// Wire self-refresh: any node in the tree calling Invalidate() (e.g.
-	// via Text.SetValue from a background goroutine) now reaches
-	// RequestRedraw. In FixedFPS mode RequestRedraw is already a no-op --
-	// every tick redraws unconditionally, so a changed value just shows
-	// up on the next tick with no extra plumbing needed.
 	c.SetInvalidator(r.RequestRedraw)
 
 	var ticker *time.Ticker
-
 	if r.RenderMode.Mode == FixedFPS {
 		ticker = time.NewTicker(time.Second / time.Duration(r.Fps))
 		defer ticker.Stop()
@@ -78,23 +71,24 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 	applySize := func() {
 		size, err := term.TermSize()
 		if err != nil {
-			// panic("something went wrong resizing")
+			return
 		}
 		c.ApplySize(size.Cols, size.Rows)
 	}
 
 	applySize()
 
-	term.WatchResize(func() {
-		applySize()
-		r.render(c)
-	})
+	resizeCh := term.WatchResize()
 
 	for {
 		select {
 		case <-r.ctx.Done():
 			r.restore()
 			return
+
+		case <-resizeCh:
+			applySize()
+			r.render(c)
 
 		case <-r.Redraw:
 			if r.Mode == OnDemand {
@@ -135,17 +129,17 @@ func (r *Renderer) render(c *canvas.Canvas) {
 }
 
 func (r *Renderer) restore() {
-    fmt.Fprint(r.out,
-        "\x1b[?1000l"+
-            "\x1b[?1002l"+
-            "\x1b[?1003l"+
-            "\x1b[?1005l"+
-            "\x1b[?1006l"+
-            "\x1b[?1015l"+
-            "\x1b[?25h"+
-            "\x1b[?1049l",
-    )
-    r.out.Flush()
+	fmt.Fprint(r.out,
+		"\x1b[?1000l"+
+			"\x1b[?1002l"+
+			"\x1b[?1003l"+
+			"\x1b[?1005l"+
+			"\x1b[?1006l"+
+			"\x1b[?1015l"+
+			"\x1b[?25h"+
+			"\x1b[?1049l",
+	)
+	r.out.Flush()
 }
 
 func (r *Renderer) Stop() {

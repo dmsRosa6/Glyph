@@ -9,7 +9,7 @@ type FocusScope struct {
 }
 
 type FocusManager struct {
-    stack []*FocusScope
+	stack []*FocusScope
 }
 
 func NewFocusManager(root []framework.Focusable) *FocusManager {

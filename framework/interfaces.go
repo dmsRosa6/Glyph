@@ -41,14 +41,18 @@ type Clippable interface {
 	SetClip(clip geom.Bounds)
 }
 type Focusable interface {
-    Drawable
-    HandleInput(ev Event) (bool, error)
-    Focus()
-    Blur()
-    IsFocused() bool
+	Drawable
+	HandleInput(ev Event) (bool, error)
+	Focus()
+	Blur()
+	IsFocused() bool
 }
 
 type FocusContainer interface {
 	Focusable
 	FocusableChildren() []Focusable
+}
+
+type ChildrenLister interface {
+	Children() []Drawable
 }

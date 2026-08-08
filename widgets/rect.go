@@ -1,13 +1,14 @@
-package canvas
+package widgets
 
 import (
+	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
 type Rect struct {
-	BaseNode
+	base.BaseNode
 	ch   rune
 	clip geom.Bounds
 }
@@ -26,21 +27,22 @@ func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
 		ch = ' '
 	}
 
-	base, err := newBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Rect{
-		BaseNode: base,
+		BaseNode: bn,
 		ch:       ch,
 		clip:     *geom.NewBounds(-1, -1, -1, -1),
 	}, nil
 }
 
 func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
-	x, y := r.computedPos.X, r.computedPos.Y
-	w, h := r.bounds.W, r.bounds.H
+	pos := r.ComputedPos()
+	x, y := pos.X, pos.Y
+	w, h := r.Size()
 
 	if r.clip.ValidateNoPanic() {
 		x += r.clip.Pos.X
@@ -59,6 +61,6 @@ func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {
 }
 
 func (r *Rect) SetClip(c geom.Bounds) {
-	c.ValidateIfInsideBounds(*r.bounds)
+	c.ValidateIfInsideBounds(*r.Bounds())
 	r.clip = c
 }

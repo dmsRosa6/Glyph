@@ -8,71 +8,69 @@ import (
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/input"
 	"github.com/dmsRosa6/glyph/render"
-	"github.com/dmsRosa6/glyph/term"
 )
 
 type AppConfig struct {
-    Width, Height int
-    Bg        *core.Color
-    RenderMode    render.LoopMode
+	Bg         *core.Color
+	RenderMode render.LoopMode
 }
 
 type App struct {
-    Canvas  *canvas.Canvas
-    Renderer *render.Renderer
-    Input    *input.Manager
+	Canvas   *canvas.Canvas
+	Renderer *render.Renderer
+	Input    *input.Manager
 	Focus    *input.FocusManager
 }
 
+// NewApp creates a full-screen App: the Canvas always tracks the
+// terminal's current size, growing and shrinking as the window is
+// resized.
 func NewApp(cfg AppConfig) (*App, error) {
-	size, err := term.TermSize()
-	
-	if err != nil {
-		return nil, errors.New("could not retrieve terminal size")
-	}
-
-
-	if cfg.Width < 0 {
-		return nil, errors.New("width is less than 0")
-	}
-
-	if cfg.Height < 0 {
-		return nil, errors.New("height is less than 0")
-	}
-
-
-	
-	w := size.Cols - 1
-	h := size.Rows - 1
-	
-	if cfg.Width > 0 {
-		w = cfg.Width
-	}
-
-	if cfg.Height > 0 {
-		h  = cfg.Height
-	}
-
 	bg := core.Transparent
-
 	if cfg.Bg != nil {
 		bg = *cfg.Bg
 	}
 
+	c := canvas.NewCanvas(core.Transparent, bg)
+	return newApp(c, cfg.RenderMode)
+}
 
-    c := canvas.NewCanvas(w, h, core.Transparent, bg)
-    
-	r := render.NewRenderer(cfg.RenderMode, 60)
-    
+// NewFixedSizeApp creates an App whose Canvas is locked to exactly
+// width x height (still capped at the terminal's current size if the
+// terminal is smaller, but never growing past it if the terminal is
+// larger).
+func NewFixedSizeApp(width, height int, cfg AppConfig) (*App, error) {
+	if width <= 0 {
+		return nil, errors.New("width must be > 0")
+	}
+	if height <= 0 {
+		return nil, errors.New("height must be > 0")
+	}
+
+	bg := core.Transparent
+	if cfg.Bg != nil {
+		bg = *cfg.Bg
+	}
+
+	c := canvas.NewFixedSizeCanvas(width, height, core.Transparent, bg)
+	return newApp(c, cfg.RenderMode)
+}
+
+func newApp(c *canvas.Canvas, mode render.LoopMode) (*App, error) {
+	r := render.NewRenderer(mode, 60)
+
 	in, err := input.NewManager()
-    if err != nil { return nil, err }
-    return &App{Canvas: c, Renderer: r, Input: in}, nil
+	if err != nil {
+		return nil, err
+	}
+
+	return &App{Canvas: c, Renderer: r, Input: in}, nil
 }
 
 func (a *App) Run() {
 	a.Renderer.Start(a.Canvas)
 	a.Focus = input.NewFocusManager(a.Canvas.CollectFocusable())
-    a.Input.Start()
+	a.Input.Start()
 
 	for ev := range a.Input.Events() {
 		if ev.Key == framework.KeyCtrlC {
@@ -82,8 +80,6 @@ func (a *App) Run() {
 
 		if ev.Key == framework.KeyEnter {
 			if !a.Focus.Enter() {
-				// nothing to drill into -- let the current widget's own
-				// bound action (if any) handle Enter itself
 				if f := a.Focus.Current(); f != nil {
 					f.HandleInput(ev)
 				}
@@ -113,6 +109,6 @@ func (a *App) Run() {
 }
 
 func (a *App) Stop() {
-    a.Renderer.Stop()
-    a.Input.Stop()
+	a.Renderer.Stop()
+	a.Input.Stop()
 }

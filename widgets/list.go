@@ -1,17 +1,13 @@
-package canvas
+package widgets
 
 import (
+	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// List is now just a Container with StackLayout -- there's no bespoke
-// items []*Box anymore. Because of that, List.AddChild (promoted
-// straight from *Container) accepts ANY Drawable, not only boxed items;
-// AddItem below is a convenience for the common "bordered row" case, not
-// the only way to put something in a list.
 type List struct {
-	*Container
+	*canvas.Container
 	itemStyle   framework.Style
 	itemPadding int
 }
@@ -24,7 +20,7 @@ type ListConfig struct {
 }
 
 func NewList(bounds *geom.Bounds, cfg ListConfig) (*List, error) {
-	c, err := NewContainer(bounds, ContainerConfig{
+	c, err := canvas.NewContainer(bounds, canvas.ContainerConfig{
 		Style:  cfg.Style,
 		Layer:  cfg.Layer,
 		Anchor: cfg.Anchor,
@@ -46,7 +42,8 @@ func NewList(bounds *geom.Bounds, cfg ListConfig) (*List, error) {
 // per-item border/padding, skip this and call list.AddChild directly
 // with whatever Drawable you want stacked instead.
 func (l *List) AddItem(height int) (*Bordered, error) {
-	bounds := geom.NewBounds(0, 0, l.bounds.W, height)
+	w, _ := l.Size()
+	bounds := geom.NewBounds(0, 0, w, height)
 
 	box, err := NewBox(bounds, BoxConfig{
 		Padding:      l.itemPadding,

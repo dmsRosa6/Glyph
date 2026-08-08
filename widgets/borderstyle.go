@@ -1,4 +1,4 @@
-package canvas
+package widgets
 
 type BorderStyle struct {
 	TopLeft     rune

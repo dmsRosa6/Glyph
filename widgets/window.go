@@ -1,6 +1,7 @@
-package canvas
+package widgets
 
 import (
+	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
@@ -19,7 +20,7 @@ const (
 // stays a small dedicated composition -- but it's built on Bordered
 // instead of owning a border and a content container directly.
 type Window struct {
-	BaseNode
+	base.BaseNode
 	box  *Bordered
 	text *Text
 }
@@ -46,7 +47,7 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 		}
 	}
 
-	base, err := newBaseNode(bounds, cfg.Anchor, cfg.BoxConfig.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.BoxConfig.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 	}
 
 	w := &Window{
-		BaseNode: base,
+		BaseNode: bn,
 		box:      box,
 		text:     text,
 	}
@@ -91,7 +92,8 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 }
 
 func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
-	v := geom.Vector{X: vec.X + w.computedPos.X, Y: vec.Y + w.computedPos.Y}
+	pos := w.ComputedPos()
+	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
 
 	w.box.Draw(buf, v)
 	if w.text != nil {

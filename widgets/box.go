@@ -1,6 +1,7 @@
-package canvas
+package widgets
 
 import (
+	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
@@ -32,7 +33,7 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
 	}
 
 	contentBounds := geom.NewBounds(cfg.Padding, cfg.Padding, innerW, innerH)
-	content, err := NewContainer(contentBounds, ContainerConfig{Layer: cfg.Layer})
+	content, err := canvas.NewContainer(contentBounds, canvas.ContainerConfig{Layer: cfg.Layer})
 	if err != nil {
 		return nil, err
 	}

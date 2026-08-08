@@ -1,13 +1,14 @@
-package canvas
+package widgets
 
 import (
+	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
 type Border struct {
-	BaseNode
+	base.BaseNode
 	borderStyle BorderStyle
 	thickness   int
 }
@@ -39,13 +40,13 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 		style = EmptyBorder
 	}
 
-	base, err := newBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Border{
-		BaseNode:    base,
+		BaseNode:    bn,
 		borderStyle: style,
 		thickness:   cfg.Thickness,
 	}, nil
@@ -53,13 +54,15 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 
 func (b *Border) Draw(buf *core.Buffer, vec geom.Vector) {
 	s := b.Style()
-	ox, oy := b.computedPos.X, b.computedPos.Y
+	pos := b.ComputedPos()
+	ox, oy := pos.X, pos.Y
+	w, h := b.Size()
 
 	for layer := 0; layer < b.thickness; layer++ {
 		x0 := ox + layer
 		y0 := oy + layer
-		x1 := ox + b.bounds.W - 1 - layer
-		y1 := oy + b.bounds.H - 1 - layer
+		x1 := ox + w - 1 - layer
+		y1 := oy + h - 1 - layer
 
 		// corners
 		buf.Set(vec.X+x0, vec.Y+y0, b.borderStyle.TopLeft, s.Bg, s.Fg)
@@ -67,9 +70,7 @@ func (b *Border) Draw(buf *core.Buffer, vec geom.Vector) {
 		buf.Set(vec.X+x0, vec.Y+y1, b.borderStyle.BottomLeft, s.Bg, s.Fg)
 		buf.Set(vec.X+x1, vec.Y+y1, b.borderStyle.BottomRight, s.Bg, s.Fg)
 
-		// top & bottom edges -- previously the top edge used vec.Y with
-		// no "+ y0" offset at all, so it ignored both the border's own
-		// origin and the per-layer thickness offset.
+		// top & bottom edges
 		for x := x0 + 1; x < x1; x++ {
 			buf.Set(vec.X+x, vec.Y+y0, b.borderStyle.Horizontal, s.Bg, s.Fg)
 			buf.Set(vec.X+x, vec.Y+y1, b.borderStyle.Horizontal, s.Bg, s.Fg)

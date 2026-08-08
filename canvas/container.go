@@ -3,22 +3,14 @@ package canvas
 import (
 	"sort"
 
+	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// Container is the one generic "holds children" primitive. What used to
-// be three separate hand-written types (Composite, List, and the
-// composite-half of Box) are now this one type parameterized by a
-// LayoutPolicy:
-//   - Container{Layout: FreeLayout{}}  behaves like the old Composite
-//   - Container{Layout: StackLayout{}} behaves like the old List
-// A Container can hold ANY Drawable -- another Container, a Bordered box,
-// a bare Text or Rect -- there's no restriction to a specific child type
-// the way the old List only accepted *Box.
 type Container struct {
-	BaseNode
+	base.BaseNode
 	children []framework.Drawable
 	layout   framework.LayoutPolicy
 }
@@ -31,7 +23,7 @@ type ContainerConfig struct {
 }
 
 func NewContainer(bounds *geom.Bounds, cfg ContainerConfig) (*Container, error) {
-	base, err := newBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
@@ -42,22 +34,17 @@ func NewContainer(bounds *geom.Bounds, cfg ContainerConfig) (*Container, error) 
 	}
 
 	return &Container{
-		BaseNode: base,
+		BaseNode: bn,
 		children: []framework.Drawable{},
 		layout:   policy,
 	}, nil
 }
 
 func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
-	v := geom.Vector{X: vec.X + c.computedPos.X, Y: vec.Y + c.computedPos.Y}
+	pos := c.ComputedPos()
+	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
 	frame := c.LocalFrame()
 
-	// Sort by current layer right before drawing, not just once at
-	// AddChild time. A child's layer can change after it's added via
-	// SetLayer -- sorting here (stable, so equal layers keep insertion
-	// order) means draw order always reflects whatever GetLayer()
-	// reports right now, instead of going stale the moment someone
-	// re-layers a child post-insertion.
 	sort.SliceStable(c.children, func(i, j int) bool {
 		return c.children[i].GetLayer() < c.children[j].GetLayer()
 	})
@@ -69,18 +56,13 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 	}
 }
 
-// AddChild checks the child against this container's own interior size
-// (LocalFrame), not against c.bounds directly -- c.bounds.Pos is where
-// the container itself sits in *its* parent, a different coordinate
-// space than where a child sits within the container. Insertion order
-// doesn't matter here anymore since Draw sorts by layer every frame.
 func (c *Container) AddChild(child framework.Drawable) {
 	if !child.IsInBounds(c.LocalFrame()) {
 		panic("shape out of container bounds")
 	}
 
 	child.SetParentStyle(c.ResolvedStyle())
-	child.SetInvalidator(c.invalidate)
+	child.SetInvalidator(c.Invalidate)
 
 	c.children = append(c.children, child)
 }
@@ -106,4 +88,12 @@ func (c *Container) SetInvalidator(fn func()) {
 	for _, child := range c.children {
 		child.SetInvalidator(fn)
 	}
+}
+
+// Children exposes this container's children for callers that can't
+// import canvas directly (e.g. canvas.go's collectFocusable, once
+// widgets like Bordered live in a separate package) -- see
+// framework.ChildrenLister.
+func (c *Container) Children() []framework.Drawable {
+	return c.children
 }

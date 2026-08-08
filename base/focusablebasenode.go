@@ -1,31 +1,30 @@
-package canvas
+package base
 
 import (
 	"github.com/dmsRosa6/glyph/framework"
 )
 
-
 type ActionFunc func(node *FocusableBaseNode, ev framework.Event) (bool, error)
 
 type FocusableBaseNode struct {
-    BaseNode
-    actions     map[framework.Key]ActionFunc
-    focused     bool
-    focusStyle  *framework.Style
+	BaseNode
+	actions    map[framework.Key]ActionFunc
+	focused    bool
+	focusStyle *framework.Style
 }
 
 func (f *FocusableBaseNode) Style() framework.Style {
-    if f.focused && f.focusStyle != nil {
-        return *framework.ResolveStyle(*f.focusStyle, f.BaseNode.Style())
-    }
-    return f.BaseNode.Style()
+	if f.focused && f.focusStyle != nil {
+		return *framework.ResolveStyle(*f.focusStyle, f.BaseNode.Style())
+	}
+	return f.BaseNode.Style()
 }
 
-func newFocusableBaseNode(base BaseNode) FocusableBaseNode {
-    return FocusableBaseNode{
-        BaseNode: base,
-        actions:  make(map[framework.Key]ActionFunc),
-    }
+func NewFocusableBaseNode(base BaseNode) FocusableBaseNode {
+	return FocusableBaseNode{
+		BaseNode: base,
+		actions:  make(map[framework.Key]ActionFunc),
+	}
 }
 
 func (f *FocusableBaseNode) SetFocusStyle(s framework.Style) {
@@ -33,7 +32,7 @@ func (f *FocusableBaseNode) SetFocusStyle(s framework.Style) {
 }
 
 func (f *FocusableBaseNode) BindAction(k framework.Key, fn ActionFunc) {
-    f.actions[k] = fn
+	f.actions[k] = fn
 }
 
 func (f *FocusableBaseNode) HandleInput(ev framework.Event) (bool, error) {
@@ -65,5 +64,5 @@ func (f *FocusableBaseNode) Blur() {
 }
 
 func (f *FocusableBaseNode) IsFocused() bool {
-    return f.focused
+	return f.focused
 }

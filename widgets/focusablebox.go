@@ -1,16 +1,18 @@
-// canvas/focusablebox.go
-package canvas
+// widgets/focusablebox.go
+package widgets
 
 import (
+	"github.com/dmsRosa6/glyph/base"
+	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
 type FocusableBox struct {
-	FocusableBaseNode
+	base.FocusableBaseNode
 	border  *Border
-	content *Container
+	content *canvas.Container
 }
 
 type FocusableBoxConfig struct {
@@ -23,14 +25,14 @@ type FocusableBoxConfig struct {
 }
 
 func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox, error) {
-	base, err := newBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
 
 	innerW := bounds.W - 2*cfg.Padding
 	innerH := bounds.H - 2*cfg.Padding
-	content, err := NewContainer(geom.NewBounds(cfg.Padding, cfg.Padding, innerW, innerH), ContainerConfig{Layer: cfg.Layer})
+	content, err := canvas.NewContainer(geom.NewBounds(cfg.Padding, cfg.Padding, innerW, innerH), canvas.ContainerConfig{Layer: cfg.Layer})
 	if err != nil {
 		return nil, err
 	}
@@ -41,12 +43,11 @@ func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox
 	}
 
 	fb := &FocusableBox{
-		FocusableBaseNode: newFocusableBaseNode(base),
+		FocusableBaseNode: base.NewFocusableBaseNode(bn),
 		border:            border,
 		content:           content,
 	}
-	fs := cfg.FocusStyle
-	fb.focusStyle = &fs // set directly here; add a setter if you want it public
+	fb.SetFocusStyle(cfg.FocusStyle)
 
 	border.SetParentStyle(fb.ResolvedStyle())
 	content.SetParentStyle(fb.ResolvedStyle())
@@ -55,7 +56,8 @@ func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox
 }
 
 func (fb *FocusableBox) Draw(buf *core.Buffer, vec geom.Vector) {
-	v := geom.Vector{X: vec.X + fb.computedPos.X, Y: vec.Y + fb.computedPos.Y}
+	pos := fb.ComputedPos()
+	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
 	fb.content.Layout(fb.LocalFrame())
 	fb.content.Draw(buf, v)
 	fb.border.SetParentStyle(fb.ResolvedStyle()) // picks up focus color each frame
@@ -67,7 +69,7 @@ func (fb *FocusableBox) AddChild(child framework.Drawable) { fb.content.AddChild
 // FocusableChildren makes this box drillable by FocusManager.Enter().
 func (fb *FocusableBox) FocusableChildren() []framework.Focusable {
 	var out []framework.Focusable
-	for _, c := range fb.content.children {
+	for _, c := range fb.content.Children() {
 		if f, ok := c.(framework.Focusable); ok {
 			out = append(out, f)
 		}

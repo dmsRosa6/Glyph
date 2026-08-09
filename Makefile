@@ -1,7 +1,7 @@
 BIN  := bin/glyph
 MAIN := ./main
 
-.PHONY: build run run-bin debug debug-attach clean
+.PHONY: build run run-bin debug test clean
 
 build:
 	go build -o $(BIN) $(MAIN)
@@ -11,6 +11,12 @@ run:
 
 run-bin: build
 	./$(BIN)
-	
+
+debug:
+	dlv debug $(MAIN)
+
+test:
+	go test ./...
+
 clean:
 	rm -f $(BIN)

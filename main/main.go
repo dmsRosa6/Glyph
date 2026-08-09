@@ -101,8 +101,8 @@ func listDemo(width int) *widgets.List {
 }
 
 func clockWindow() *widgets.Window {
-	win, err := widgets.NewWindow(geom.NewBounds(0, 0, 20, 5), widgets.WindowConfig{
-		Padding: 1,
+	win, err := widgets.NewWindow(geom.NewBounds(0, 0, 30, 10), widgets.WindowConfig{
+		Padding:  1,
 		BoxStyle: framework.Style{Bg: core.Transparent, Fg: core.Yellow},
 		BorderConfig: widgets.BorderConfig{
 			Thickness:   1,
@@ -117,10 +117,10 @@ func clockWindow() *widgets.Window {
 		panic(err)
 	}
 
-	clock, err := widgets.NewText(&geom.Point{X: 10, Y: 10}, widgets.TextConfig{
-		Value: "00.00.00",
+	clock, err := widgets.NewText(&geom.Point{X: 0, Y: 0}, widgets.TextConfig{
+		Value:  "00.00.00",
 		Anchor: framework.Anchor{V: framework.Center, H: framework.Center},
-		Fg:    core.Yellow,
+		Fg:     core.Yellow,
 	})
 	if err != nil {
 		panic(err)
@@ -136,9 +136,8 @@ func clockWindow() *widgets.Window {
 	return win
 }
 
-
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: render.FixedFPS})
+	a, err := app.NewApp(app.AppConfig{Bg: &core.Cyan, RenderMode: render.FixedFPS})
 	if err != nil {
 		panic(err)
 	}

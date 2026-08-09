@@ -1,3 +1,5 @@
+package framework
+
 type Severity int
 
 const (

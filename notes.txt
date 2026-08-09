@@ -1,0 +1,10 @@
+TODO
+
+race condition on text
+improve text widget
+and input text widget
+maybe create a statis and dynamic text
+move to a faul aware system that only fails when it really needs to and introduce degratation
+introuce good clipping it will make the fault system even cooler
+use invalidate properly
+So the text size may vary so we can check if .len changes if so we need to recalculate anchoring

@@ -17,8 +17,6 @@ type BorderConfig struct {
 	Thickness   int
 	BorderStyle BorderStyle
 	Style       framework.Style
-
-	Anchor framework.Anchor
 	Layer  int
 }
 
@@ -40,7 +38,7 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 		style = EmptyBorder
 	}
 
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, framework.Anchor{}, cfg.Style, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"errors"
+
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
@@ -11,80 +13,54 @@ type Canvas struct {
 	root *Container
 	Buf  *core.Buffer
 
-	// RequestedWidth/RequestedHeight, 0 means "auto -- always track the
-	// terminal's current size." A positive value is a hard request that
-	// ApplySize will still cap at the terminal's current size, but will
-	// never grow past even if the terminal is bigger. This is preserved
-	// as-given (never resolved into a concrete number at construction
-	// time) specifically so a full-screen Canvas keeps auto-tracking on
-	// every resize instead of freezing at whatever size the terminal
-	// happened to be when the app launched.
 	RequestedWidth  int
 	RequestedHeight int
 }
 
-// NewCanvas creates a Canvas that always fills the terminal: it has no
-// fixed size of its own, so every resize (including the very first
-// frame) makes it exactly as big as the current terminal window.
-func NewCanvas(fg, bg core.Color) *Canvas {
-	size, err := term.TermSize()
-	if err != nil {
-		panic("could not retrieve terminal size")
-	}
-	return newCanvas(0, 0, fg, bg, size.Cols, size.Rows)
+type CanvasConfig struct {
+	Width, Height int // 0 = fill available terminal size
+	Fg, Bg        core.Color
 }
 
-// NewFixedSizeCanvas creates a Canvas locked to exactly w x h. It will
-// still shrink if the terminal becomes smaller than that (ApplySize caps
-// at the terminal's current size either way -- there's no way to draw
-// past the edge of the actual window), but it will never grow past w x h
-// even if the terminal is larger.
-func NewFixedSizeCanvas(w, h int, fg, bg core.Color) *Canvas {
+
+func NewCanvas(cfg CanvasConfig) (*Canvas, error) {
+	w, h := cfg.Width, cfg.Height
+
 	if w <= 0 || h <= 0 {
-		panic("fixed size canvas requires width and height > 0")
+		size, err := term.TermSize()
+		if err != nil {
+			return nil, errors.New("could not retrieve terminal size")
+		}
+		if w <= 0 {
+			w = size.Cols - 1
+		}
+		if h <= 0 {
+			h = size.Rows - 1
+		}
 	}
-	size, err := term.TermSize()
-	if err != nil {
-		panic("could not retrieve terminal size")
-	}
-	return newCanvas(w, h, fg, bg, size.Cols, size.Rows)
-}
 
-// newCanvas is the shared constructor. reqW/reqH are the caller's
-// request (0 == auto); termW/termH are only used to pick the actual
-// starting size for the very first frame, before any resize event has
-// happened.
-func newCanvas(reqW, reqH int, fg, bg core.Color, termW, termH int) *Canvas {
+	bg := cfg.Bg
 	if bg == core.Transparent {
 		bg = core.White
 	}
+	fg := cfg.Fg
 	if fg == core.Transparent {
 		fg = core.Black
 	}
 
-	w := reqW
-	if w <= 0 {
-		w = termW
-	}
-	h := reqH
-	if h <= 0 {
-		h = termH
-	}
-
-	// NewContainer only errors if Layer < 0, and this never passes one.
 	root, err := NewContainer(geom.NewBounds(0, 0, w, h), ContainerConfig{
 		Style: framework.Style{Bg: bg, Fg: fg},
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &Canvas{
 		root:            root,
 		Buf:             core.NewBuffer(w, h, fg, bg),
-		RequestedWidth:  reqW,
-		RequestedHeight: reqH,
-	}
+		RequestedWidth:  w,
+		RequestedHeight: h,
+	}, nil
 }
 
 // ApplySize recomputes the Canvas's actual size against the terminal's

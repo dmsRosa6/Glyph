@@ -17,10 +17,7 @@ type BoxConfig struct {
 }
 
 // NewBox is a convenience constructor for the common case: a bordered,
-// padded container that holds freely-positioned children. There's no
-// bespoke Box type anymore -- this just wires up a Container (the
-// content) inside a Bordered (the frame), which is exactly what the old
-// hand-written Box did, minus the duplicated layering/style-cascade code.
+// padded container that holds freely-positioned children.
 func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
 	if cfg.Padding < 0 {
 		panic("padding must be >= 0")

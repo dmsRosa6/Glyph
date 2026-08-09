@@ -26,7 +26,9 @@ type Window struct {
 }
 
 type WindowConfig struct {
-	BoxConfig BoxConfig
+	Padding      int
+	BoxStyle     framework.Style
+	BorderConfig BorderConfig
 
 	Title         string
 	TitleXOffset  int
@@ -39,7 +41,7 @@ type WindowConfig struct {
 
 func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 	if cfg.Title != "" {
-		innerWidth := bounds.W - 2*cfg.BoxConfig.Padding
+		innerWidth := bounds.W - 2*cfg.Padding
 
 		if cfg.TitleXOffset < 0 ||
 			cfg.TitleXOffset+len(cfg.Title) > innerWidth {
@@ -47,13 +49,19 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 		}
 	}
 
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.BoxConfig.Style, cfg.Layer)
+	base, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.BoxStyle, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
 
+	// Anchor deliberately omitted -- Window's internal box is "hand-drawn" by the widget itself
 	boxBounds := geom.NewBounds(0, 0, bounds.W, bounds.H)
-	box, err := NewBox(boxBounds, cfg.BoxConfig)
+	box, err := NewBox(boxBounds, BoxConfig{
+		Padding:      cfg.Padding,
+		Style:        cfg.BoxStyle,
+		BorderConfig: cfg.BorderConfig,
+		Layer:        cfg.Layer, 
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +73,7 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 
 	var text *Text
 	if cfg.Title != "" {
-		textPos := geom.NewPoint(cfg.BoxConfig.Padding+cfg.TitleXOffset, textY)
+		textPos := geom.NewPoint(cfg.Padding+cfg.TitleXOffset, textY)
 
 		text, err = NewText(textPos, TextConfig{
 			Value: cfg.Title,
@@ -78,7 +86,7 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 	}
 
 	w := &Window{
-		BaseNode: bn,
+		BaseNode: base,
 		box:      box,
 		text:     text,
 	}

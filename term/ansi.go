@@ -15,14 +15,13 @@ func CellToANSI(c core.Cell) string {
 
 	if !c.Fg.IsTransparent {
 		seq += fgToANSI(c.Fg)
-		seq += string(c.Ch)
 	}
 
 	if c.Ch == 0 {
 		seq += " "
 	}
 
-	return seq
+	return seq + string(c.Ch)
 }
 
 func fgToANSI(color core.Color) string {

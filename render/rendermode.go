@@ -3,8 +3,8 @@ package render
 type LoopMode int
 
 const (
-	OnDemand LoopMode = iota
-	FixedFPS
+	FixedFPS LoopMode = iota
+	OnDemand
 )
 
 type RenderMode struct {

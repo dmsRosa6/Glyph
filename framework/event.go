@@ -11,7 +11,7 @@ const (
 	KeyEnter
 	KeyEsc
 	KeyTab
-	KeyCtrlC //Reserved to kill process cleanly
+	KeyCtrlC //Proabaly should be opinionated and be reserved to kill process cleanly
 )
 
 type Event struct {

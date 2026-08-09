@@ -4,11 +4,16 @@ import (
 	"github.com/dmsRosa6/glyph/framework"
 )
 
-type ActionFunc func(node *FocusableBaseNode, ev framework.Event) (bool, error)
+type FocusableActionContext struct {
+	node *FocusableBaseNode
+	ev   framework.Event
+}
+
+type FocusableActionFunc func(action FocusableActionContext) (bool, error)
 
 type FocusableBaseNode struct {
 	BaseNode
-	actions    map[framework.Key]ActionFunc
+	actions    map[framework.Key]FocusableActionFunc
 	focused    bool
 	focusStyle *framework.Style
 }
@@ -23,7 +28,7 @@ func (f *FocusableBaseNode) Style() framework.Style {
 func NewFocusableBaseNode(base BaseNode) FocusableBaseNode {
 	return FocusableBaseNode{
 		BaseNode: base,
-		actions:  make(map[framework.Key]ActionFunc),
+		actions:  make(map[framework.Key]FocusableActionFunc),
 	}
 }
 
@@ -31,7 +36,7 @@ func (f *FocusableBaseNode) SetFocusStyle(s framework.Style) {
 	f.focusStyle = &s
 }
 
-func (f *FocusableBaseNode) BindAction(k framework.Key, fn ActionFunc) {
+func (f *FocusableBaseNode) BindAction(k framework.Key, fn FocusableActionFunc) {
 	f.actions[k] = fn
 }
 
@@ -40,7 +45,8 @@ func (f *FocusableBaseNode) HandleInput(ev framework.Event) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	refresh, err := fn(f, ev)
+
+	refresh, err := fn(FocusableActionContext{node: f, ev: ev})
 	if refresh {
 		f.Invalidate()
 	}

@@ -137,7 +137,7 @@ func clockWindow() *widgets.Window {
 }
 
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.Cyan, RenderMode: render.FixedFPS})
+	a, err := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: render.FixedFPSMode(30)})
 	if err != nil {
 		panic(err)
 	}

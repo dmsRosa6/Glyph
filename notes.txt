@@ -8,3 +8,5 @@ move to a faul aware system that only fails when it really needs to and introduc
 introuce good clipping it will make the fault system even cooler
 use invalidate properly
 So the text size may vary so we can check if .len changes if so we need to recalculate anchoring
+Text uses normal Index and seems fine cause ascii but i read it get fucked on utf 8
+Should set focus on app constructor

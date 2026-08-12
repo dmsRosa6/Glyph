@@ -24,7 +24,7 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	restore func()
-	stopped chan struct{} // closed once the read loop has fully exited
+	stopped chan struct{}
 }
 
 func NewManager(logs chan<- core.AppLog) (*Manager, error) {
@@ -54,7 +54,7 @@ func (m *Manager) Start() {
 // Stop cancels the read loop, waits for it to actually exit (so it's
 // no longer touching stdin), then restores the terminal.
 func (m *Manager) Stop() {
-	m.logs <- *core.NewInfoAppLog("Input manager stopping.", string(core.InputSource))
+	m.logs <- *core.NewInfoAppLog("Input manager stopping", string(core.InputSource))
 	m.cancel()
 	<-m.stopped
 	m.restore()
@@ -67,7 +67,7 @@ func (m *Manager) run() {
 	state := stateNormal
 	var buf [1]byte
 
-	m.logs <- *core.NewInfoAppLog("Input manager started.", string(core.InputSource))
+	m.logs <- *core.NewInfoAppLog("Input manager started", string(core.InputSource))
 
 	for {
 		select {

@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/dmsRosa6/glyph/base"
@@ -51,23 +52,6 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 	}
 }
 
-// SetValue updates the text's content and asks the renderer for a
-// redraw. Safe to call concurrently, including from a background
-// goroutine -- this IS the "let a component refresh itself via a
-// goroutine" hook: hold a reference to a Text, spin up a goroutine, call
-// SetValue on whatever schedule you want.
-//
-//  clock, _ := widgets.NewText(pos, widgets.TextConfig{Value: "00:00:00"})
-//  go func() {
-//      for range time.Tick(time.Second) {
-//          clock.SetValue(time.Now().Format("15:04:05"))
-//      }
-//  }()
-//
-// The node's width is fixed at construction (from the initial value's
-// length) since that's what everything else's bounds-checking and
-// layout is computed against. A longer replacement is truncated to fit;
-// construct with your expected max width if the value can grow.
 func (t *Text) SetValue(v string) {
 	t.mu.Lock()
 	w, _ := t.Size()
@@ -77,6 +61,7 @@ func (t *Text) SetValue(v string) {
 	t.value = v
 	t.mu.Unlock()
 
+	t.Logger("Text").Debug(fmt.Sprintf("value set to %q", v))
 	t.Invalidate()
 }
 

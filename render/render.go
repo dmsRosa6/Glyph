@@ -20,6 +20,7 @@ type Renderer struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 func NewRenderer(mode LoopMode, fps int, logs chan<- core.AppLog) *Renderer {
@@ -40,6 +41,7 @@ func NewRenderer(mode LoopMode, fps int, logs chan<- core.AppLog) *Renderer {
 		ctx:        ctx,
 		cancel:     cancel,
 		logs:       logs,
+		done:       make(chan struct{}),
 	}
 
 	r.Init()
@@ -60,7 +62,10 @@ func (r *Renderer) Start(c *canvas.Canvas) {
 }
 
 func (r *Renderer) Run(c *canvas.Canvas) {
+	defer close(r.done)
+
 	c.SetInvalidator(r.RequestRedraw)
+	c.SetLogChannel(r.logs)
 
 	var ticker *time.Ticker
 	if r.RenderMode.Mode == FixedFPS {
@@ -150,9 +155,9 @@ func (r *Renderer) restore() {
 }
 
 func (r *Renderer) Stop() {
-	r.logs <- *core.NewInfoAppLog("Renderer Started", string(core.RendererSource))
+	r.logs <- *core.NewInfoAppLog("Renderer Stopped", string(core.RendererSource))
 	r.cancel()
-	r.restore()
+	<-r.done
 }
 
 func (r *Renderer) Flush(buf *core.Buffer) {

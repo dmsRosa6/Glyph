@@ -67,11 +67,9 @@ func NewDebugAppLog(msg, source string) *AppLog {
 
 func (l AppLog) Reason() string {
 	rsn := l.msg
-
-	if l.severity >= Warning {
+	if l.severity >= Warning && l.err != nil {
 		rsn = l.err.Error()
 	}
-
 	return fmt.Sprintf("[%s] %s. In component '%s'", l.severity.String(), rsn, l.source)
 }
 

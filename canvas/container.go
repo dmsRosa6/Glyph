@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/dmsRosa6/glyph/base"
@@ -58,11 +60,13 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 
 func (c *Container) AddChild(child framework.Drawable) {
 	if !child.IsInBounds(c.LocalFrame()) {
-		panic("shape out of container bounds")
+		c.Fault("Container", errors.New("shape out of container bounds"))
+		return
 	}
 
 	child.SetParentStyle(c.ResolvedStyle())
 	child.SetInvalidator(c.Invalidate)
+	child.SetLogChannel(c.Logs())
 
 	c.children = append(c.children, child)
 }
@@ -71,6 +75,7 @@ func (c *Container) RemoveChild(target framework.Drawable) {
 	for i, child := range c.children {
 		if child == target {
 			c.children = append(c.children[:i], c.children[i+1:]...)
+			c.Logger("Container").Debug(fmt.Sprintf("child removed, now %d children", len(c.children)))
 			return
 		}
 	}
@@ -96,4 +101,11 @@ func (c *Container) SetInvalidator(fn func()) {
 // framework.ChildrenLister.
 func (c *Container) Children() []framework.Drawable {
 	return c.children
+}
+
+func (c *Container) SetLogChannel(ch chan<- core.AppLog) {
+	c.BaseNode.SetLogChannel(ch)
+	for _, child := range c.children {
+		child.SetLogChannel(ch)
+	}
 }

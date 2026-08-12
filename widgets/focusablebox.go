@@ -76,3 +76,21 @@ func (fb *FocusableBox) FocusableChildren() []framework.Focusable {
 	}
 	return out
 }
+
+func (fb *FocusableBox) SetParentStyle(s *framework.Style) {
+	fb.BaseNode.SetParentStyle(s)
+	fb.border.SetParentStyle(fb.ResolvedStyle())
+	fb.content.SetParentStyle(fb.ResolvedStyle())
+}
+
+func (fb *FocusableBox) SetInvalidator(fn func()) {
+	fb.BaseNode.SetInvalidator(fn)
+	fb.border.SetInvalidator(fn)
+	fb.content.SetInvalidator(fn)
+}
+
+func (fb *FocusableBox) SetLogChannel(ch chan<- core.AppLog) {
+	fb.BaseNode.SetLogChannel(ch)
+	fb.border.SetLogChannel(ch)
+	fb.content.SetLogChannel(ch)
+}

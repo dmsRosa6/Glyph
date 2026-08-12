@@ -11,7 +11,7 @@ type Drawable interface {
 	SetLayer(l int) error
 	GetLayer() int
 	SetParentStyle(style *Style)
-
+	SetLogChannel(ch chan<- core.AppLog)
 	// SetInvalidator wires up the callback a node (or anything nested
 	// inside it) should call after a background update to ask for a
 	// redraw. Containers propagate this to their children the same way

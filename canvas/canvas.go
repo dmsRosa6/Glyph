@@ -22,7 +22,6 @@ type CanvasConfig struct {
 	Fg, Bg        core.Color
 }
 
-
 func NewCanvas(cfg CanvasConfig) (*Canvas, error) {
 	w, h := cfg.Width, cfg.Height
 
@@ -145,4 +144,8 @@ func collectFocusable(children []framework.Drawable, out *[]framework.Focusable)
 			collectFocusable(cl.Children(), out)
 		}
 	}
+}
+
+func (c *Canvas) SetLogChannel(ch chan<- core.AppLog) {
+	c.root.SetLogChannel(ch)
 }

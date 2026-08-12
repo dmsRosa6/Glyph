@@ -90,3 +90,17 @@ func (b *Bordered) SetInvalidator(fn func()) {
 	b.border.SetInvalidator(fn)
 	b.content.SetInvalidator(fn)
 }
+
+func (b *Bordered) SetLogChannel(ch chan<- core.AppLog) {
+	b.BaseNode.SetLogChannel(ch)
+	b.border.SetLogChannel(ch)
+	b.content.SetLogChannel(ch)
+}
+
+func (w *Window) SetLogChannel(ch chan<- core.AppLog) {
+	w.BaseNode.SetLogChannel(ch)
+	w.box.SetLogChannel(ch)
+	if w.text != nil {
+		w.text.SetLogChannel(ch)
+	}
+}

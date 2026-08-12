@@ -110,42 +110,60 @@ func (a *App) Run() {
 
 	a.logs.Logs() <- *core.NewInfoAppLog("App Started", string(core.AppSource))
 
-	for ev := range a.Input.Events() {
-
-		a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
-
-		if f, ok := a.appEvents[ev.Key]; ok {
-
-			reRender, sig, err := f(a, ev)
-
-			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'. App signal '%s'", ev.Key.String(), reRender, sig.String()), string(core.AppSource))
-
-			if err != nil {
-				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Error is '%t'. Error:%s", ev.Key.String(), err != nil, err.Error()), string(core.AppSource))
+	for {
+		select {
+		case sig, ok := <-a.appSignals:
+			if !ok {
+				return
 			}
-
+			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App signal '%s' received", sig.String()), string(core.AppSource))
 			if sig == core.SIGTERM {
 				a.Stop()
 				return
 			}
 
-			if reRender {
-				a.Renderer.RequestRedraw()
+		case ev, ok := <-a.Input.Events():
+			if !ok {
+				return
 			}
-			continue
-		}
-		if f := a.Focus.Current(); f != nil {
-			reRender, _ := f.HandleInput(ev)
-			if reRender {
-				a.Renderer.RequestRedraw()
+
+			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
+
+			if f, ok := a.appEvents[ev.Key]; ok {
+				reRender, sig, err := f(a, ev)
+
+				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'. App signal '%s'", ev.Key.String(), reRender, sig.String()), string(core.AppSource))
+
+				if err != nil {
+					a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Error is '%t'. Error:%s", ev.Key.String(), err != nil, err.Error()), string(core.AppSource))
+				}
+
+				if sig == core.SIGTERM {
+					a.Stop()
+					return
+				}
+
+				if reRender {
+					a.Renderer.RequestRedraw()
+				}
+				continue
+			}
+			if f := a.Focus.Current(); f != nil {
+				reRender, err := f.HandleInput(ev)
+				if err != nil {
+					a.Stop()
+					return
+				}
+				if reRender {
+					a.Renderer.RequestRedraw()
+				}
 			}
 		}
 	}
 }
 
 func (a *App) Stop() {
-
-	a.logs.Logs() <- *core.NewInfoAppLog("App Stopped", "App")
+	a.logs.Logs() <- *core.NewInfoAppLog("App Stopped", string(core.AppSource))
 	a.Renderer.Stop()
 	a.Input.Stop()
 	a.logs.Stop()

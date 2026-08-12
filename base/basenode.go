@@ -28,7 +28,7 @@ type BaseNode struct {
 	style       *framework.Style
 	parentStyle *framework.Style
 	layer       int
-
+	logs        chan<- core.AppLog
 	// invalidate is how this node (or a goroutine holding a reference to
 	// it) asks the renderer for a redraw. nil until something wires it
 	// up -- Canvas.AddShape / Container.AddChild / Bordered's inner
@@ -158,14 +158,37 @@ func (n *BaseNode) AnchorH() framework.AxisAnchor {
 }
 
 func (n *BaseNode) ComputedPos() geom.Point {
-    return n.computedPos
+	return n.computedPos
 }
 
 func (n *BaseNode) Bounds() *geom.Bounds {
-    return n.bounds
+	return n.bounds
 }
 
 func (n *BaseNode) Resize(w, h int) {
 	n.bounds.W = w
 	n.bounds.H = h
+}
+
+func (n *BaseNode) SetLogChannel(ch chan<- core.AppLog) {
+	n.logs = ch
+}
+
+func (n *BaseNode) Logs() chan<- core.AppLog {
+	return n.logs
+}
+
+func (n *BaseNode) Logger(source string) framework.Logger {
+	return framework.NewLogger(n.logs, source)
+}
+
+func (n *BaseNode) Fault(source string, err error) {
+	if n.logs == nil {
+		panic(err)
+	}
+	n.Logger(source).Fatal(err)
+}
+
+func (n *BaseNode) Warn(source string, err error) {
+	n.Logger(source).Warning(err)
 }

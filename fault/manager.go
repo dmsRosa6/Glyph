@@ -17,6 +17,7 @@ type FaultManager struct {
 	logLevel  core.Severity
 	cancel    context.CancelFunc
 	ctx       context.Context
+	done      chan struct{}
 }
 
 const logFileName string = "log_%s.txt"
@@ -24,7 +25,6 @@ const basePath string = "logs"
 
 func NewFaultManager(logLevel core.Severity, signals chan core.AppSignal) (*FaultManager, error) {
 	l := make(chan core.AppLog, 100)
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &FaultManager{
@@ -33,6 +33,7 @@ func NewFaultManager(logLevel core.Severity, signals chan core.AppSignal) (*Faul
 		logLevel:  logLevel,
 		ctx:       ctx,
 		cancel:    cancel,
+		done:      make(chan struct{}), // NEW
 	}, nil
 }
 
@@ -46,10 +47,11 @@ func (f *FaultManager) Start() {
 
 func (f *FaultManager) Stop() {
 	f.cancel()
+	<-f.done
 }
 
 func (f *FaultManager) run() {
-
+	defer close(f.done)
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		err := os.MkdirAll(basePath, 0755)
 
@@ -98,9 +100,8 @@ func (f *FaultManager) run() {
 				if _, err := file.WriteString(logLine); err != nil {
 					fmt.Printf("could not write fatal log: %v\n%s", err, logLine)
 				}
-
 				f.appSignal <- core.SIGTERM
-				return
+				continue // was: return -- keep draining so App.Stop()'s own shutdown logs still get written
 			}
 
 			if pending.Size() > 0 {
@@ -125,6 +126,13 @@ func (f *FaultManager) run() {
 				}
 			}
 		case <-f.ctx.Done():
+			for pending.Size() > 0 {
+				logLine, err := pending.Read()
+				if err != nil {
+					break
+				}
+				file.WriteString(logLine)
+			}
 			return
 		}
 	}

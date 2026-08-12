@@ -17,7 +17,7 @@ type BorderConfig struct {
 	Thickness   int
 	BorderStyle BorderStyle
 	Style       framework.Style
-	Layer  int
+	Layer       int
 }
 
 func DefaultBorderConfig() BorderConfig {

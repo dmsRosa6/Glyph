@@ -103,7 +103,7 @@ func listDemo(width int) *widgets.List {
 func clockWindow() *widgets.Window {
 	win, err := widgets.NewWindow(geom.NewBounds(0, 0, 30, 10), widgets.WindowConfig{
 		Padding:  1,
-		BoxStyle: framework.Style{Bg: core.Transparent, Fg: core.LightBlue},
+		BoxStyle: framework.Style{Bg: core.Transparent, Fg: core.Red},
 		BorderConfig: widgets.BorderConfig{
 			Thickness:   1,
 			BorderStyle: widgets.DoubleLine,

@@ -3,23 +3,24 @@ package fault
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/dmsRosa6/glyph/app"
+	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/datastructs"
-	"github.com/dmsRosa6/glyph/framework"
 )
 
 type FaultManager struct {
-	appSignal chan<- app.AppSignal
-	log       chan framework.AppLog
-	logLevel  framework.Severity
+	appSignal chan<- core.AppSignal
+	log       chan core.AppLog
+	logLevel  core.Severity
 }
 
-const logFileName string = "log.txt"
+const logFileName string = "log_%s.txt"
+const basePath string = "logs"
 
-func NewFaultManager(logLevel framework.Severity, signals chan app.AppSignal) (*FaultManager, error) {
-	l := make(chan framework.AppLog, 100)
+func NewFaultManager(logLevel core.Severity, signals chan core.AppSignal) (*FaultManager, error) {
+	l := make(chan core.AppLog, 100)
 
 	return &FaultManager{
 		appSignal: signals,
@@ -28,7 +29,7 @@ func NewFaultManager(logLevel framework.Severity, signals chan app.AppSignal) (*
 	}, nil
 }
 
-func (f *FaultManager) Logs() chan<- framework.AppLog {
+func (f *FaultManager) Logs() chan<- core.AppLog {
 	return f.log
 }
 
@@ -38,14 +39,22 @@ func (f *FaultManager) Start() {
 
 func (f *FaultManager) run() {
 
-	err := os.Remove(logFileName)
-	if err != nil && !os.IsNotExist(err) {
-		panic("could not start fault manager.")
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		err := os.MkdirAll(basePath, 0755)
+
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	file, err := os.OpenFile(logFileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	ts := time.Now().Format("20060102_150405")
+
+	resolvedFileName := filepath.Join(basePath,
+		fmt.Sprintf(logFileName, ts))
+
+	file, err := os.OpenFile(resolvedFileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		panic("could not start fault manager.")
+		panic(err)
 	}
 
 	defer func() {
@@ -74,12 +83,12 @@ func (f *FaultManager) run() {
 			logLine := fmt.Sprintf("%s %s\n", ts, log.Reason())
 
 			// Big fuck up this is the case where we just want to get over it we will not wait ticks to write to log
-			if log.Severity() == framework.Fatal {
+			if log.Severity() == core.Fatal {
 				if _, err := file.WriteString(logLine); err != nil {
 					fmt.Printf("could not write fatal log: %v\n%s", err, logLine)
 				}
 
-				f.appSignal <- app.SIGTERM
+				f.appSignal <- core.SIGTERM
 				return
 			}
 

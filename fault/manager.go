@@ -12,19 +12,24 @@ import (
 
 type FaultManager struct {
 	appSignal chan<- app.AppSignal
-	log       <-chan framework.AppLog
+	log       chan framework.AppLog
 	logLevel  framework.Severity
 }
 
-func NewFaultManager(logLevel framework.Severity) (*FaultManager, error) {
-	s := make(chan app.AppSignal)
+const logFileName string = "log.txt"
+
+func NewFaultManager(logLevel framework.Severity, signals chan app.AppSignal) (*FaultManager, error) {
 	l := make(chan framework.AppLog, 100)
 
 	return &FaultManager{
-		appSignal: s,
+		appSignal: signals,
 		log:       l,
 		logLevel:  logLevel,
 	}, nil
+}
+
+func (f *FaultManager) Logs() chan<- framework.AppLog {
+	return f.log
 }
 
 func (f *FaultManager) Start() {
@@ -32,14 +37,13 @@ func (f *FaultManager) Start() {
 }
 
 func (f *FaultManager) run() {
-	fileName := "log.txt"
 
-	err := os.Remove(fileName)
+	err := os.Remove(logFileName)
 	if err != nil && !os.IsNotExist(err) {
 		panic("could not start fault manager.")
 	}
 
-	file, err := os.Create(fileName)
+	file, err := os.OpenFile(logFileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		panic("could not start fault manager.")
 	}
@@ -50,7 +54,7 @@ func (f *FaultManager) run() {
 		}
 	}()
 
-	//propably should be dynamic
+	// TODO: Make retry buffer capacity configurable.
 	pending := datastructs.NewRingBuffer(100)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()

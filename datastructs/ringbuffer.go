@@ -1,6 +1,8 @@
 package datastructs
 
-import "errors"
+import (
+	"errors"
+)
 
 type RingBuffer struct {
 	buffer     []string
@@ -8,13 +10,13 @@ type RingBuffer struct {
 	writeIndex int
 }
 
-func NewRingBuffer(size int) *RingBuffer {
-	if size < 2 {
+func NewRingBuffer(capacity int) *RingBuffer {
+	if capacity < 2 {
 		panic("ring buffer size must be at least 2")
 	}
 
 	return &RingBuffer{
-		buffer: make([]string, size),
+		buffer: make([]string, capacity),
 	}
 }
 
@@ -42,4 +44,12 @@ func (b *RingBuffer) Read() (string, error) {
 	b.readIndex = (b.readIndex + 1) % len(b.buffer)
 
 	return str, nil
+}
+
+func (b *RingBuffer) Size() int {
+	if b.writeIndex >= b.readIndex {
+		return b.writeIndex - b.readIndex
+	}
+
+	return len(b.buffer) - b.readIndex + b.writeIndex
 }

@@ -1,6 +1,7 @@
 package fault
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ type FaultManager struct {
 	appSignal chan<- core.AppSignal
 	log       chan core.AppLog
 	logLevel  core.Severity
+	cancel    context.CancelFunc
+	ctx       context.Context
 }
 
 const logFileName string = "log_%s.txt"
@@ -22,10 +25,14 @@ const basePath string = "logs"
 func NewFaultManager(logLevel core.Severity, signals chan core.AppSignal) (*FaultManager, error) {
 	l := make(chan core.AppLog, 100)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &FaultManager{
 		appSignal: signals,
 		log:       l,
 		logLevel:  logLevel,
+		ctx:       ctx,
+		cancel:    cancel,
 	}, nil
 }
 
@@ -35,6 +42,10 @@ func (f *FaultManager) Logs() chan<- core.AppLog {
 
 func (f *FaultManager) Start() {
 	go f.run()
+}
+
+func (f *FaultManager) Stop() {
+	f.cancel()
 }
 
 func (f *FaultManager) run() {
@@ -113,6 +124,8 @@ func (f *FaultManager) run() {
 					break
 				}
 			}
+		case <-f.ctx.Done():
+			return
 		}
 	}
 }

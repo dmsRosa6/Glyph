@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
@@ -38,7 +39,7 @@ func NewApp(cfg AppConfig) (*App, error) {
 	logs, error := fault.NewFaultManager(cfg.logLevel, appSignals)
 
 	if error != nil {
-		panic(error)
+		return nil, fmt.Errorf("failed to create fault manager: %v", error)
 	}
 
 	if cfg.Width < 0 {
@@ -59,14 +60,14 @@ func NewApp(cfg AppConfig) (*App, error) {
 
 	c, err := canvas.NewCanvas(canvas.CanvasConfig{Width: cfg.Width, Height: cfg.Height, Fg: fg, Bg: bg})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create canvas: %v", err)
 	}
 
-	r := render.NewRenderer(cfg.RenderMode.Mode, cfg.RenderMode.Fps)
+	r := render.NewRenderer(cfg.RenderMode.Mode, cfg.RenderMode.Fps, logs.Logs())
 
-	in, err := input.NewManager()
+	in, err := input.NewManager(logs.Logs())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create input manager: %v", err)
 	}
 
 	defaultEvents := cfg.AppEvents
@@ -107,11 +108,21 @@ func (a *App) Run() {
 	a.Focus = input.NewFocusManager(a.Canvas.CollectFocusable())
 	a.Input.Start()
 
-	a.logs.Logs() <- *core.NewInfoAppLog("App Started", "App")
+	a.logs.Logs() <- *core.NewInfoAppLog("App Started", string(core.AppSource))
 
 	for ev := range a.Input.Events() {
+
+		a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
+
 		if f, ok := a.appEvents[ev.Key]; ok {
-			reRender, sig, _ := f(a, ev)
+
+			reRender, sig, err := f(a, ev)
+
+			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'. App signal '%s'", ev.Key.String(), reRender, sig.String()), string(core.AppSource))
+
+			if err != nil {
+				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Error is '%t'. Error:%s", ev.Key.String(), err != nil, err.Error()), string(core.AppSource))
+			}
 
 			if sig == core.SIGTERM {
 				a.Stop()
@@ -137,4 +148,5 @@ func (a *App) Stop() {
 	a.logs.Logs() <- *core.NewInfoAppLog("App Stopped", "App")
 	a.Renderer.Stop()
 	a.Input.Stop()
+	a.logs.Stop()
 }

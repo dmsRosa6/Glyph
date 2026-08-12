@@ -16,12 +16,13 @@ type Renderer struct {
 	out *bufio.Writer
 	RenderMode
 	isDirty bool
+	logs    chan<- core.AppLog
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func NewRenderer(mode LoopMode, fps int) *Renderer {
+func NewRenderer(mode LoopMode, fps int, logs chan<- core.AppLog) *Renderer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var renderMode RenderMode
@@ -38,6 +39,7 @@ func NewRenderer(mode LoopMode, fps int) *Renderer {
 		RenderMode: renderMode,
 		ctx:        ctx,
 		cancel:     cancel,
+		logs:       logs,
 	}
 
 	r.Init()
@@ -80,6 +82,8 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 
 	resizeCh := term.WatchResize()
 
+	r.logs <- *core.NewInfoAppLog("Renderer Started", string(core.RendererSource))
+
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -113,6 +117,8 @@ func (r *Renderer) RequestRedraw() {
 		return
 	}
 
+	r.logs <- *core.NewDebugAppLog("On Demand render cycle triggered", string(core.RendererSource))
+
 	select {
 	case r.Redraw <- struct{}{}:
 	default:
@@ -120,6 +126,7 @@ func (r *Renderer) RequestRedraw() {
 }
 
 func (r *Renderer) render(c *canvas.Canvas) {
+
 	fmt.Fprint(r.out, "\x1b[H")
 
 	c.Compose()
@@ -143,6 +150,7 @@ func (r *Renderer) restore() {
 }
 
 func (r *Renderer) Stop() {
+	r.logs <- *core.NewInfoAppLog("Renderer Started", string(core.RendererSource))
 	r.cancel()
 	r.restore()
 }

@@ -11,10 +11,35 @@ const (
 	KeyEnter
 	KeyEsc
 	KeyTab
-	KeyCtrlC //Proabaly should be opinionated and be reserved to kill process cleanly
+	KeyCtrlC
 )
 
 type Event struct {
 	Key  Key
 	Rune rune
+}
+
+func (k Key) String() string {
+	switch k {
+	case KeyRune:
+		return "Rune"
+	case KeyUp:
+		return "Up"
+	case KeyDown:
+		return "Down"
+	case KeyLeft:
+		return "Left"
+	case KeyRight:
+		return "Right"
+	case KeyEnter:
+		return "Enter"
+	case KeyEsc:
+		return "Escape"
+	case KeyTab:
+		return "Tab"
+	case KeyCtrlC:
+		return "Ctrl+C"
+	default:
+		return "Unknown"
+	}
 }

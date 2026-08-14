@@ -1,112 +1,73 @@
 package widgets
 
 import (
-	"github.com/dmsRosa6/glyph/base"
+	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-type TitlePosition int
-
-const (
-	TitleTop TitlePosition = iota
-	TitleBottom
-)
-
-// Window is a Bordered box with a title Text overlaid on the frame.
-// The title genuinely isn't reducible to Container/Bordered alone (it
-// sits on the border itself, outside the padded content area), so this
-// stays a small dedicated composition -- but it's built on Bordered
-// instead of owning a border and a content container directly.
+// Window is a Bordered plus an optional title. Same v2 shape as Bordered:
+// embeds *canvas.Container so propagation/Draw/layer-sort are all
+// inherited, and only overrides the three methods that need to redirect
+// to the right inner slot.
+//
+// RECONSTRUCTED -- see the note atop bordered.go.
 type Window struct {
-	base.BaseNode
-	box  *Bordered
-	text *Text
+	*canvas.Container
+	box   *Bordered
+	title *Text // nil when cfg.Title == ""
 }
 
 type WindowConfig struct {
 	Padding      int
 	BoxStyle     framework.Style
 	BorderConfig BorderConfig
-
-	Title         string
-	TitleXOffset  int
-	TitlePosition TitlePosition
-	TitleFg       core.Color
-
-	Anchor framework.Anchor
-	Layer  int
+	Anchor       framework.Anchor
+	Layer        int
+	Title        string
+	TitleFg      core.Color
 }
 
 func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
-	if cfg.Title != "" {
-		innerWidth := bounds.W - 2*cfg.Padding
-
-		if cfg.TitleXOffset < 0 ||
-			cfg.TitleXOffset+len(cfg.Title) > innerWidth {
-			panic("title out of window bounds")
-		}
-	}
-
-	base, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.BoxStyle, cfg.Layer)
-	if err != nil {
-		return nil, err
-	}
-
-	// Anchor deliberately omitted -- Window's internal box is "hand-drawn" by the widget itself
-	boxBounds := geom.NewBounds(0, 0, bounds.W, bounds.H)
-	box, err := NewBox(boxBounds, BoxConfig{
-		Padding:      cfg.Padding,
-		Style:        cfg.BoxStyle,
-		BorderConfig: cfg.BorderConfig,
-		Layer:        cfg.Layer, 
+	outer, err := canvas.NewContainer(bounds, canvas.ContainerConfig{
+		Style:  framework.Style{Bg: core.Transparent, Fg: core.Transparent},
+		Layer:  cfg.Layer,
+		Anchor: cfg.Anchor,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var textY int
-	if cfg.TitlePosition == TitleBottom {
-		textY = bounds.H - 1
+	box, err := NewBox(geom.NewBounds(0, 0, bounds.W, bounds.H), BoxConfig{
+		Padding:      cfg.Padding,
+		Style:        cfg.BoxStyle,
+		BorderConfig: cfg.BorderConfig,
+	})
+	if err != nil {
+		return nil, err
 	}
+	outer.AddChild(box)
 
-	var text *Text
+	w := &Window{Container: outer, box: box}
+
+	// Plain nil check, not Propagator's reflect-based one: title is a
+	// concrete *Text or genuinely absent here, no typed-nil-through-an-
+	// interface case to guard against, since we only ever call AddChild
+	// with a value we just constructed ourselves.
 	if cfg.Title != "" {
-		textPos := geom.NewPoint(cfg.Padding+cfg.TitleXOffset, textY)
-
-		text, err = NewText(textPos, TextConfig{
+		title, err := NewText(&geom.Point{X: 1, Y: 0}, TextConfig{
 			Value: cfg.Title,
 			Fg:    cfg.TitleFg,
-			Layer: cfg.Layer,
 		})
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	w := &Window{
-		BaseNode: base,
-		box:      box,
-		text:     text,
-	}
-
-	box.SetParentStyle(w.ResolvedStyle())
-	if text != nil {
-		text.SetParentStyle(box.ResolvedStyle())
+		w.title = title
+		outer.AddChild(title)
 	}
 
 	return w, nil
-}
-
-func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
-	pos := w.ComputedPos()
-	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
-
-	w.box.Draw(buf, v)
-	if w.text != nil {
-		w.text.Draw(buf, v)
-	}
 }
 
 func (w *Window) AddChild(child framework.Drawable) {
@@ -117,30 +78,6 @@ func (w *Window) RemoveChild(target framework.Drawable) {
 	w.box.RemoveChild(target)
 }
 
-func (w *Window) SetLayer(l int) error {
-	if err := w.BaseNode.SetLayer(l); err != nil {
-		return err
-	}
-	if w.text != nil {
-		if err := w.text.SetLayer(l); err != nil {
-			return err
-		}
-	}
-	return w.box.SetLayer(l)
-}
-
-func (w *Window) SetParentStyle(s *framework.Style) {
-	w.BaseNode.SetParentStyle(s)
-	w.box.SetParentStyle(w.ResolvedStyle())
-	if w.text != nil {
-		w.text.SetParentStyle(w.box.ResolvedStyle())
-	}
-}
-
-func (w *Window) SetInvalidator(fn func()) {
-	w.BaseNode.SetInvalidator(fn)
-	w.box.SetInvalidator(fn)
-	if w.text != nil {
-		w.text.SetInvalidator(fn)
-	}
+func (w *Window) Children() []framework.Drawable {
+	return w.box.Children()
 }

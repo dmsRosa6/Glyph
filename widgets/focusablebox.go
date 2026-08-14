@@ -1,75 +1,96 @@
-// widgets/focusablebox.go
 package widgets
 
 import (
 	"github.com/dmsRosa6/glyph/base"
-	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
+// FocusableBox is Bordered plus focus behavior. Unlike Bordered/Window,
+// it can't just embed *canvas.Container: it needs base.FocusableBaseNode
+// for Focus/Blur/BindAction/HandleInput, and embedding BOTH
+// FocusableBaseNode (which itself embeds BaseNode) and *canvas.Container
+// (which also embeds BaseNode+Propagator) at the same depth would make
+// every BaseNode-derived method ambiguous -- Go embedding isn't virtual
+// dispatch, and two same-depth sources of the same method name is a
+// compile error, not a merge.
+//
+// So FocusableBox holds its box as a plain field instead, and its own
+// SetParentStyle/SetInvalidator/SetLogChannel/SetLayer forward to that
+// ONE field directly. That's also why no base.Propagator is needed here
+// either, on top of the embedding conflict: Propagator's whole job is
+// fanning out to N owned sub-drawables, and there's only one (box) to
+// forward to -- a direct call already does that job.
+//
+// RECONSTRUCTED -- see the note atop bordered.go.
 type FocusableBox struct {
 	base.FocusableBaseNode
-	border  *Border
-	content *canvas.Container
+	box *Bordered
 }
 
 type FocusableBoxConfig struct {
-	BorderConfig BorderConfig
 	Padding      int
+	BorderConfig BorderConfig
 	Style        framework.Style
 	FocusStyle   framework.Style
-	Anchor       framework.Anchor
 	Layer        int
+	Anchor       framework.Anchor
 }
 
 func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox, error) {
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, framework.Style{Bg: core.Transparent, Fg: core.Transparent}, cfg.Layer)
 	if err != nil {
 		return nil, err
 	}
 
-	innerW := bounds.W - 2*cfg.Padding
-	innerH := bounds.H - 2*cfg.Padding
-	content, err := canvas.NewContainer(geom.NewBounds(cfg.Padding, cfg.Padding, innerW, innerH), canvas.ContainerConfig{Layer: cfg.Layer})
-	if err != nil {
-		return nil, err
-	}
-
-	border, err := NewBorder(geom.NewBounds(0, 0, bounds.W, bounds.H), cfg.BorderConfig)
+	box, err := NewBox(geom.NewBounds(0, 0, bounds.W, bounds.H), BoxConfig{
+		Padding:      cfg.Padding,
+		Style:        cfg.Style,
+		BorderConfig: cfg.BorderConfig,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	fb := &FocusableBox{
 		FocusableBaseNode: base.NewFocusableBaseNode(bn),
-		border:            border,
-		content:           content,
+		box:               box,
 	}
-	fb.SetFocusStyle(cfg.FocusStyle)
-
-	border.SetParentStyle(fb.ResolvedStyle())
-	content.SetParentStyle(fb.ResolvedStyle())
+	fb.FocusableBaseNode.SetFocusStyle(cfg.FocusStyle)
 
 	return fb, nil
 }
 
 func (fb *FocusableBox) Draw(buf *core.Buffer, vec geom.Vector) {
+	// Re-push the focus-resolved style every frame: Focus()/Blur() only
+	// flip a bool and call Invalidate(), they never re-call
+	// SetParentStyle, so this is where box actually picks up FocusStyle.
+	resolved := fb.FocusableBaseNode.Style()
+	fb.box.SetParentStyle(&resolved)
+
 	pos := fb.ComputedPos()
 	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
-	fb.content.Layout(fb.LocalFrame())
-	fb.content.Draw(buf, v)
-	fb.border.SetParentStyle(fb.ResolvedStyle()) // picks up focus color each frame
-	fb.border.Draw(buf, v)
+	fb.box.Draw(buf, v)
 }
 
-func (fb *FocusableBox) AddChild(child framework.Drawable) { fb.content.AddChild(child) }
+func (fb *FocusableBox) AddChild(child framework.Drawable) {
+	fb.box.AddChild(child)
+}
 
-// FocusableChildren makes this box drillable by FocusManager.Enter().
+func (fb *FocusableBox) RemoveChild(target framework.Drawable) {
+	fb.box.RemoveChild(target)
+}
+
+func (fb *FocusableBox) Children() []framework.Drawable {
+	return fb.box.Children()
+}
+
+// FocusableChildren makes FocusableBox a framework.FocusContainer, so
+// FocusManager.Enter() can drill into it (main.go's focusDrillDemo).
 func (fb *FocusableBox) FocusableChildren() []framework.Focusable {
 	var out []framework.Focusable
-	for _, c := range fb.content.Children() {
+	for _, c := range fb.box.Children() {
 		if f, ok := c.(framework.Focusable); ok {
 			out = append(out, f)
 		}
@@ -78,19 +99,21 @@ func (fb *FocusableBox) FocusableChildren() []framework.Focusable {
 }
 
 func (fb *FocusableBox) SetParentStyle(s *framework.Style) {
-	fb.BaseNode.SetParentStyle(s)
-	fb.border.SetParentStyle(fb.ResolvedStyle())
-	fb.content.SetParentStyle(fb.ResolvedStyle())
+	fb.FocusableBaseNode.SetParentStyle(s)
+	resolved := fb.FocusableBaseNode.Style()
+	fb.box.SetParentStyle(&resolved)
 }
 
 func (fb *FocusableBox) SetInvalidator(fn func()) {
-	fb.BaseNode.SetInvalidator(fn)
-	fb.border.SetInvalidator(fn)
-	fb.content.SetInvalidator(fn)
+	fb.FocusableBaseNode.SetInvalidator(fn)
+	fb.box.SetInvalidator(fn)
 }
 
 func (fb *FocusableBox) SetLogChannel(ch chan<- core.AppLog) {
-	fb.BaseNode.SetLogChannel(ch)
-	fb.border.SetLogChannel(ch)
-	fb.content.SetLogChannel(ch)
+	fb.FocusableBaseNode.SetLogChannel(ch)
+	fb.box.SetLogChannel(ch)
+}
+
+func (fb *FocusableBox) SetLayer(l int) error {
+	return fb.FocusableBaseNode.SetLayer(l)
 }

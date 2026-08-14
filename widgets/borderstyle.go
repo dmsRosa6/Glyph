@@ -1,5 +1,7 @@
 package widgets
 
+// BorderStyle is a comparable value type (see border.go's `style ==
+// (BorderStyle{})` zero-value checks), so it's plain runes, not pointers.
 type BorderStyle struct {
 	TopLeft     rune
 	TopRight    rune
@@ -9,43 +11,21 @@ type BorderStyle struct {
 	Vertical    rune
 }
 
-func UniformBorderStyle(ch rune) BorderStyle {
-	return BorderStyle{
-		TopLeft:     ch,
-		TopRight:    ch,
-		BottomLeft:  ch,
-		BottomRight: ch,
-		Horizontal:  ch,
-		Vertical:    ch,
+var (
+	EmptyBorder = BorderStyle{}
+
+	SingleLine = BorderStyle{
+		TopLeft: '+', TopRight: '+', BottomLeft: '+', BottomRight: '+',
+		Horizontal: '-', Vertical: '|',
 	}
-}
 
-var SingleLine = BorderStyle{
-	TopLeft: '┌', TopRight: '┐',
-	BottomLeft: '└', BottomRight: '┘',
-	Horizontal: '─', Vertical: '│',
-}
+	Rounded = BorderStyle{
+		TopLeft: '╭', TopRight: '╮', BottomLeft: '╰', BottomRight: '╯',
+		Horizontal: '─', Vertical: '│',
+	}
 
-var DoubleLine = BorderStyle{
-	TopLeft: '╔', TopRight: '╗',
-	BottomLeft: '╚', BottomRight: '╝',
-	Horizontal: '═', Vertical: '║',
-}
-
-var ThickLine = BorderStyle{
-	TopLeft: '┏', TopRight: '┓',
-	BottomLeft: '┗', BottomRight: '┛',
-	Horizontal: '━', Vertical: '┃',
-}
-
-var Rounded = BorderStyle{
-	TopLeft: '╭', TopRight: '╮',
-	BottomLeft: '╰', BottomRight: '╯',
-	Horizontal: '─', Vertical: '│',
-}
-
-var EmptyBorder = BorderStyle{
-	TopLeft: ' ', TopRight: ' ',
-	BottomLeft: ' ', BottomRight: ' ',
-	Horizontal: ' ', Vertical: ' ',
-}
+	DoubleLine = BorderStyle{
+		TopLeft: '╔', TopRight: '╗', BottomLeft: '╚', BottomRight: '╝',
+		Horizontal: '═', Vertical: '║',
+	}
+)

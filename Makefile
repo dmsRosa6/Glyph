@@ -1,8 +1,10 @@
-BIN  := bin/glyph
-MAIN := ./main
+BIN := bin/glyph
+BASE := ./examples/
+EXAMPLE ?= clock-window
+MAIN = $(BASE)$(EXAMPLE)/main.go
 LOG_FOLDER := logs
 
-.PHONY: build run run-bin debug test clean
+.PHONY: build run debug test clean
 
 build:
 	go build -o $(BIN) $(MAIN)
@@ -13,9 +15,6 @@ run:
 clear-run:
 	rm -rf $(LOG_FOLDER)
 	go run $(MAIN)
-
-run-bin: build
-	./$(BIN)
 
 debug:
 	dlv debug $(MAIN)

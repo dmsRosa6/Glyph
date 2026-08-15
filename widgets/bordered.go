@@ -7,24 +7,17 @@ import (
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// Bordered wraps a decorative Border around an inner content Container,
-// inset by Padding.
-//
-// v2: Bordered embeds *canvas.Container directly instead of hand-rolling
-// its own base.Propagator. border and content are added to that embedded
-// Container via the ordinary AddChild path -- so Draw, SetParentStyle,
-// SetInvalidator, SetLogChannel, and SetLayer are ALL inherited for
-// free, already correct, because Container's own propagation (itself
-// Propagator-backed) already does exactly this job. The only methods
-// Bordered needs to write are the three that must redirect from "the
-// outer wrapper" to "the inner content slot": AddChild, RemoveChild,
-// Children.
+// Bordered is a Border wrapped around a Panel, the Panel inset by
+// however far the border pushes the interior in. Panel already owns
+// "fill + content, correctly ordered, correctly delegated" -- the only
+// thing that's actually Bordered's own concern is that inset math, and
+// positioning the two pieces relative to each other.
 //
 // RECONSTRUCTED -- see the note atop this package's other composite
 // widgets; not your real file.
 type Bordered struct {
 	*canvas.Container
-	content *canvas.Container
+	panel *Panel
 }
 
 type BoxConfig struct {
@@ -38,8 +31,8 @@ type BoxConfig struct {
 func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
 	outer, err := canvas.NewContainer(bounds, canvas.ContainerConfig{
 		// Fully transparent: this wrapper has no visual style of its
-		// own, it's purely structural. border and content carry the
-		// real colors.
+		// own, it's purely structural. border and panel carry the real
+		// colors.
 		Style:  framework.Style{Bg: core.Transparent, Fg: core.Transparent},
 		Layer:  cfg.Layer,
 		Anchor: cfg.Anchor,
@@ -53,8 +46,15 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
 		return nil, err
 	}
 
-	pad := cfg.Padding
-	content, err := canvas.NewContainer(geom.NewBounds(pad, pad, bounds.W-2*pad, bounds.H-2*pad), canvas.ContainerConfig{
+	// inset accounts for BOTH the border's own Thickness (so the panel
+	// never sits on top of border cells) AND the requested Padding (extra
+	// breathing room beyond the border), applied identically to X, Y,
+	// width, and height.
+	inset := cfg.BorderConfig.Thickness + cfg.Padding
+	innerW := bounds.W - 2*inset
+	innerH := bounds.H - 2*inset
+
+	panel, err := NewPanel(geom.NewBounds(inset, inset, innerW, innerH), PanelConfig{
 		Style: cfg.Style,
 	})
 	if err != nil {
@@ -62,25 +62,24 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
 	}
 
 	outer.AddChild(border)
-	outer.AddChild(content)
+	outer.AddChild(panel)
 
-	return &Bordered{Container: outer, content: content}, nil
+	return &Bordered{Container: outer, panel: panel}, nil
 }
 
-// AddChild puts user content into content, not the outer wrapper --
+// AddChild puts user content into the panel, not the outer wrapper --
 // shadows the promoted Container.AddChild, which would otherwise add
 // straight alongside border.
 func (bx *Bordered) AddChild(child framework.Drawable) {
-	bx.content.AddChild(child)
+	bx.panel.AddChild(child)
 }
 
 func (bx *Bordered) RemoveChild(target framework.Drawable) {
-	bx.content.RemoveChild(target)
+	bx.panel.RemoveChild(target)
 }
 
 // Children shadows the promoted Container.Children (which would return
-// [border, content]) with the actual user-visible children, so focus
-// collection walks the right level.
+// [border, panel]) with the actual user-visible children.
 func (bx *Bordered) Children() []framework.Drawable {
-	return bx.content.Children()
+	return bx.panel.Children()
 }

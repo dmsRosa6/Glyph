@@ -7,12 +7,6 @@ import (
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// Window is a Bordered plus an optional title. Same v2 shape as Bordered:
-// embeds *canvas.Container so propagation/Draw/layer-sort are all
-// inherited, and only overrides the three methods that need to redirect
-// to the right inner slot.
-//
-// RECONSTRUCTED -- see the note atop bordered.go.
 type Window struct {
 	*canvas.Container
 	box   *Bordered

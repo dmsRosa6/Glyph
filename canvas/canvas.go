@@ -149,3 +149,7 @@ func collectFocusable(children []framework.Drawable, out *[]framework.Focusable)
 func (c *Canvas) SetLogChannel(ch chan<- core.AppLog) {
 	c.root.SetLogChannel(ch)
 }
+
+func (c *Canvas) SetParentStyle(s *framework.Style) {
+	c.root.SetParentStyle(s)
+}

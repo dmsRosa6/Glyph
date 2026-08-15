@@ -106,7 +106,12 @@ func (a *App) Run() {
 	a.logs.Start()
 	a.Renderer.Start(a.Canvas)
 	a.Focus = input.NewFocusManager(a.Canvas.CollectFocusable())
-	a.Input.Start()
+	err := a.Input.Start()
+
+	if err != nil {
+		a.logs.Logs() <- *core.NewInfoAppLog("Failed to start input Manager", string(core.AppSource))
+		return
+	}
 
 	a.logs.Logs() <- *core.NewInfoAppLog("App Started", string(core.AppSource))
 

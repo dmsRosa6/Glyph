@@ -6,21 +6,19 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 )
 
-func CellToANSI(c core.Cell) string {
-	seq := ""
-
-	if !c.Bg.IsTransparent {
-		seq += bgToANSI(c.Bg)
+func CellToANSI(c core.Cell, defaultFg, defaultBg core.Color) string {
+	bg := c.Bg
+	if bg.IsTransparent {
+		bg = defaultBg
 	}
-
-	if !c.Fg.IsTransparent {
-		seq += fgToANSI(c.Fg)
+	fg := c.Fg
+	if fg.IsTransparent {
+		fg = defaultFg
 	}
-
+	seq := bgToANSI(bg) + fgToANSI(fg)
 	if c.Ch == 0 {
 		seq += " "
 	}
-
 	return seq + string(c.Ch)
 }
 

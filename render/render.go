@@ -9,6 +9,7 @@ import (
 
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/term"
 )
 
@@ -44,8 +45,6 @@ func NewRenderer(mode LoopMode, fps int, logs chan<- core.AppLog) *Renderer {
 		done:       make(chan struct{}),
 	}
 
-	r.Init()
-
 	return r
 }
 
@@ -58,6 +57,7 @@ func (r *Renderer) Init() {
 }
 
 func (r *Renderer) Start(c *canvas.Canvas) {
+	r.Init()
 	go r.Run(c)
 }
 
@@ -66,6 +66,7 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 
 	c.SetInvalidator(r.RequestRedraw)
 	c.SetLogChannel(r.logs)
+	c.SetParentStyle(&framework.Style{Bg: core.Transparent, Fg: core.Transparent})
 
 	var ticker *time.Ticker
 	if r.RenderMode.Mode == FixedFPS {
@@ -165,7 +166,7 @@ func (r *Renderer) Flush(buf *core.Buffer) {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			cell := cells[y][x]
-			fmt.Fprintf(r.out, "\x1b[%d;%dH%s", y+1, x+1, term.CellToANSI(*cell))
+			fmt.Fprintf(r.out, "\x1b[%d;%dH%s", y+1, x+1, term.CellToANSI(*cell, buf.Fg, buf.Bg))
 		}
 	}
 }

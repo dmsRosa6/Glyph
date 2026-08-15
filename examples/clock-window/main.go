@@ -12,13 +12,13 @@ import (
 )
 
 func clockWindow() *widgets.Window {
-	win, err := widgets.NewWindow(geom.NewBounds(0, 0, 30, 10), widgets.WindowConfig{
-		Padding:  1,
-		BoxStyle: framework.Style{Bg: core.Transparent, Fg: core.Red},
+	win, err := widgets.NewWindow(geom.NewBounds(0, 0, 20, 10), widgets.WindowConfig{
+		Padding:  0,
+		BoxStyle: framework.Style{Bg: core.Blue, Fg: core.Green},
 		BorderConfig: widgets.BorderConfig{
 			Thickness:   1,
 			BorderStyle: widgets.DoubleLine,
-			Style:       framework.Style{Bg: core.Transparent, Fg: core.LightBlue},
+			Style:       framework.Style{Bg: core.Transparent, Fg: core.Red},
 		},
 		Anchor:  framework.Anchor{V: framework.Center, H: framework.Center},
 		Title:   " Clock ",
@@ -48,7 +48,7 @@ func clockWindow() *widgets.Window {
 }
 
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.Red, RenderMode: render.FixedFPSMode(30)})
+	a, err := app.NewApp(app.AppConfig{Bg: &core.White, RenderMode: render.OnDemandMode()})
 	if err != nil {
 		panic(err)
 	}

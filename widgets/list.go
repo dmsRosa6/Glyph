@@ -14,14 +14,14 @@ import (
 // canvas.Container configured with StackLayout, so AddItem's rows go
 // through the ordinary Container.AddChild path.
 //
-// That means List needed ZERO changes for this refactor, not because I
-// applied Propagator to it, but because it was never a second copy of the
-// hand-rolled pattern in the first place -- it rides on canvas.Container,
-// which step 5 already fixed. I'm fairly confident about that shape;
-// ItemPadding's exact meaning (horizontal inset per row, shown here, vs.
-// vertical gap between rows) is a guess -- StackLayout as it stands has
-// no gap concept, so I went with horizontal inset, matching Bordered's
-// padding precedent. Worth confirming against the real file.
+// ItemPadding is a horizontal inset per row. StackLayout.Arrange only
+// ever calls ResolveAxis with a hardcoded 0 as the "original" X for
+// NoAnchor children -- it never reads back a child's own declared
+// Pos.X -- so a row built with Pos.X = itemPadding and no anchor would
+// silently have that X thrown away and pinned to 0 every frame. Rows are
+// therefore built narrower (W - 2*itemPadding) and anchored H: Center
+// instead of positioned by raw X, since Center/Start/End are the only
+// anchors StackLayout actually honors.
 //
 // RECONSTRUCTED -- see the note atop bordered.go.
 type List struct {
@@ -49,19 +49,20 @@ func NewList(bounds *geom.Bounds, cfg ListConfig) (*List, error) {
 	return &List{Container: c, itemPadding: cfg.ItemPadding}, nil
 }
 
-// AddItem creates a new row of the given height, inset horizontally by
-// ItemPadding, adds it via the ordinary AddChild path, and returns it so
-// the caller can add their own content -- exactly the main.go listDemo
-// pattern (`row, _ := list.AddItem(4); row.AddChild(text)`).
+// AddItem creates a new row of the given height, horizontally centered
+// with ItemPadding of inset on each side, adds it via the ordinary
+// AddChild path, and returns it so the caller can add their own content
+// -- exactly the main.go listDemo pattern
+// (`row, _ := list.AddItem(4); row.AddChild(text)`).
 func (l *List) AddItem(height int) (*canvas.Container, error) {
-	_, listH := l.Size()
+	w, listH := l.Size()
 	if height > listH {
 		height = listH
 	}
-	w, _ := l.Size()
 	rowW := w - 2*l.itemPadding
-	row, err := canvas.NewContainer(geom.NewBounds(l.itemPadding, 0, rowW, height), canvas.ContainerConfig{
-		Style: framework.Style{Bg: core.Transparent, Fg: core.Transparent},
+	row, err := canvas.NewContainer(geom.NewBounds(0, 0, rowW, height), canvas.ContainerConfig{
+		Style:  framework.Style{Bg: core.Transparent, Fg: core.Transparent},
+		Anchor: framework.Anchor{H: framework.Center},
 	})
 	if err != nil {
 		return nil, err

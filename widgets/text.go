@@ -62,7 +62,6 @@ func (t *Text) SetValue(v string) {
 	t.mu.Unlock()
 
 	t.Logger("Text").Debug(fmt.Sprintf("value set to %q", v))
-	t.Invalidate()
 }
 
 func (t *Text) Value() string {

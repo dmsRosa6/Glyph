@@ -28,10 +28,6 @@ type Manager struct {
 }
 
 func NewManager(logs chan<- core.AppLog) (*Manager, error) {
-	restore, err := term.SafeRawMode()
-	if err != nil {
-		return nil, err
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -40,15 +36,24 @@ func NewManager(logs chan<- core.AppLog) (*Manager, error) {
 		logs:    logs,
 		ctx:     ctx,
 		cancel:  cancel,
-		restore: restore,
 		stopped: make(chan struct{}),
 	}, nil
 }
 
 func (m *Manager) Events() <-chan framework.Event { return m.events }
 
-func (m *Manager) Start() {
+func (m *Manager) Start() error {
+
+	restore, err := term.SafeRawMode()
+	if err != nil {
+		return err
+	}
+
+	m.restore = restore
+
 	go m.run()
+
+	return nil
 }
 
 // Stop cancels the read loop, waits for it to actually exit (so it's

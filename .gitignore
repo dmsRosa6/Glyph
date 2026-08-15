@@ -8,3 +8,5 @@ bin/
 enable_attach.sh
 attach_debug.sh
 logs
+todo.md
+devguide.md

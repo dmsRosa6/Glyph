@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.White, RenderMode: render.OnDemandMode()})
+	a, err := app.NewApp(app.AppConfig{Bg: &core.White, RenderMode: render.FixedFPSMode(10)})
 	if err != nil {
 		panic(err)
 	}

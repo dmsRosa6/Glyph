@@ -9,11 +9,11 @@ import (
 )
 
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.White, RenderMode: render.FixedFPSMode(10)})
+	a, err := app.NewApp(app.AppConfig{Bg: &core.White, RenderMode: render.OnDemandMode()})
 	if err != nil {
 		panic(err)
 	}
-	cfg := widgets.SpinnerConfig{SpinnerType: *framework.NewDotsSpinnerContext(), Anchor: framework.Anchor{V: framework.Center, H: framework.Center}}
+	cfg := widgets.SpinnerConfig{SpinnerType: *framework.NewDotsSpinnerContext(), Anchor: framework.Anchor{V: framework.Center, H: framework.Center}, TicksPerSecond: 10}
 
 	sp, _ := widgets.NewSpinner(cfg)
 	a.Canvas.AddShape(sp)

@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"time"
+
 	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
@@ -10,15 +12,17 @@ import (
 type Spinner struct {
 	base.BaseNode
 	framework.SpinnerContext
-	value string
+	value          string
+	TicksPerSecond int
 }
 
 type SpinnerConfig struct {
-	SpinnerType framework.SpinnerContext
-	Pos         geom.Point
-	Fg          core.Color
-	Anchor      framework.Anchor
-	Layer       int
+	SpinnerType    framework.SpinnerContext
+	Pos            geom.Point
+	Fg             core.Color
+	Anchor         framework.Anchor
+	Layer          int
+	TicksPerSecond int
 }
 
 func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
@@ -30,7 +34,32 @@ func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
 		return nil, err
 	}
 
-	return &Spinner{BaseNode: bn, SpinnerContext: cfg.SpinnerType, value: cfg.SpinnerType.Cycle()}, nil
+	t := cfg.TicksPerSecond
+
+	if t <= 0 {
+		t = 1
+	}
+
+	spinner := &Spinner{BaseNode: bn, SpinnerContext: cfg.SpinnerType, value: cfg.SpinnerType.Cycle(), TicksPerSecond: t}
+
+	// need to import from the app the cancel context
+	go spinner.startCycle()
+
+	return spinner, nil
+}
+
+func (t *Spinner) startCycle() {
+	var ticker *time.Ticker
+	ticker = time.NewTicker(time.Second / time.Duration(t.TicksPerSecond))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			t.value = t.SpinnerContext.Cycle()
+		}
+	}
+
 }
 
 func (t *Spinner) Draw(buf *core.Buffer, vec geom.Vector) {
@@ -42,6 +71,4 @@ func (t *Spinner) Draw(buf *core.Buffer, vec geom.Vector) {
 	for i := 0; i < t.SpinnerContext.SpinnerLength(); i++ {
 		buf.Set(vec.X+x+i, vec.Y+y, rune(t.value[i]), s.Bg, s.Fg)
 	}
-
-	t.value = t.SpinnerContext.Cycle()
 }

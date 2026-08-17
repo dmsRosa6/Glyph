@@ -11,15 +11,7 @@ type Drawable interface {
 	SetLayer(l int) error
 	GetLayer() int
 	SetParentStyle(style *Style)
-	SetLogChannel(ch chan<- core.AppLog)
-	// SetInvalidator wires up the callback a node (or anything nested
-	// inside it) should call after a background update to ask for a
-	// redraw. Containers propagate this to their children the same way
-	// they already propagate SetParentStyle. Every shape gets a working
-	// no-op implementation for free via BaseNode, so this never panics
-	// on an unattached node -- it just does nothing until something
-	// wires it up (Canvas/Renderer does this automatically).
-	SetInvalidator(fn func())
+	SetContext(ctx AppContext)
 }
 
 type Moveable interface {
@@ -55,4 +47,12 @@ type FocusContainer interface {
 
 type ChildrenLister interface {
 	Children() []Drawable
+}
+
+type Navigator interface {
+	Next()
+	Prev()
+	Enter() bool
+	Exit()
+	Current() Focusable
 }

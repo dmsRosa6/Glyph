@@ -64,9 +64,8 @@ func (r *Renderer) Start(c *canvas.Canvas) {
 func (r *Renderer) Run(c *canvas.Canvas) {
 	defer close(r.done)
 
-	c.SetInvalidator(r.RequestRedraw)
-	c.SetLogChannel(r.logs)
 	c.SetParentStyle(&framework.Style{Bg: core.Transparent, Fg: core.Transparent})
+	
 
 	var ticker *time.Ticker
 	if r.RenderMode.Mode == FixedFPS {

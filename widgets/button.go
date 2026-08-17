@@ -13,7 +13,7 @@ type Button struct {
 }
 
 func NewButton(bounds *geom.Bounds, label string, cfg canvas.ContainerConfig) (*Button, error) {
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Button")
 	if err != nil {
 		return nil, err
 	}

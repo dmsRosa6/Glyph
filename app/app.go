@@ -12,7 +12,7 @@ import (
 	"github.com/dmsRosa6/glyph/render"
 )
 
-type AppActionFunc func(app *App, ev framework.Event) (redraw bool, sig core.AppSignal, err error)
+type AppActionFunc func(ctx framework.AppContext, ev framework.Event) (redraw bool, err error)
 
 type AppConfig struct {
 	Width, Height int
@@ -26,7 +26,7 @@ type App struct {
 	Canvas     *canvas.Canvas
 	Renderer   *render.Renderer
 	Input      *input.Manager
-	Focus      *input.FocusManager
+	focus      *input.FocusManager
 	appEvents  map[framework.Key]AppActionFunc
 	logs       *fault.FaultManager
 	appSignals chan core.AppSignal
@@ -34,7 +34,7 @@ type App struct {
 
 func NewApp(cfg AppConfig) (*App, error) {
 
-	appSignals := make(chan core.AppSignal)
+	appSignals := make(chan core.AppSignal, 10)
 
 	logs, error := fault.NewFaultManager(cfg.logLevel, appSignals)
 
@@ -78,36 +78,52 @@ func NewApp(cfg AppConfig) (*App, error) {
 	return &App{Canvas: c, Renderer: r, Input: in, appEvents: defaultEvents, appSignals: appSignals, logs: logs}, nil
 }
 
+func (a *App) signal(sig core.AppSignal) {
+	a.appSignals <- sig
+}
+
 func defaultGlobalActions() map[framework.Key]AppActionFunc {
 	return map[framework.Key]AppActionFunc{
-		framework.KeyCtrlC: func(a *App, ev framework.Event) (bool, core.AppSignal, error) {
-			return false, core.SIGTERM, nil
+		framework.KeyCtrlC: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			ctx.SignalApp(core.SIGTERM)
+			return false, nil
 		},
-		framework.KeyEnter: func(a *App, ev framework.Event) (bool, core.AppSignal, error) {
-			if !a.Focus.Enter() {
-				if f := a.Focus.Current(); f != nil {
+		framework.KeyEnter: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			nav := ctx.Nav()
+			if !nav.Enter() {
+				if f := nav.Current(); f != nil {
 					f.HandleInput(ev)
 				}
 			}
-			return true, core.NOOP, nil
+			return true, nil
 		},
-		framework.KeyEsc: func(a *App, ev framework.Event) (bool, core.AppSignal, error) {
-			a.Focus.Exit()
-			return true, core.NOOP, nil
+		framework.KeyEsc: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			ctx.Nav().Exit()
+			return true, nil
 		},
-		framework.KeyTab: func(a *App, ev framework.Event) (bool, core.AppSignal, error) {
-			a.Focus.Next()
-			return true, core.NOOP, nil
+		framework.KeyTab: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			ctx.Nav().Next()
+			return true, nil
 		},
 	}
 }
 
 func (a *App) Run() {
 	a.logs.Start()
-	a.Renderer.Start(a.Canvas)
-	a.Focus = input.NewFocusManager(a.Canvas.CollectFocusable())
-	err := a.Input.Start()
 
+	a.focus = input.NewFocusManager(a.Canvas.CollectFocusable())
+
+	ctx := framework.AppContext{
+		Logs:       a.logs.Logs(),
+		Invalidate: a.Renderer.RequestRedraw,
+		Focus:      a.focus,
+		Signal:     a.signal,
+	}
+	a.Canvas.SetContext(ctx)
+
+	a.Renderer.Start(a.Canvas)
+
+	err := a.Input.Start()
 	if err != nil {
 		a.logs.Logs() <- *core.NewInfoAppLog("Failed to start input Manager", string(core.AppSource))
 		return
@@ -131,29 +147,21 @@ func (a *App) Run() {
 			if !ok {
 				return
 			}
-
 			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
 
 			if f, ok := a.appEvents[ev.Key]; ok {
-				reRender, sig, err := f(a, ev)
+				reRender, err := f(ctx, ev)
 
-				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'. App signal '%s'", ev.Key.String(), reRender, sig.String()), string(core.AppSource))
-
+				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'", ev.Key.String(), reRender), string(core.AppSource))
 				if err != nil {
-					a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Error is '%t'. Error:%s", ev.Key.String(), err != nil, err.Error()), string(core.AppSource))
+					a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' errored: %s", ev.Key.String(), err.Error()), string(core.AppSource))
 				}
-
-				if sig == core.SIGTERM {
-					a.Stop()
-					return
-				}
-
 				if reRender {
 					a.Renderer.RequestRedraw()
 				}
 				continue
 			}
-			if f := a.Focus.Current(); f != nil {
+			if f := a.focus.Current(); f != nil {
 				reRender, err := f.HandleInput(ev)
 				if err != nil {
 					a.Stop()

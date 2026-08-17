@@ -25,7 +25,7 @@ func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
 	bounds := geom.NewBounds(cfg.Pos.X, cfg.Pos.Y, 1, cfg.SpinnerType.SpinnerLength())
 	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer, "Spinner")
 	if err != nil {
 		return nil, err
 	}

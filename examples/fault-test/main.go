@@ -33,12 +33,12 @@ func faultTestPanel() *widgets.FocusableBox {
 	panel.AddChild(label)
 
 	panel.BindAction(framework.KeyUp, func(base.FocusableActionContext) (bool, error) {
-		panel.Warn("FaultTestPanel", errors.New("manually triggered warning"))
+		panel.Warn(errors.New("manually triggered warning"))
 		return false, nil
 	})
 
 	panel.BindAction(framework.KeyDown, func(base.FocusableActionContext) (bool, error) {
-		panel.Fault("FaultTestPanel", errors.New("manually triggered fatal"))
+		panel.Fault(errors.New("manually triggered fatal"))
 		return false, nil
 	})
 

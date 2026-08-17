@@ -101,15 +101,6 @@ func (c *Canvas) AddShape(s framework.Drawable) {
 	c.root.AddChild(s)
 }
 
-// SetInvalidator wires up the redraw callback for the whole tree, called
-// by Renderer.Run. Container.SetInvalidator already handles reaching
-// children added before this was called (the normal order: build the
-// tree, then hand it to a Renderer) -- Canvas doesn't need its own copy
-// of that logic.
-func (c *Canvas) SetInvalidator(fn func()) {
-	c.root.SetInvalidator(fn)
-}
-
 // Shapes returns the top-level shapes currently on the canvas. This is
 // deliberately a read-only accessor, not an exported slice -- direct
 // mutation would skip AddShape's bounds check, style propagation, and
@@ -146,8 +137,8 @@ func collectFocusable(children []framework.Drawable, out *[]framework.Focusable)
 	}
 }
 
-func (c *Canvas) SetLogChannel(ch chan<- core.AppLog) {
-	c.root.SetLogChannel(ch)
+func (c *Canvas) SetContext(ctx framework.AppContext) {
+	c.root.SetContext(ctx)
 }
 
 func (c *Canvas) SetParentStyle(s *framework.Style) {

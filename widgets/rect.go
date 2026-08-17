@@ -18,7 +18,7 @@ type RectConfig struct {
 }
 
 func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Rect")
 	if err != nil {
 		return nil, err
 	}

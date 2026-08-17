@@ -8,40 +8,27 @@ import (
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// BaseNode holds everything that used to be copy-pasted into every shape:
-// layering, style inheritance, anchored layout, bounds checking, and now
-// redraw invalidation. Every concrete shape (Rect, Border, Container,
-// Bordered, Text, Window, List) embeds BaseNode and only implements
-// Draw (plus AddChild/RemoveChild if it holds children). One
-// implementation of each of these behaviors means one place to get it
-// right, instead of N places to independently get it wrong.
 type BaseNode struct {
 	bounds *geom.Bounds
 	anchor framework.Anchor
 
-	// computedPos is always a COPY of bounds.Pos, taken once at
-	// construction and updated in place by Layout()/SetComputedPos().
-	// It never aliases bounds.Pos's underlying pointer, so resolving
-	// layout can never corrupt the originally-declared bounds.
 	computedPos geom.Point
 
 	style       *framework.Style
 	parentStyle *framework.Style
 	layer       int
-	logs        chan<- core.AppLog
-	// invalidate is how this node (or a goroutine holding a reference to
-	// it) asks the renderer for a redraw. nil until something wires it
-	// up -- Canvas.AddShape / Container.AddChild / Bordered's inner
-	// content all propagate it down automatically, same as parentStyle.
-	invalidate func()
+
+	ctx    framework.AppContext
+	source string // set once at construction, read by every Logger/Warn/Fault call -- never passed around again
 }
 
-func NewBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int) (BaseNode, error) {
+func NewBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int, source string) (BaseNode, error) {
 	n := BaseNode{
 		bounds:      bounds,
 		anchor:      anchor,
-		computedPos: *bounds.Pos, // copy, deliberately not the same pointer
+		computedPos: *bounds.Pos,
 		style:       framework.ResolveStyle(style, *framework.NewTransparentStyle()),
+		source:      source,
 	}
 
 	if err := n.SetLayer(layer); err != nil {
@@ -67,9 +54,6 @@ func (n *BaseNode) SetParentStyle(s *framework.Style) {
 	n.parentStyle = s
 }
 
-// Style returns this node's fully resolved style. Never dereferences a
-// nil parentStyle -- a node drawn before being attached to a parent just
-// resolves against fully transparent instead of panicking.
 func (n *BaseNode) Style() framework.Style {
 	parent := framework.Style{Bg: core.Transparent, Fg: core.Transparent}
 	if n.parentStyle != nil {
@@ -78,38 +62,23 @@ func (n *BaseNode) Style() framework.Style {
 	return *framework.ResolveStyle(*n.style, parent)
 }
 
-// ResolvedStyle hands this node's resolved style down as a child's
-// parentStyle, so style inheritance chains through every level instead
-// of skipping the container's own style.
 func (n *BaseNode) ResolvedStyle() *framework.Style {
 	s := n.Style()
 	return &s
 }
 
-// SetInvalidator wires the redraw callback. Safe to call with nil (that's
-// the default state -- Invalidate() just becomes a no-op).
-func (n *BaseNode) SetInvalidator(fn func()) {
-	n.invalidate = fn
+func (n *BaseNode) SetContext(ctx framework.AppContext) {
+	n.ctx = ctx
 }
 
-// Invalidate asks the renderer for a redraw. Safe to call from any
-// goroutine, at any time, including before this node is attached to
-// anything -- it's a no-op until SetInvalidator has been wired up by a
-// parent Container/Bordered or the root Canvas. This is the hook for
-// self-refreshing components: hold a reference to a node, mutate its
-// own state under its own lock, then call Invalidate().
+func (n *BaseNode) Context() framework.AppContext {
+	return n.ctx
+}
+
 func (n *BaseNode) Invalidate() {
-	if n.invalidate != nil {
-		n.invalidate()
-	}
+	n.ctx.Redraw()
 }
 
-// IsInBounds checks the shape's declared local bounds against a parent
-// frame. Callers must pass a parent bounds in the same local coordinate
-// space the shape's own bounds.Pos is expressed in -- see LocalFrame,
-// which every container uses for exactly this purpose so a child's
-// position is always checked against its immediate container's interior,
-// never against some ancestor's unrelated coordinate space.
 func (n *BaseNode) IsInBounds(parent geom.Bounds) bool {
 	if n.bounds.Pos.X < 0 || n.bounds.Pos.Y < 0 {
 		return false
@@ -128,31 +97,19 @@ func (n *BaseNode) Layout(parent geom.Bounds) {
 	n.computedPos.Y = framework.ResolveAxis(n.anchor.V, parent.H, n.bounds.H, n.bounds.Pos.Y)
 }
 
-// LocalFrame is the zero-origin bounds children should be laid out and
-// bounds-checked against: this node's own interior size, not its
-// position within its own parent.
 func (n *BaseNode) LocalFrame() geom.Bounds {
 	return geom.Bounds{Pos: &geom.Point{}, W: n.bounds.W, H: n.bounds.H}
 }
 
-// Size reports this node's declared width and height. Used by
-// LayoutPolicy implementations that need to arrange children without
-// knowing their concrete type.
 func (n *BaseNode) Size() (int, int) {
 	return n.bounds.W, n.bounds.H
 }
 
-// SetComputedPos places this node directly, bypassing anchor resolution.
-// Used by layout policies (e.g. StackLayout) that need outright control
-// over position rather than resolving it from an anchor.
 func (n *BaseNode) SetComputedPos(x, y int) {
 	n.computedPos.X = x
 	n.computedPos.Y = y
 }
 
-// AnchorH exposes the horizontal anchor so a LayoutPolicy can still honor
-// it (e.g. centering a child horizontally) even when it's overriding Y
-// outright.
 func (n *BaseNode) AnchorH() framework.AxisAnchor {
 	return n.anchor.H
 }
@@ -170,25 +127,21 @@ func (n *BaseNode) Resize(w, h int) {
 	n.bounds.H = h
 }
 
-func (n *BaseNode) SetLogChannel(ch chan<- core.AppLog) {
-	n.logs = ch
+// Logger, Fault, and Warn no longer take a source string -- it's fixed
+// at construction (see NewBaseNode) so every log line from this node
+// carries the same source without it being retyped at each call site.
+
+func (n *BaseNode) Logger() framework.Logger {
+	return framework.NewLogger(n.ctx.Logs, n.source)
 }
 
-func (n *BaseNode) Logs() chan<- core.AppLog {
-	return n.logs
-}
-
-func (n *BaseNode) Logger(source string) framework.Logger {
-	return framework.NewLogger(n.logs, source)
-}
-
-func (n *BaseNode) Fault(source string, err error) {
-	if n.logs == nil {
+func (n *BaseNode) Fault(err error) {
+	if n.ctx.Logs == nil {
 		panic(err)
 	}
-	n.Logger(source).Fatal(err)
+	n.Logger().Fatal(err)
 }
 
-func (n *BaseNode) Warn(source string, err error) {
-	n.Logger(source).Warning(err)
+func (n *BaseNode) Warn(err error) {
+	n.Logger().Warning(err)
 }

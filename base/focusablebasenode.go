@@ -47,7 +47,7 @@ func (f *FocusableBaseNode) HandleInput(ev framework.Event) (bool, error) {
 	}
 	refresh, err := fn(FocusableActionContext{node: f, ev: ev})
 	if err != nil {
-		f.Logger("Focusable").Warning(err)
+		f.Logger().Warning(err) // was: f.Logger("Focusable").Warning(err)
 	}
 	if refresh {
 		f.Invalidate()
@@ -60,7 +60,7 @@ func (f *FocusableBaseNode) Focus() {
 		return
 	}
 	f.focused = true
-	f.Logger("Focusable").Debug("focused")
+	f.Logger().Debug("focused")
 	f.Invalidate()
 }
 
@@ -69,7 +69,7 @@ func (f *FocusableBaseNode) Blur() {
 		return
 	}
 	f.focused = false
-	f.Logger("Focusable").Debug("blurred")
+	f.Logger().Debug("blurred")
 	f.Invalidate()
 }
 

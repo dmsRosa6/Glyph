@@ -10,7 +10,7 @@ import (
 )
 
 func statusItem(width int, label string, color core.Color) *widgets.Bordered {
-	bounds := geom.NewBounds(0, 0, width, 3)
+	bounds := geom.NewBounds(0, 0, width, 5)
 
 	box, err := widgets.NewBox(bounds, widgets.BoxConfig{
 		Padding: 1,
@@ -32,6 +32,7 @@ func statusItem(width int, label string, color core.Color) *widgets.Bordered {
 	if err != nil {
 		panic(err)
 	}
+
 	box.AddChild(text)
 
 	return box
@@ -47,15 +48,15 @@ func main() {
 		label string
 		color core.Color
 	}{
-		{"API: healthy", core.Green},
-		{"Queue: degraded", core.Yellow},
-		{"DB: down", core.Red},
+		{"API", core.Green},
+		{"Queue", core.Yellow},
+		{"DB", core.Red},
 	}
 
 	for i, it := range items {
-		item := statusItem(24, it.label, it.color)
+		item := statusItem(20, it.label, it.color)
 		item.Bounds().Pos.X = 2
-		item.Bounds().Pos.Y = 2 + i*4
+		item.Bounds().Pos.Y = 2 + i*6
 		a.Canvas.AddShape(item)
 	}
 

@@ -30,7 +30,7 @@ func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 	bounds := geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1)
 	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer, "Text")
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (t *Text) SetValue(v string) {
 	t.value = v
 	t.mu.Unlock()
 
-	t.Logger("Text").Debug(fmt.Sprintf("value set to %q", v))
+	t.Logger().Debug(fmt.Sprintf("value set to %q", v))
 }
 
 func (t *Text) Value() string {

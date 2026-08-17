@@ -38,7 +38,7 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 		style = EmptyBorder
 	}
 
-	bn, err := base.NewBaseNode(bounds, framework.Anchor{}, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, framework.Anchor{}, cfg.Style, cfg.Layer, "Border")
 	if err != nil {
 		return nil, err
 	}

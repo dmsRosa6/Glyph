@@ -39,7 +39,7 @@ type FocusableBoxConfig struct {
 }
 
 func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox, error) {
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, framework.Style{Bg: core.Transparent, Fg: core.Transparent}, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, framework.Style{Bg: core.Transparent, Fg: core.Transparent}, cfg.Layer, "FocusableBox")
 	if err != nil {
 		return nil, err
 	}
@@ -104,14 +104,9 @@ func (fb *FocusableBox) SetParentStyle(s *framework.Style) {
 	fb.box.SetParentStyle(&resolved)
 }
 
-func (fb *FocusableBox) SetInvalidator(fn func()) {
-	fb.FocusableBaseNode.SetInvalidator(fn)
-	fb.box.SetInvalidator(fn)
-}
-
-func (fb *FocusableBox) SetLogChannel(ch chan<- core.AppLog) {
-	fb.FocusableBaseNode.SetLogChannel(ch)
-	fb.box.SetLogChannel(ch)
+func (fb *FocusableBox) SetContext(ctx framework.AppContext) {
+	fb.FocusableBaseNode.SetContext(ctx)
+	fb.box.SetContext(ctx)
 }
 
 func (fb *FocusableBox) SetLayer(l int) error {

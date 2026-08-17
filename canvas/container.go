@@ -21,11 +21,11 @@ type ContainerConfig struct {
 	Style  framework.Style
 	Layer  int
 	Anchor framework.Anchor
-	Layout framework.LayoutPolicy // defaults to FreeLayout if nil
+	Layout framework.LayoutPolicy
 }
 
 func NewContainer(bounds *geom.Bounds, cfg ContainerConfig) (*Container, error) {
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer)
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Container")
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 
 func (c *Container) AddChild(child framework.Drawable) {
 	if !child.IsInBounds(c.LocalFrame()) {
-		c.Fault("Container", errors.New("shape out of container bounds"))
+		c.Fault(errors.New("shape out of container bounds"))
 		return
 	}
 
@@ -81,7 +81,7 @@ func (c *Container) RemoveChild(target framework.Drawable) {
 	before := len(c.Propagator.Children())
 	c.Propagator.Untrack(target)
 	if len(c.Propagator.Children()) < before {
-		c.Logger("Container").Debug(fmt.Sprintf("child removed, now %d children", len(c.Propagator.Children())))
+		c.Logger().Debug(fmt.Sprintf("child removed, now %d children", len(c.Propagator.Children())))
 	}
 }
 
@@ -94,12 +94,7 @@ func (c *Container) SetParentStyle(s *framework.Style) {
 	c.Propagator.PropagateStyle(c.ResolvedStyle())
 }
 
-func (c *Container) SetInvalidator(fn func()) {
-	c.BaseNode.SetInvalidator(fn)
-	c.Propagator.PropagateInvalidator(fn)
-}
-
-func (c *Container) SetLogChannel(ch chan<- core.AppLog) {
-	c.BaseNode.SetLogChannel(ch)
-	c.Propagator.PropagateLogChannel(ch)
+func (c *Container) SetContext(ctx framework.AppContext) {
+	c.BaseNode.SetContext(ctx)
+	c.Propagator.PropagateContext(ctx)
 }

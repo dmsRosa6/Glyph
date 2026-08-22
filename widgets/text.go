@@ -16,7 +16,7 @@ type Text struct {
 	base.BaseNode
 
 	mu    sync.RWMutex
-	value string
+	value []rune
 }
 
 type TextConfig struct {
@@ -27,7 +27,8 @@ type TextConfig struct {
 }
 
 func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
-	bounds := geom.NewBounds(pos.X, pos.Y, len(cfg.Value), 1)
+	runes := []rune(cfg.Value)
+	bounds := geom.NewBounds(pos.X, pos.Y, len(runes), 1)
 	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
 	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer, "Text")
@@ -35,7 +36,7 @@ func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 		return nil, err
 	}
 
-	return &Text{BaseNode: bn, value: cfg.Value}, nil
+	return &Text{BaseNode: bn, value: runes}, nil
 }
 
 func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
@@ -48,17 +49,13 @@ func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {
 	x, y := pos.X, pos.Y
 
 	for i := 0; i < len(value); i++ {
-		buf.Set(vec.X+x+i, vec.Y+y, rune(value[i]), s.Bg, s.Fg)
+		buf.Set(vec.X+x+i, vec.Y+y, t.value[i], s.Bg, s.Fg)
 	}
 }
 
 func (t *Text) SetValue(v string) {
 	t.mu.Lock()
-	w, _ := t.Size()
-	if len(v) > w {
-		v = v[:w]
-	}
-	t.value = v
+	t.value = []rune(v)
 	t.mu.Unlock()
 
 	t.Logger().Debug(fmt.Sprintf("value set to %q", v))
@@ -67,5 +64,5 @@ func (t *Text) SetValue(v string) {
 func (t *Text) Value() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.value
+	return string(t.value)
 }

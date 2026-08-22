@@ -56,7 +56,10 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 		return children[i].GetLayer() < children[j].GetLayer()
 	})
 
-	c.layout.Arrange(children, frame)
+	skipped := c.layout.Arrange(children, frame)
+	for _, s := range skipped {
+		c.Warn(fmt.Errorf("child of type %T does not satisfy this container's layout policy and was not positioned", s))
+	}
 
 	for _, child := range children {
 		child.Draw(buf, v)
@@ -67,6 +70,18 @@ func (c *Container) AddChild(child framework.Drawable) {
 	if !child.IsInBounds(c.LocalFrame()) {
 		c.Fault(errors.New("shape out of container bounds"))
 		return
+	}
+
+	// Some policies (StackLayout) can't tell whether a child fits from
+	// that child's own bounds alone -- it depends on everything already
+	// stacked above it. Ask the policy directly when it knows how to
+	// answer that; policies that don't implement this (FreeLayout) are
+	// unaffected, same as before.
+	if cal, ok := c.layout.(framework.CapacityAwareLayout); ok {
+		if !cal.Fits(c.Propagator.Children(), child, c.LocalFrame()) {
+			c.Fault(errors.New("child does not fit in container's remaining space"))
+			return
+		}
 	}
 
 	// Track appends child and, since PropagateStyle/PropagateInvalidator/

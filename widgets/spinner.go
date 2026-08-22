@@ -12,14 +12,14 @@ import (
 type Spinner struct {
 	base.BaseNode
 	framework.SpinnerContext
-	value          string
+	value          []rune
 	TicksPerSecond int
 }
 
 type SpinnerConfig struct {
 	SpinnerType    framework.SpinnerContext
 	Pos            geom.Point
-	Fg             core.Color
+	Style          framework.Style
 	Anchor         framework.Anchor
 	Layer          int
 	TicksPerSecond int
@@ -27,9 +27,8 @@ type SpinnerConfig struct {
 
 func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
 	bounds := geom.NewBounds(cfg.Pos.X, cfg.Pos.Y, 1, cfg.SpinnerType.SpinnerLength())
-	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer, "Spinner")
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Spinner")
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +39,7 @@ func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
 		t = 1
 	}
 
-	spinner := &Spinner{BaseNode: bn, SpinnerContext: cfg.SpinnerType, value: cfg.SpinnerType.Cycle(), TicksPerSecond: t}
+	spinner := &Spinner{BaseNode: bn, SpinnerContext: cfg.SpinnerType, value: []rune(cfg.SpinnerType.Cycle()), TicksPerSecond: t}
 
 	// need to import from the app the cancel context
 	go spinner.startCycle()
@@ -56,7 +55,7 @@ func (t *Spinner) startCycle() {
 	for {
 		select {
 		case <-ticker.C:
-			t.value = t.SpinnerContext.Cycle()
+			t.value = []rune(t.SpinnerContext.Cycle())
 		}
 	}
 
@@ -69,6 +68,6 @@ func (t *Spinner) Draw(buf *core.Buffer, vec geom.Vector) {
 	x, y := pos.X, pos.Y
 
 	for i := 0; i < t.SpinnerContext.SpinnerLength(); i++ {
-		buf.Set(vec.X+x+i, vec.Y+y, rune(t.value[i]), s.Bg, s.Fg)
+		buf.Set(vec.X+x+i, vec.Y+y, t.value[i], s.Bg, s.Fg)
 	}
 }

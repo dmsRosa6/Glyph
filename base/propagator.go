@@ -1,8 +1,10 @@
 package base
 
 import (
+	"fmt"
 	"reflect"
 
+	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 )
 
@@ -25,6 +27,7 @@ func (p *Propagator) Track(child framework.Drawable) {
 	}
 	if p.ctxSet {
 		child.SetContext(p.ctx)
+		registerChild(p.ctx, child)
 	}
 }
 
@@ -32,6 +35,7 @@ func (p *Propagator) Untrack(target framework.Drawable) {
 	for i, c := range p.owned {
 		if c == target {
 			p.owned = append(p.owned[:i], p.owned[i+1:]...)
+			unregisterChild(p.ctx, target)
 			return
 		}
 	}
@@ -53,6 +57,7 @@ func (p *Propagator) PropagateContext(ctx framework.AppContext) {
 	p.ctxSet = true
 	for _, c := range p.owned {
 		c.SetContext(ctx)
+		registerChild(ctx, c)
 	}
 }
 
@@ -65,6 +70,17 @@ func (p *Propagator) PropagateLayer(l int) error {
 	return nil
 }
 
+func unregisterChild(ctx framework.AppContext, child framework.Drawable) {
+	if id, ok := child.(framework.Identifiable); ok {
+		ctx.Nodes().Unregister(id.ID())
+	}
+	if cl, ok := child.(framework.ChildrenLister); ok {
+		for _, gc := range cl.Children() {
+			unregisterChild(ctx, gc)
+		}
+	}
+}
+
 func isNilDrawable(d framework.Drawable) bool {
 	if d == nil {
 		return true
@@ -75,5 +91,18 @@ func isNilDrawable(d framework.Drawable) bool {
 		return v.IsNil()
 	default:
 		return false
+	}
+}
+
+func registerChild(ctx framework.AppContext, child framework.Drawable) {
+	id, ok := child.(framework.Identifiable)
+	if !ok {
+		return
+	}
+	if ctx.Nodes().Register(id.ID(), child) {
+		ctx.Log(*core.NewWarningAppLog(
+			fmt.Errorf("duplicate node id %q registered -- previous node under this id is now unreachable via Nodes().Find", id.ID()),
+			"Propagator",
+		).WithID(id.ID()))
 	}
 }

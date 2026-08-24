@@ -2,11 +2,24 @@ package base
 
 import (
 	"errors"
+	"fmt"
+	"sync/atomic"
 
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
+
+var idSeq uint64
+
+// nextID generates a default, always-unique ID for a node that hasn't
+// called SetID -- so every node is addressable through the registry
+// (base/propagator.go) without every constructor call site needing to
+// name one. Prefixed with source for readability: "Text#4" means a lot
+// more than a bare counter when you're staring at a registry dump.
+func nextID(source string) string {
+	return fmt.Sprintf("%s#%d", source, atomic.AddUint64(&idSeq, 1))
+}
 
 type BaseNode struct {
 	bounds *geom.Bounds
@@ -20,6 +33,7 @@ type BaseNode struct {
 
 	ctx    framework.AppContext
 	source string // set once at construction, read by every Logger/Warn/Fault call -- never passed around again
+	id     string
 }
 
 func NewBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int, source string) (BaseNode, error) {
@@ -29,6 +43,7 @@ func NewBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.S
 		computedPos: *bounds.Pos,
 		style:       framework.ResolveStyle(style, *framework.NewTransparentStyle()),
 		source:      source,
+		id:          nextID(source),
 	}
 
 	if err := n.SetLayer(layer); err != nil {
@@ -127,12 +142,20 @@ func (n *BaseNode) Resize(w, h int) {
 	n.bounds.H = h
 }
 
-// Logger, Fault, and Warn no longer take a source string -- it's fixed
-// at construction (see NewBaseNode) so every log line from this node
-// carries the same source without it being retyped at each call site.
+func (n *BaseNode) ID() string {
+	return n.id
+}
+
+func (n *BaseNode) SetID(id string) {
+	n.id = id
+}
+
+func (n *BaseNode) Source() string {
+	return n.source
+}
 
 func (n *BaseNode) Logger() framework.Logger {
-	return framework.NewLogger(n.ctx.Logs, n.source)
+	return framework.NewLogger(n.ctx.Logs, n.source, n.id)
 }
 
 func (n *BaseNode) Fault(err error) {

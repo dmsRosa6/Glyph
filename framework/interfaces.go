@@ -56,3 +56,7 @@ type Navigator interface {
 	Exit()
 	Current() Focusable
 }
+
+type Identifiable interface {
+	ID() string
+}

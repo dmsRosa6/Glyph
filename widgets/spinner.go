@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"sync"
 	"time"
 
 	"github.com/dmsRosa6/glyph/base"
@@ -12,8 +13,12 @@ import (
 type Spinner struct {
 	base.BaseNode
 	framework.SpinnerContext
+
+	mu             sync.RWMutex
 	value          []rune
 	TicksPerSecond int
+
+	startOnce sync.Once
 }
 
 type SpinnerConfig struct {
@@ -34,40 +39,54 @@ func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
 	}
 
 	t := cfg.TicksPerSecond
-
 	if t <= 0 {
 		t = 1
 	}
 
-	spinner := &Spinner{BaseNode: bn, SpinnerContext: cfg.SpinnerType, value: []rune(cfg.SpinnerType.Cycle()), TicksPerSecond: t}
-
-	// need to import from the app the cancel context
-	go spinner.startCycle()
+	spinner := &Spinner{
+		BaseNode:       bn,
+		SpinnerContext: cfg.SpinnerType,
+		value:          []rune(cfg.SpinnerType.Cycle()),
+		TicksPerSecond: t,
+	}
 
 	return spinner, nil
 }
 
-func (t *Spinner) startCycle() {
-	var ticker *time.Ticker
-	ticker = time.NewTicker(time.Second / time.Duration(t.TicksPerSecond))
+func (t *Spinner) SetContext(ctx framework.AppContext) {
+	t.BaseNode.SetContext(ctx)
+	t.startOnce.Do(func() {
+		go t.startCycle(ctx.Lifecycle())
+	})
+}
+
+func (t *Spinner) startCycle(done <-chan struct{}) {
+	ticker := time.NewTicker(time.Second / time.Duration(t.TicksPerSecond))
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
+			t.mu.Lock()
 			t.value = []rune(t.SpinnerContext.Cycle())
+			t.mu.Unlock()
+			t.Invalidate() // was missing entirely before: OnDemand mode never saw the new frame without this
+		case <-done:
+			return
 		}
 	}
-
 }
 
 func (t *Spinner) Draw(buf *core.Buffer, vec geom.Vector) {
+	t.mu.RLock()
+	value := t.value
+	t.mu.RUnlock()
 
 	s := t.Style()
 	pos := t.ComputedPos()
 	x, y := pos.X, pos.Y
 
 	for i := 0; i < t.SpinnerContext.SpinnerLength(); i++ {
-		buf.Set(vec.X+x+i, vec.Y+y, t.value[i], s.Bg, s.Fg)
+		buf.Set(vec.X+x+i, vec.Y+y, value[i], s.Bg, s.Fg)
 	}
 }

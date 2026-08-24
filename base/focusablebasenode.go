@@ -11,6 +11,31 @@ type FocusableActionContext struct {
 
 type FocusableActionFunc func(action FocusableActionContext) (bool, error)
 
+// Node returns the widget this action fired on. Exported so action
+// functions defined outside package base -- the normal case; BindAction
+// is how widgets/user code wires these up -- can actually reach it.
+func (a FocusableActionContext) Node() *FocusableBaseNode {
+	return a.node
+}
+
+// Event returns the input event that triggered this action.
+func (a FocusableActionContext) Event() framework.Event {
+	return a.ev
+}
+
+// Nodes gives an action function reach into the rest of the tree by ID,
+// e.g. a button's action looking up and updating an unrelated Text
+// widget elsewhere:
+//
+//	if d, ok := action.Nodes().Find("scoreLabel"); ok {
+//	    if t, ok := d.(*widgets.Text); ok { t.SetValue("42") }
+//	}
+//
+// Safe to call even if this node isn't attached to a running App yet.
+func (a FocusableActionContext) Nodes() *framework.Registry {
+	return a.node.Context().Nodes()
+}
+
 type FocusableBaseNode struct {
 	BaseNode
 	actions    map[framework.Key]FocusableActionFunc
@@ -47,7 +72,7 @@ func (f *FocusableBaseNode) HandleInput(ev framework.Event) (bool, error) {
 	}
 	refresh, err := fn(FocusableActionContext{node: f, ev: ev})
 	if err != nil {
-		f.Logger().Warning(err) // was: f.Logger("Focusable").Warning(err)
+		f.Logger().Warning(err)
 	}
 	if refresh {
 		f.Invalidate()

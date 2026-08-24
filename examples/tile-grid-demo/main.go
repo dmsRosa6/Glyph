@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/dmsRosa6/glyph/app"
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 	"github.com/dmsRosa6/glyph/render"
 	"github.com/dmsRosa6/glyph/widgets"
@@ -14,7 +15,7 @@ func checkerboard(w, h int) [][]core.Color {
 		matrix[y] = make([]core.Color, w)
 		for x := 0; x < w; x++ {
 			if (x+y)%2 == 0 {
-				matrix[y][x] = core.DarkGray
+				matrix[y][x] = core.Black
 			} else {
 				matrix[y][x] = core.LightGray
 			}
@@ -34,7 +35,8 @@ func main() {
 	}
 
 	grid, err := widgets.NewTileGrid(&geom.Point{X: 2, Y: 2}, widgets.TileGridConfig{
-		ColorMatrix: checkerboard(16, 8),
+		ColorMatrix: checkerboard(30, 15),
+		Anchor:      framework.Anchor{H: framework.Center, V: framework.Center},
 	})
 	if err != nil {
 		panic(err)

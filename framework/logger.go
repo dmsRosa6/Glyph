@@ -9,36 +9,37 @@ import "github.com/dmsRosa6/glyph/core"
 type Logger struct {
 	logs   chan<- core.AppLog
 	source string
+	id     string
 }
 
-func NewLogger(logs chan<- core.AppLog, source string) Logger {
-	return Logger{logs: logs, source: source}
+func NewLogger(logs chan<- core.AppLog, source, id string) Logger {
+	return Logger{logs: logs, source: source, id: id}
 }
 
 func (l Logger) Debug(msg string) {
 	if l.logs == nil {
 		return
 	}
-	l.logs <- *core.NewDebugAppLog(msg, l.source)
+	l.logs <- *core.NewDebugAppLog(msg, l.source).WithID(l.id)
 }
 
 func (l Logger) Info(msg string) {
 	if l.logs == nil {
 		return
 	}
-	l.logs <- *core.NewInfoAppLog(msg, l.source)
+	l.logs <- *core.NewInfoAppLog(msg, l.source).WithID(l.id)
 }
 
 func (l Logger) Warning(err error) {
 	if l.logs == nil || err == nil {
 		return
 	}
-	l.logs <- *core.NewWarningAppLog(err, l.source)
+	l.logs <- *core.NewWarningAppLog(err, l.source).WithID(l.id)
 }
 
 func (l Logger) Fatal(err error) {
 	if l.logs == nil || err == nil {
 		return
 	}
-	l.logs <- *core.NewFatalAppLog(err, l.source)
+	l.logs <- *core.NewFatalAppLog(err, l.source).WithID(l.id)
 }

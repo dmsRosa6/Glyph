@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
@@ -19,7 +20,7 @@ type AppConfig struct {
 	Fg, Bg        *core.Color
 	RenderMode    render.RenderMode
 	AppEvents     map[framework.Key]AppActionFunc
-	logLevel      core.Severity
+	LogLevel      core.Severity
 }
 
 type App struct {
@@ -30,13 +31,16 @@ type App struct {
 	appEvents  map[framework.Key]AppActionFunc
 	logs       *fault.FaultManager
 	appSignals chan core.AppSignal
+	nodes      *framework.Registry
+	done       chan struct{}
+	stopOnce   sync.Once
 }
 
 func NewApp(cfg AppConfig) (*App, error) {
 
 	appSignals := make(chan core.AppSignal, 10)
 
-	logs, error := fault.NewFaultManager(cfg.logLevel, appSignals)
+	logs, error := fault.NewFaultManager(cfg.LogLevel, appSignals)
 
 	if error != nil {
 		return nil, fmt.Errorf("failed to create fault manager: %v", error)
@@ -75,7 +79,16 @@ func NewApp(cfg AppConfig) (*App, error) {
 		defaultEvents = defaultGlobalActions()
 	}
 
-	return &App{Canvas: c, Renderer: r, Input: in, appEvents: defaultEvents, appSignals: appSignals, logs: logs}, nil
+	return &App{
+		Canvas:     c,
+		Renderer:   r,
+		Input:      in,
+		appEvents:  defaultEvents,
+		appSignals: appSignals,
+		logs:       logs,
+		nodes:      framework.NewRegistry(),
+		done:       make(chan struct{}),
+	}, nil
 }
 
 func (a *App) signal(sig core.AppSignal) {
@@ -118,7 +131,10 @@ func (a *App) Run() {
 		Invalidate: a.Renderer.RequestRedraw,
 		Focus:      a.focus,
 		Signal:     a.signal,
+		Registry:   a.nodes,
+		Done:       a.done,
 	}
+
 	a.Canvas.SetContext(ctx)
 
 	a.Renderer.Start(a.Canvas)
@@ -176,6 +192,9 @@ func (a *App) Run() {
 }
 
 func (a *App) Stop() {
+	a.stopOnce.Do(func() {
+		close(a.done)
+	})
 	a.logs.Logs() <- *core.NewInfoAppLog("App Stopped", string(core.AppSource))
 	a.Renderer.Stop()
 	a.Input.Stop()

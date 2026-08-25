@@ -41,3 +41,17 @@ func ResolveStyle(style, parent Style) *Style {
 
 	return &resolved
 }
+
+// StyleBg returns a Style with the given background and Fg explicitly
+// Transparent (inherit) -- the correct way to write "just tint the
+// background." A bare Style{Bg: x} literal leaves Fg at its zero value,
+// which equals core.Black, not core.Transparent -- so it silently pins
+// foreground to black too instead of inheriting.
+func StyleBg(bg core.Color) Style {
+	return Style{Bg: bg, Fg: core.Transparent}
+}
+
+// StyleFg is StyleBg's mirror for foreground-only overrides.
+func StyleFg(fg core.Color) Style {
+	return Style{Bg: core.Transparent, Fg: fg}
+}

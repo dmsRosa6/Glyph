@@ -1,21 +1,24 @@
 package widgets
 
 import (
-	"github.com/dmsRosa6/glyph/canvas"
+	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
 type Window struct {
-	*canvas.Container
+	base.FocusableBaseNode
 	box   *Bordered
-	title *Text // nil when cfg.Title == ""
+	title *Text
+
+	raise func()
 }
 
 type WindowConfig struct {
 	Padding      int
 	BoxStyle     framework.Style
+	FocusStyle   *framework.Style
 	BorderConfig BorderConfig
 	Anchor       framework.Anchor
 	Layer        int
@@ -24,11 +27,7 @@ type WindowConfig struct {
 }
 
 func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
-	outer, err := canvas.NewContainer(bounds, canvas.ContainerConfig{
-		Style:  framework.Style{Bg: core.Transparent, Fg: core.Transparent},
-		Layer:  cfg.Layer,
-		Anchor: cfg.Anchor,
-	})
+	bn, err := base.NewBaseNode(bounds, cfg.Anchor, framework.Style{Bg: core.Transparent, Fg: core.Transparent}, cfg.Layer, "Window")
 	if err != nil {
 		return nil, err
 	}
@@ -41,14 +40,15 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	outer.AddChild(box)
 
-	w := &Window{Container: outer, box: box}
+	w := &Window{
+		FocusableBaseNode: base.NewFocusableBaseNode(bn),
+		box:               box,
+	}
+	if cfg.FocusStyle != nil {
+		w.FocusableBaseNode.SetFocusStyle(*cfg.FocusStyle)
+	}
 
-	// Plain nil check, not Propagator's reflect-based one: title is a
-	// concrete *Text or genuinely absent here, no typed-nil-through-an-
-	// interface case to guard against, since we only ever call AddChild
-	// with a value we just constructed ourselves.
 	if cfg.Title != "" {
 		title, err := NewText(&geom.Point{X: 1, Y: 0}, TextConfig{
 			Value: cfg.Title,
@@ -58,10 +58,26 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 			return nil, err
 		}
 		w.title = title
-		outer.AddChild(title)
 	}
 
 	return w, nil
+}
+
+func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
+	resolved := w.FocusableBaseNode.Style()
+	w.box.SetParentStyle(&resolved)
+	w.title.SetParentStyle(&resolved)
+	pos := w.ComputedPos()
+	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
+	wdt, hgt := w.Size()
+
+	buf.PushClip(v.X, v.Y, wdt, hgt)
+	defer buf.PopClip()
+
+	w.box.Draw(buf, v)
+	if w.title != nil {
+		w.title.Draw(buf, v)
+	}
 }
 
 func (w *Window) AddChild(child framework.Drawable) {
@@ -74,4 +90,49 @@ func (w *Window) RemoveChild(target framework.Drawable) {
 
 func (w *Window) Children() []framework.Drawable {
 	return w.box.Children()
+}
+
+func (w *Window) SetParentStyle(s *framework.Style) {
+	w.FocusableBaseNode.SetParentStyle(s)
+	resolved := w.FocusableBaseNode.Style()
+	w.box.SetParentStyle(&resolved)
+}
+
+func (w *Window) SetContext(ctx framework.AppContext) {
+	w.FocusableBaseNode.SetContext(ctx)
+	w.box.SetContext(ctx)
+	if w.title != nil {
+		w.title.SetContext(ctx)
+	}
+}
+
+func (w *Window) SetLayer(l int) error {
+	return w.FocusableBaseNode.SetLayer(l)
+}
+
+// SetRaiser implements framework.Raisable. Wired automatically the
+// instant this Window is tracked by any Propagator.
+func (w *Window) SetRaiser(raise func()) {
+	w.raise = raise
+}
+
+func (w *Window) RaiseToFront() {
+	if w.raise != nil {
+		w.raise()
+	}
+}
+
+func (w *Window) FocusableChildren() []framework.Focusable {
+	var out []framework.Focusable
+	for _, c := range w.box.Children() {
+		if f, ok := c.(framework.Focusable); ok {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+func (w *Window) Focus() {
+	w.FocusableBaseNode.Focus()
+	w.RaiseToFront()
 }

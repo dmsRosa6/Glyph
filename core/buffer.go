@@ -9,6 +9,12 @@ type Buffer struct {
 
 	Bg Color
 	Fg Color
+
+	clipStack []bufferClip
+}
+
+type bufferClip struct {
+	x0, y0, x1, y1 int
 }
 
 func NewBuffer(w, h int, fg, bg Color) *Buffer {
@@ -49,9 +55,45 @@ func (b *Buffer) Clear(fg, bg Color) {
 	}
 }
 
+func (b *Buffer) PushClip(x, y, w, h int) {
+	nx0, ny0, nx1, ny1 := x, y, x+w, y+h
+
+	if len(b.clipStack) > 0 {
+		cur := b.clipStack[len(b.clipStack)-1]
+		if cur.x0 > nx0 {
+			nx0 = cur.x0
+		}
+		if cur.y0 > ny0 {
+			ny0 = cur.y0
+		}
+		if cur.x1 < nx1 {
+			nx1 = cur.x1
+		}
+		if cur.y1 < ny1 {
+			ny1 = cur.y1
+		}
+	}
+
+	b.clipStack = append(b.clipStack, bufferClip{x0: nx0, y0: ny0, x1: nx1, y1: ny1})
+}
+
+func (b *Buffer) PopClip() {
+	if len(b.clipStack) == 0 {
+		return
+	}
+	b.clipStack = b.clipStack[:len(b.clipStack)-1]
+}
+
 func (b *Buffer) Set(x, y int, ch rune, bg, fg Color) {
 	if y >= b.H || x >= b.W || y < 0 || x < 0 {
 		return
+	}
+
+	if len(b.clipStack) > 0 {
+		c := b.clipStack[len(b.clipStack)-1]
+		if x < c.x0 || x >= c.x1 || y < c.y0 || y >= c.y1 {
+			return
+		}
 	}
 
 	b.cells[y][x] = NewCell(ch, fg, bg)

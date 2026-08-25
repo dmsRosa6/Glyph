@@ -14,7 +14,7 @@ func main() {
 		panic(err)
 	}
 	cfg := widgets.SpinnerConfig{
-		SpinnerType:    *framework.NewBlockSpinnerContext(),
+		SpinnerType:    *framework.NewPulseSpinnerContext(),
 		Anchor:         framework.Anchor{V: framework.Center, H: framework.Center},
 		Style:          framework.Style{Fg: core.Black, Bg: core.Transparent},
 		TicksPerSecond: 10,

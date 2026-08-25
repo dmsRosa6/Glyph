@@ -17,7 +17,7 @@ func faultTestPanel() *widgets.FocusableBox {
 		Padding:      1,
 		BorderConfig: widgets.DefaultBorderConfig(),
 		Style:        framework.Style{Bg: core.Transparent, Fg: core.White},
-		FocusStyle:   framework.Style{Bg: core.Transparent, Fg: core.Yellow},
+		FocusStyle:   &framework.Style{Bg: core.Transparent, Fg: core.Yellow},
 	})
 	if err != nil {
 		panic(err)

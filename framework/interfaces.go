@@ -60,3 +60,7 @@ type Navigator interface {
 type Identifiable interface {
 	ID() string
 }
+
+type Raisable interface {
+	SetRaiser(raise func())
+}

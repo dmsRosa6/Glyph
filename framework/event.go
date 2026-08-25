@@ -43,3 +43,12 @@ func (k Key) String() string {
 		return "Unknown"
 	}
 }
+
+func IsStructuralKey(k Key) bool {
+	switch k {
+	case KeyCtrlC, KeyEnter, KeyTab, KeyEsc:
+		return true
+	default:
+		return false
+	}
+}

@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
@@ -15,6 +14,11 @@ type Container struct {
 	base.BaseNode
 	base.Propagator
 	layout framework.LayoutPolicy
+
+	// warned dedupes out-of-bounds/doesn't-fit warnings per child so a
+	// standing condition (a window that's just always too small for its
+	// content) logs once, not once per frame.
+	warned map[framework.Drawable]struct{}
 }
 
 type ContainerConfig struct {
@@ -38,6 +42,7 @@ func NewContainer(bounds *geom.Bounds, cfg ContainerConfig) (*Container, error) 
 	return &Container{
 		BaseNode: bn,
 		layout:   policy,
+		warned:   make(map[framework.Drawable]struct{}),
 	}, nil
 }
 
@@ -46,10 +51,6 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
 	frame := c.LocalFrame()
 
-	// Propagator.Children() returns its backing slice directly (not a
-	// copy), so sorting it in place here reorders the same storage
-	// Propagate* and Untrack operate on -- same contract Container had
-	// with its own []framework.Drawable field before.
 	children := c.Propagator.Children()
 
 	sort.SliceStable(children, func(i, j int) bool {
@@ -61,34 +62,38 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 		c.Warn(fmt.Errorf("child of type %T does not satisfy this container's layout policy and was not positioned", s))
 	}
 
+	for i, child := range children {
+		if _, already := c.warned[child]; already {
+			continue
+		}
+
+		if !child.IsInBounds(frame) {
+			c.Warn(fmt.Errorf("child of type %T is out of container bounds and will be visually clipped", child))
+			c.warned[child] = struct{}{}
+			continue
+		}
+
+		if cal, ok := c.layout.(framework.CapacityAwareLayout); ok {
+			others := make([]framework.Drawable, 0, len(children)-1)
+			others = append(others, children[:i]...)
+			others = append(others, children[i+1:]...)
+			if !cal.Fits(others, child, frame) {
+				c.Warn(fmt.Errorf("child of type %T does not fit in container's remaining space and will be visually clipped", child))
+				c.warned[child] = struct{}{}
+			}
+		}
+	}
+
+	buf.PushClip(v.X, v.Y, frame.W, frame.H)
+	defer buf.PopClip()
+
 	for _, child := range children {
 		child.Draw(buf, v)
 	}
 }
 
 func (c *Container) AddChild(child framework.Drawable) {
-	if !child.IsInBounds(c.LocalFrame()) {
-		c.Fault(errors.New("shape out of container bounds"))
-		return
-	}
-
-	// Some policies (StackLayout) can't tell whether a child fits from
-	// that child's own bounds alone -- it depends on everything already
-	// stacked above it. Ask the policy directly when it knows how to
-	// answer that; policies that don't implement this (FreeLayout) are
-	// unaffected, same as before.
-	if cal, ok := c.layout.(framework.CapacityAwareLayout); ok {
-		if !cal.Fits(c.Propagator.Children(), child, c.LocalFrame()) {
-			c.Fault(errors.New("child does not fit in container's remaining space"))
-			return
-		}
-	}
-
-	// Track appends child and, since PropagateStyle/PropagateInvalidator/
-	// PropagateLogChannel have already run at least once whenever this
-	// container itself is attached to something, eagerly applies that
-	// already-known state -- same eager-wire-on-add behavior AddChild had
-	// before, just funneled through one call instead of three.
+	// No checks here anymore -- see Draw. AddChild always tracks.
 	c.Propagator.Track(child)
 }
 
@@ -96,16 +101,13 @@ func (c *Container) RemoveChild(target framework.Drawable) {
 	before := len(c.Propagator.Children())
 	c.Propagator.Untrack(target)
 	if len(c.Propagator.Children()) < before {
+		delete(c.warned, target) // avoid unbounded growth across add/remove churn
 		c.Logger().Debug(fmt.Sprintf("child removed, now %d children", len(c.Propagator.Children())))
 	}
 }
 
 func (c *Container) SetParentStyle(s *framework.Style) {
 	c.BaseNode.SetParentStyle(s)
-	// Deliberately c.ResolvedStyle(), not the raw incoming s: children
-	// inherit THIS container's fully resolved style, not its parent's,
-	// so a Transparent field set at this level still chains correctly
-	// instead of skipping a level of inheritance.
 	c.Propagator.PropagateStyle(c.ResolvedStyle())
 }
 

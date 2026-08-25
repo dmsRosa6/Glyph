@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"fmt"
+
 	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
@@ -27,5 +29,32 @@ func NewButton(bounds *geom.Bounds, label string, cfg canvas.ContainerConfig) (*
 }
 
 func (b *Button) Draw(buf *core.Buffer, vec geom.Vector) {
-	panic("Not implemented") // TODO: implement Button.Draw
+	s := b.Style()
+	pos := b.ComputedPos()
+	w, h := b.Size()
+
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			buf.Set(vec.X+pos.X+x, vec.Y+pos.Y+y, ' ', s.Bg, s.Fg)
+		}
+	}
+
+	label := []rune(b.label)
+	if len(label) > w {
+		label = label[:w]
+	}
+	labelY := pos.Y + h/2
+	labelX := pos.X + (w-len(label))/2
+	for i, r := range label {
+		buf.Set(vec.X+labelX+i, vec.Y+labelY, r, s.Bg, s.Fg)
+	}
+}
+
+func (b *Button) SetLabel(v string) {
+	b.label = v
+	b.Logger().Debug(fmt.Sprintf("label set to %q", v))
+}
+
+func (b *Button) Label() string {
+	return b.label
 }

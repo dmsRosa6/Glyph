@@ -18,7 +18,7 @@ type Canvas struct {
 }
 
 type CanvasConfig struct {
-	Width, Height int // 0 = fill available terminal size
+	Width, Height int
 	Fg, Bg        core.Color
 }
 
@@ -62,11 +62,6 @@ func NewCanvas(cfg CanvasConfig) (*Canvas, error) {
 	}, nil
 }
 
-// ApplySize recomputes the Canvas's actual size against the terminal's
-// current dimensions. Called on every resize event, and once up front
-// before the first frame. Auto dimensions (RequestedWidth/Height <= 0)
-// always follow the terminal exactly; a fixed dimension is capped at the
-// terminal's current size but never grows past its requested value.
 func (c *Canvas) ApplySize(termW, termH int) {
 	w := c.RequestedWidth
 	if w <= 0 {
@@ -93,20 +88,20 @@ func (c *Canvas) Restore() {
 	c.Buf.Clear(s.Fg, s.Bg)
 }
 
-// AddShape delegates straight to the root Container's AddChild: same
-// bounds check, same style propagation, same invalidator propagation,
-// same layer-sorted insertion every nested Container already gives its
-// children. Nothing about being "the top" needs its own version of this.
 func (c *Canvas) AddShape(s framework.Drawable) {
 	c.root.AddChild(s)
 }
 
-// Shapes returns the top-level shapes currently on the canvas. This is
-// deliberately a read-only accessor, not an exported slice -- direct
-// mutation would skip AddShape's bounds check, style propagation, and
-// invalidator wiring entirely.
 func (c *Canvas) Shapes() []framework.Drawable {
 	return c.root.Children()
+}
+
+func (c *Canvas) BringToFront(s framework.Drawable) {
+	c.root.BringToFront(s)
+}
+
+func (c *Canvas) SendToBack(s framework.Drawable) {
+	c.root.SendToBack(s)
 }
 
 func (c *Canvas) Compose() {
@@ -124,13 +119,8 @@ func collectFocusable(children []framework.Drawable, out *[]framework.Focusable)
 	for _, child := range children {
 		if f, ok := child.(framework.Focusable); ok {
 			*out = append(*out, f)
-			// A focusable node's children are reached via Enter(),
-			// not flattened here -- so if it's ALSO a container, stop.
 			continue
 		}
-		// Not focusable itself, but might still hold focusable
-		// descendants deeper down -- ask if it can hand us its
-		// children without caring what concrete type it is.
 		if cl, ok := child.(framework.ChildrenLister); ok {
 			collectFocusable(cl.Children(), out)
 		}

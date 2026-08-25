@@ -14,7 +14,7 @@ func focusDrillDemo() *widgets.FocusableBox {
 		Padding:      1,
 		BorderConfig: widgets.DefaultBorderConfig(),
 		Style:        framework.Style{Bg: core.Transparent, Fg: core.White},
-		FocusStyle:   framework.Style{Bg: core.Transparent, Fg: core.Red},
+		FocusStyle:   &framework.Style{Bg: core.Transparent, Fg: core.Red},
 	})
 	if err != nil {
 		panic(err)
@@ -24,7 +24,7 @@ func focusDrillDemo() *widgets.FocusableBox {
 		Padding:      1,
 		BorderConfig: widgets.DefaultBorderConfig(),
 		Style:        framework.Style{Bg: core.Transparent, Fg: core.Blue},
-		FocusStyle:   framework.Style{Bg: core.Transparent, Fg: core.Red},
+		FocusStyle:   &framework.Style{Bg: core.Transparent, Fg: core.Red},
 	})
 	if err != nil {
 		panic(err)

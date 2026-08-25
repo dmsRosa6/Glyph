@@ -56,9 +56,10 @@ func (m *Manager) Start() error {
 	return nil
 }
 
-// Stop cancels the read loop, waits for it to actually exit (so it's
-// no longer touching stdin), then restores the terminal.
 func (m *Manager) Stop() {
+	if m.restore == nil {
+		return
+	}
 	m.logs <- *core.NewInfoAppLog("Input manager stopping", string(core.InputSource))
 	m.cancel()
 	<-m.stopped
@@ -83,14 +84,10 @@ func (m *Manager) run() {
 
 		n, err := term.ReadStdin(buf[:])
 		if err != nil {
-			// fd closed or real read error, not just a timeout — stop.
 			return
 		}
 
 		if n == 0 {
-			// VTIME timeout: nothing was typed this tick. If we were
-			// mid-way through decoding an escape sequence, the silence
-			// means it was a lone ESC press, not the start of one.
 			if state == stateEsc {
 				m.send(framework.Event{Key: framework.KeyEsc})
 				state = stateNormal
@@ -108,9 +105,6 @@ func (m *Manager) run() {
 			if ch == '[' {
 				state = stateEscBracket
 			} else {
-				// ESC wasn't followed by '[', so it was a lone ESC.
-				// Emit it, then process ch as a fresh normal byte —
-				// it hasn't been consumed yet.
 				m.send(framework.Event{Key: framework.KeyEsc})
 				state = m.handleNormal(ch)
 			}
@@ -133,9 +127,6 @@ func (m *Manager) run() {
 	}
 }
 
-// handleNormal decodes a single byte that isn't part of an escape
-// sequence, and returns the next decode state (usually stateNormal,
-// or stateEsc if this byte itself was 0x1b).
 func (m *Manager) handleNormal(ch byte) decodeState {
 	switch ch {
 	case 0x1b: // ESC
@@ -152,8 +143,6 @@ func (m *Manager) handleNormal(ch byte) decodeState {
 	return stateNormal
 }
 
-// send drops the event if the channel is full rather than blocking
-// the whole read loop on a slow consumer.
 func (m *Manager) send(e framework.Event) {
 	select {
 	case m.events <- e:

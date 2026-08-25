@@ -33,7 +33,7 @@ type FocusableBoxConfig struct {
 	Padding      int
 	BorderConfig BorderConfig
 	Style        framework.Style
-	FocusStyle   framework.Style
+	FocusStyle   *framework.Style
 	Layer        int
 	Anchor       framework.Anchor
 }
@@ -52,12 +52,13 @@ func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox
 	if err != nil {
 		return nil, err
 	}
-
 	fb := &FocusableBox{
 		FocusableBaseNode: base.NewFocusableBaseNode(bn),
 		box:               box,
 	}
-	fb.FocusableBaseNode.SetFocusStyle(cfg.FocusStyle)
+	if cfg.FocusStyle != nil {
+		fb.FocusableBaseNode.SetFocusStyle(*cfg.FocusStyle)
+	}
 
 	return fb, nil
 }

@@ -74,16 +74,28 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("failed to create input manager: %v", err)
 	}
 
-	defaultEvents := cfg.AppEvents
-	if defaultEvents == nil {
-		defaultEvents = defaultGlobalActions()
+	// Ctrl+C is the one binding every app gets unconditionally -- raw
+	// mode (term.SafeRawMode, via Input.Start) disables ISIG, so the
+	// terminal's own SIGINT never fires; without this, a keyboard-only
+	// user would have zero way to exit. It's seeded here, then anything
+	// in cfg.AppEvents is layered on top -- so a caller who explicitly
+	// wants to redefine Ctrl+C still can, but simply not mentioning it
+	// (the common case: animations, on-demand widgets, anything that
+	// isn't building nav) costs nothing and needs no boilerplate.
+	// Tab/Enter/Esc are NOT included here -- those stay fully opt-in via
+	// NavActions(), merged in only by apps that actually want them.
+	appEvents := map[framework.Key]AppActionFunc{
+		framework.KeyCtrlC: QuitAction(),
+	}
+	for k, fn := range cfg.AppEvents {
+		appEvents[k] = fn
 	}
 
 	return &App{
 		Canvas:     c,
 		Renderer:   r,
 		Input:      in,
-		appEvents:  defaultEvents,
+		appEvents:  appEvents,
 		appSignals: appSignals,
 		logs:       logs,
 		nodes:      framework.NewRegistry(),
@@ -95,36 +107,28 @@ func (a *App) signal(sig core.AppSignal) {
 	a.appSignals <- sig
 }
 
-func defaultGlobalActions() map[framework.Key]AppActionFunc {
-	return map[framework.Key]AppActionFunc{
-		framework.KeyCtrlC: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
-			ctx.SignalApp(core.SIGTERM)
-			return false, nil
-		},
-		framework.KeyEnter: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
-			nav := ctx.Nav()
-			if !nav.Enter() {
-				if f := nav.Current(); f != nil {
-					f.HandleInput(ev)
-				}
-			}
-			return true, nil
-		},
-		framework.KeyEsc: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
-			ctx.Nav().Exit()
-			return true, nil
-		},
-		framework.KeyTab: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
-			ctx.Nav().Next()
-			return true, nil
-		},
+func QuitAction() AppActionFunc {
+	return func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+		ctx.SignalApp(core.SIGTERM)
+		return false, nil
 	}
+}
+
+func (a *App) BindKey(k framework.Key, fn AppActionFunc) {
+	if a.appEvents == nil {
+		a.appEvents = make(map[framework.Key]AppActionFunc)
+	}
+	a.appEvents[k] = fn
+}
+
+func (a *App) UnbindKey(k framework.Key) {
+	delete(a.appEvents, k)
 }
 
 func (a *App) Run() {
 	a.logs.Start()
 
-	a.focus = input.NewFocusManager(a.Canvas.CollectFocusable())
+	a.focus = input.NewFocusManager(a.Canvas.CollectFocusable(), a.logs.Logs())
 
 	ctx := framework.AppContext{
 		Logs:       a.logs.Logs(),
@@ -133,8 +137,11 @@ func (a *App) Run() {
 		Signal:     a.signal,
 		Registry:   a.nodes,
 		Done:       a.done,
+		IsGlobalKey: func(k framework.Key) bool {
+			_, ok := a.appEvents[k]
+			return ok
+		},
 	}
-
 	a.Canvas.SetContext(ctx)
 
 	a.Renderer.Start(a.Canvas)
@@ -142,6 +149,7 @@ func (a *App) Run() {
 	err := a.Input.Start()
 	if err != nil {
 		a.logs.Logs() <- *core.NewInfoAppLog("Failed to start input Manager", string(core.AppSource))
+		a.Renderer.Stop() // otherwise the terminal stays corrupted and the render goroutine leaks
 		return
 	}
 
@@ -165,29 +173,39 @@ func (a *App) Run() {
 			}
 			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
 
-			if f, ok := a.appEvents[ev.Key]; ok {
-				reRender, err := f(ctx, ev)
-
-				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'", ev.Key.String(), reRender), string(core.AppSource))
-				if err != nil {
-					a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' errored: %s", ev.Key.String(), err.Error()), string(core.AppSource))
+			if framework.IsStructuralKey(ev.Key) {
+				// Global-first, unconditionally, for Ctrl+C/Enter/Tab/Esc.
+				if fn, bound := a.appEvents[ev.Key]; bound {
+					a.runGlobalAction(ctx, ev, fn)
+					continue
 				}
-				if reRender {
-					a.Renderer.RequestRedraw()
+				if f := a.focus.Current(); f != nil {
+					f.HandleInput(ev)
 				}
 				continue
 			}
+
+			// Every other key: widget-first, global as fallback.
 			if f := a.focus.Current(); f != nil {
-				reRender, err := f.HandleInput(ev)
-				if err != nil {
-					a.Stop()
-					return
-				}
-				if reRender {
-					a.Renderer.RequestRedraw()
+				if handled, _ := f.HandleInput(ev); handled {
+					continue
 				}
 			}
+			if fn, bound := a.appEvents[ev.Key]; bound {
+				a.runGlobalAction(ctx, ev, fn)
+			}
 		}
+	}
+}
+
+func (a *App) runGlobalAction(ctx framework.AppContext, ev framework.Event, fn AppActionFunc) {
+	reRender, err := fn(ctx, ev)
+	a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'", ev.Key.String(), reRender), string(core.AppSource))
+	if err != nil {
+		a.logs.Logs() <- *core.NewWarningAppLog(err, string(core.AppSource))
+	}
+	if reRender {
+		a.Renderer.RequestRedraw()
 	}
 }
 

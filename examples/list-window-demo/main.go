@@ -49,10 +49,8 @@ func main() {
 		Width:      36,
 		Height:     12,
 		Bg:         &core.Black,
-		RenderMode: render.FixedFPSMode(30),
+		RenderMode: render.OnDemandMode(),
 		AppEvents: map[framework.Key]app.AppActionFunc{
-			// Ctrl+C is already seeded in by NewApp -- this app only
-			// needs to add the one binding it actually cares about.
 			framework.KeyTab: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
 				ctx.Nav().Next()
 				return true, nil

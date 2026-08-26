@@ -17,9 +17,12 @@ hand.
 - **Style inheritance.** Colors and styles cascade from parent to child
   automatically, with `Transparent` as an explicit "inherit" value.
 - **Focus management.** Tab/Enter/Esc navigation, including drilling into
-  nested focusable containers and back out.
+  nested focusable containers and back out, plus a warning if a widget
+  binds a structural key that's already claimed globally (it would never
+  fire).
 - **Self-refreshing components.** Any widget can update its own state from
-  a background goroutine and trigger a redraw.
+  a background goroutine and trigger a redraw — `Spinner` and the
+  live-updating `Text` clock example both work this way.
 - **Two render modes.** Fixed frame rate, or on-demand redraw only when
   something actually changes.
 
@@ -43,7 +46,7 @@ import (
 func main() {
 	a, err := app.NewApp(app.AppConfig{
 		Bg:         &core.Black,
-		RenderMode: render.FixedFPS,
+		RenderMode: render.FixedFPSMode(30),
 	})
 	if err != nil {
 		panic(err)
@@ -54,8 +57,9 @@ func main() {
 }
 ```
 
-See the `main/` directory for a fuller example, including bordered boxes,
-a focusable widget tree, a stacked list, and a self-updating clock.
+See the `examples/` directory for fuller examples: bordered boxes and
+out-of-bounds clipping, a drillable focusable widget tree, stacked lists,
+a tile grid, a spinner, and a self-updating clock window.
 
 ## Widgets
 
@@ -65,20 +69,29 @@ a focusable widget tree, a stacked list, and a self-updating clock.
   including from a background goroutine, and will ask for a redraw when
   it changes.
 - **Border** — draws a frame (corners, edges) around a bounds. Comes with
-  a few built-in styles (single line, double line, thick, rounded) and
-  supports custom ones.
+  a few built-in styles (single line, double line, rounded) and supports
+  custom ones.
 - **Bordered** — wraps any single widget with a `Border`. This is the
   general "frame around something" primitive.
 - **Box** — a convenience constructor for the common case: a bordered,
   padded container that holds freely-positioned children.
-- **Button** — a focusable widget with a bound action. Rendering is not
-  yet implemented.
+- **Panel** — a styled, filled rectangle you can add children to. What
+  `Bordered` puts inside its border; also usable directly for content
+  areas that don't need a frame.
+- **Button** — a focusable widget with a bound action and its own
+  rendering (a filled, centered label).
 - **FocusableBox** — a bordered, padded, focusable container. Supports a
   distinct style while focused, and can hold further focusable children
   that `FocusManager.Enter()` can drill into.
 - **List** — a container with a stacked layout, plus a convenience
   method for adding bordered, padded rows.
 - **Window** — a `Box` with a title overlaid on the border itself.
+- **TileGrid** — a grid of independently-colored, single-character cells
+  (color swatches, heatmaps, minimaps), with children still supported on
+  top.
+- **Spinner** — an animated loading indicator; ticks itself on a
+  background goroutine and requests a redraw each frame. Several
+  built-in cycles (slash, dots, pulse, braille, blocks, clock, and more).
 
 ## Render modes
 
@@ -87,7 +100,11 @@ Passed as `RenderMode` in `app.AppConfig`.
 - **FixedFPS** — redraws on a fixed timer regardless of whether anything
   changed. Simple and predictable, at the cost of drawing frames that
   don't need it.
-- **OnDemand** — only redraws when something explicitly asks for it. I need to define better when its needed to be called :)
+- **OnDemand** — redraws only when something calls `Invalidate()`
+  (directly, or indirectly via a widget's own `Invalidate()`/`Warn` calls)
+  and that reaches `Renderer.RequestRedraw`. Typically triggered by an
+  input handler returning `redraw=true`, or a widget mutating its own
+  state from a background goroutine (see `Spinner`, or `Text.SetValue`).
 
 ## The `framework` package
 
@@ -105,9 +122,22 @@ with no rendering or terminal logic of its own.
   within its parent (start, center, end, or an explicit position).
 - **layoutpolicy.go** — `LayoutPolicy` and its two implementations,
   `FreeLayout` (children keep their own declared position) and
-  `StackLayout` (children stack top to bottom).
-- **event.go** — `Event` and `Key`, the input event types produced by
-  `input.Manager` and consumed by focusable widgets.
+  `StackLayout` (children stack top to bottom). `CapacityAwareLayout` is
+  an optional extension a policy can implement so `Container` can also
+  warn when a child won't fit, not just when it's out of bounds.
+- **event.go** — `Event` and `Key`, the input event vocabulary, plus
+  `IsStructuralKey` (Ctrl+C/Enter/Tab/Esc), which get global-first
+  dispatch — see `app`, below.
+- **appcontext.go** — `AppContext`, the bundle every node gets once it's
+  attached to the tree: redraw hook, log channel, node `Registry`, focus
+  navigator, and a way to check whether a key is bound globally.
+- **registry.go** — `Registry`, a concurrent id → `Drawable` map so any
+  widget with an id can be looked up from anywhere via
+  `framework.FindAs[T]`.
+- **logger.go** — `Logger`, a thin wrapper around `chan<- core.AppLog`;
+  nil-safe no-op by default, so a widget built before being attached to
+  a `Canvas` never blocks or panics.
 
+See `devguide.md` to more information, I also use it as a guideline for things :)
 
-## Still Adding stuff...
+## Still Adding stuff...probably

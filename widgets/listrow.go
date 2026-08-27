@@ -9,7 +9,8 @@ import (
 )
 
 type ListRow struct {
-	base.FocusableBaseNode
+	base.BaseNode
+	base.FocusBehavior
 	content *canvas.Container
 }
 
@@ -27,13 +28,18 @@ func newListRow(bounds *geom.Bounds, anchor framework.Anchor) (*ListRow, error) 
 	}
 
 	return &ListRow{
-		FocusableBaseNode: base.NewFocusableBaseNode(bn),
-		content:           content,
+		BaseNode:      bn,
+		FocusBehavior: base.NewFocusBehavior("ListRow"),
+		content:       content,
 	}, nil
 }
 
+func (r *ListRow) Style() framework.Style {
+	return r.FocusBehavior.ResolveFocusStyle(r.BaseNode.Style())
+}
+
 func (r *ListRow) Draw(buf *core.Buffer, vec geom.Vector) {
-	resolved := r.FocusableBaseNode.Style()
+	resolved := r.Style()
 	r.content.SetParentStyle(&resolved)
 
 	pos := r.ComputedPos()
@@ -54,18 +60,15 @@ func (r *ListRow) Children() []framework.Drawable {
 }
 
 func (r *ListRow) SetParentStyle(s *framework.Style) {
-	r.FocusableBaseNode.SetParentStyle(s)
-	resolved := r.FocusableBaseNode.Style()
+	r.BaseNode.SetParentStyle(s)
+	resolved := r.Style()
 	r.content.SetParentStyle(&resolved)
 }
 
 func (r *ListRow) SetContext(ctx framework.AppContext) {
-	r.FocusableBaseNode.SetContext(ctx)
+	r.BaseNode.SetContext(ctx)
+	r.FocusBehavior.SetFocusContext(ctx, r.BaseNode.ID())
 	r.content.SetContext(ctx)
-}
-
-func (r *ListRow) SetLayer(l int) error {
-	return r.FocusableBaseNode.SetLayer(l)
 }
 
 func (r *ListRow) FocusableChildren() []framework.Focusable {

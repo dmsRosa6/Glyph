@@ -3,12 +3,20 @@ package base
 import (
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 )
 
+// Propagator is now safe for concurrent use: Track/Untrack run from
+// whatever goroutine owns input handling, while Container.Draw reads
+// (and used to sort) the same data from the renderer's goroutine.
+// mu guards owned, parentStyle, ctx, and ctxSet together -- they're
+// read and mutated as a related group (see Track/PropagateContext),
+// not independently.
 type Propagator struct {
+	mu    sync.RWMutex
 	owned []framework.Drawable
 
 	parentStyle *framework.Style
@@ -20,50 +28,100 @@ func (p *Propagator) Track(child framework.Drawable) {
 	if isNilDrawable(child) {
 		return
 	}
+
+	// Mutate owned and snapshot the fields Track needs under the lock,
+	// then release before calling out to child's own methods. Calling
+	// interface methods on an unknown Drawable while holding this lock
+	// would be a self-inflicted deadlock risk the moment any Drawable's
+	// own method ever needed to call back into this Propagator.
+	p.mu.Lock()
 	p.owned = append(p.owned, child)
+	parentStyle := p.parentStyle
+	ctx, ctxSet := p.ctx, p.ctxSet
+	p.mu.Unlock()
 
 	if r, ok := child.(framework.Raisable); ok {
 		r.SetRaiser(func() { p.BringToFront(child) })
 	}
 
-	if p.parentStyle != nil {
-		child.SetParentStyle(p.parentStyle)
+	if parentStyle != nil {
+		child.SetParentStyle(parentStyle)
 	}
-	if p.ctxSet {
-		child.SetContext(p.ctx)
-		registerChild(p.ctx, child)
-		warnShadowedKeys(p.ctx, child)
+	if ctxSet {
+		child.SetContext(ctx)
+		registerChild(ctx, child)
+		warnShadowedKeys(ctx, child)
 	}
 }
 
-func (p *Propagator) Untrack(target framework.Drawable) {
+// Untrack now reports whether it actually removed something, so
+// Container.RemoveChild doesn't need to call Children() (which always
+// allocates now, see below) twice just to diff a length.
+func (p *Propagator) Untrack(target framework.Drawable) (removed bool) {
+	p.mu.Lock()
+	idx := -1
 	for i, c := range p.owned {
 		if c == target {
-			p.owned = append(p.owned[:i], p.owned[i+1:]...)
-			if r, ok := target.(framework.Raisable); ok {
-				r.SetRaiser(nil)
-			}
-			unregisterChild(p.ctx, target)
-			return
+			idx = i
+			break
 		}
 	}
+	if idx == -1 {
+		p.mu.Unlock()
+		return false
+	}
+	p.owned = append(p.owned[:idx], p.owned[idx+1:]...)
+	ctx := p.ctx
+	p.mu.Unlock()
+
+	if r, ok := target.(framework.Raisable); ok {
+		r.SetRaiser(nil)
+	}
+	unregisterChild(ctx, target)
+	return true
 }
 
+// Children returns a defensive copy, not the live backing array.
+// Previously this returned p.owned directly, and Container.Draw sorted
+// that returned slice by layer every frame -- since it was the same
+// backing array as p.owned, the sort silently and permanently
+// overwrote insertion order as a side effect of rendering. Every
+// caller now gets its own snapshot to read or reorder freely.
 func (p *Propagator) Children() []framework.Drawable {
-	return p.owned
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := make([]framework.Drawable, len(p.owned))
+	copy(out, p.owned)
+	return out
+}
+
+// Count is Children() without the allocation, for call sites that only
+// want a size (e.g. a debug log line) and don't need the contents.
+func (p *Propagator) Count() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.owned)
 }
 
 func (p *Propagator) PropagateStyle(s *framework.Style) {
+	p.mu.Lock()
 	p.parentStyle = s
-	for _, c := range p.owned {
+	children := append([]framework.Drawable(nil), p.owned...)
+	p.mu.Unlock()
+
+	for _, c := range children {
 		c.SetParentStyle(s)
 	}
 }
 
 func (p *Propagator) PropagateContext(ctx framework.AppContext) {
+	p.mu.Lock()
 	p.ctx = ctx
 	p.ctxSet = true
-	for _, c := range p.owned {
+	children := append([]framework.Drawable(nil), p.owned...)
+	p.mu.Unlock()
+
+	for _, c := range children {
 		c.SetContext(ctx)
 		registerChild(ctx, c)
 		warnShadowedKeys(ctx, c)
@@ -77,11 +135,17 @@ func (p *Propagator) PropagateContext(ctx framework.AppContext) {
 // Scope is this Propagator's own children only -- same as CSS z-index
 // only ever comparing within its own stacking context.
 func (p *Propagator) BringToFront(child framework.Drawable) {
-	if !p.owns(child) {
+	p.mu.RLock()
+	owned := append([]framework.Drawable(nil), p.owned...)
+	ctx, ctxSet := p.ctx, p.ctxSet
+	p.mu.RUnlock()
+
+	if !ownsChild(owned, child) {
 		return
 	}
+
 	max := 0
-	for _, c := range p.owned {
+	for _, c := range owned {
 		if c == child {
 			continue
 		}
@@ -90,17 +154,26 @@ func (p *Propagator) BringToFront(child framework.Drawable) {
 		}
 	}
 	_ = child.SetLayer(max + 1)
-	p.invalidate()
+
+	if ctxSet {
+		ctx.Redraw()
+	}
 }
 
 // SendToBack is BringToFront's mirror, floored at 0 (SetLayer rejects
 // negative layers).
 func (p *Propagator) SendToBack(child framework.Drawable) {
-	if !p.owns(child) {
+	p.mu.RLock()
+	owned := append([]framework.Drawable(nil), p.owned...)
+	ctx, ctxSet := p.ctx, p.ctxSet
+	p.mu.RUnlock()
+
+	if !ownsChild(owned, child) {
 		return
 	}
+
 	min := child.GetLayer()
-	for _, c := range p.owned {
+	for _, c := range owned {
 		if c == child {
 			continue
 		}
@@ -113,11 +186,18 @@ func (p *Propagator) SendToBack(child framework.Drawable) {
 	} else {
 		_ = child.SetLayer(min - 1)
 	}
-	p.invalidate()
+
+	if ctxSet {
+		ctx.Redraw()
+	}
 }
 
-func (p *Propagator) owns(target framework.Drawable) bool {
-	for _, c := range p.owned {
+// ownsChild is a plain helper over an already-fetched snapshot, rather
+// than a method that re-locks -- BringToFront/SendToBack already hold
+// the one snapshot they need for both the membership check and the
+// layer scan.
+func ownsChild(owned []framework.Drawable, target framework.Drawable) bool {
+	for _, c := range owned {
 		if c == target {
 			return true
 		}
@@ -125,13 +205,7 @@ func (p *Propagator) owns(target framework.Drawable) bool {
 	return false
 }
 
-func (p *Propagator) invalidate() {
-	if p.ctxSet {
-		p.ctx.Redraw()
-	}
-}
-
-// keyLister is satisfied by base.FocusableBaseNode (via BoundKeys).
+// keyLister is satisfied by base.FocusBehavior (via BoundKeys).
 type keyLister interface {
 	BoundKeys() []framework.Key
 }

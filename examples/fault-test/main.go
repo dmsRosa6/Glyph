@@ -46,7 +46,11 @@ func faultTestPanel() *widgets.FocusableBox {
 }
 
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: render.FixedFPSMode(30)})
+	rm, err := render.FixedFPSMode(30)
+	if err != nil {
+		panic(err)
+	}
+	a, err := app.NewApp(app.AppConfig{Bg: &core.Black, RenderMode: rm})
 	if err != nil {
 		panic(err)
 	}

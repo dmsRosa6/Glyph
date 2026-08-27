@@ -24,21 +24,12 @@ type Renderer struct {
 	done   chan struct{}
 }
 
-func NewRenderer(mode LoopMode, fps int, logs chan<- core.AppLog) *Renderer {
+func NewRenderer(mode RenderMode, logs chan<- core.AppLog) *Renderer {
 	ctx, cancel := context.WithCancel(context.Background())
-
-	var renderMode RenderMode
-
-	switch mode {
-	case FixedFPS:
-		renderMode = FixedFPSMode(fps)
-	case OnDemand:
-		renderMode = OnDemandMode()
-	}
 
 	r := &Renderer{
 		out:        bufio.NewWriter(os.Stdout),
-		RenderMode: renderMode,
+		RenderMode: mode,
 		ctx:        ctx,
 		cancel:     cancel,
 		logs:       logs,
@@ -65,7 +56,6 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 	defer close(r.done)
 
 	c.SetParentStyle(&framework.Style{Bg: core.Transparent, Fg: core.Transparent})
-	
 
 	var ticker *time.Ticker
 	if r.RenderMode.Mode == FixedFPS {

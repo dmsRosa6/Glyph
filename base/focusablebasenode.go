@@ -1,100 +1,46 @@
 package base
 
-import (
-	"github.com/dmsRosa6/glyph/framework"
-)
+import "github.com/dmsRosa6/glyph/framework"
 
-type FocusableActionContext struct {
-	node *FocusableBaseNode
-	ev   framework.Event
-}
-
-type FocusableActionFunc func(action FocusableActionContext) (bool, error)
-
-func (a FocusableActionContext) Node() *FocusableBaseNode {
-	return a.node
-}
-
-func (a FocusableActionContext) Event() framework.Event {
-	return a.ev
-}
-
-func (a FocusableActionContext) Nodes() *framework.Registry {
-	return a.node.Context().Nodes()
-}
-
+// FocusableBaseNode is the common case: a leaf widget that needs both
+// ordinary node behavior (BaseNode) and focus behavior (FocusBehavior)
+// and holds no children of its own -- Button is the example. Because
+// FocusBehavior owns no BaseNode (see focusbehavior.go), embedding both
+// here is unambiguous: they promote disjoint method sets, merged into
+// one convenience type.
+//
+// Composites that ALSO need to hold children (Window, FocusableBox,
+// ListRow) don't use this combo -- they embed BaseNode and
+// FocusBehavior separately, because they need a third piece (a
+// Container/Bordered field) wired in too, and that wiring is
+// composite-specific. See those types.
 type FocusableBaseNode struct {
 	BaseNode
-	actions    map[framework.Key]FocusableActionFunc
-	focused    bool
-	focusStyle *framework.Style
-}
-
-func (f *FocusableBaseNode) Style() framework.Style {
-	if f.focused && f.focusStyle != nil {
-		return *framework.ResolveStyle(*f.focusStyle, f.BaseNode.Style())
-	}
-	return f.BaseNode.Style()
+	FocusBehavior
 }
 
 func NewFocusableBaseNode(base BaseNode) FocusableBaseNode {
 	return FocusableBaseNode{
-		BaseNode: base,
-		actions:  make(map[framework.Key]FocusableActionFunc),
+		BaseNode:      base,
+		FocusBehavior: NewFocusBehavior(base.Source()),
 	}
 }
 
-func (f *FocusableBaseNode) SetFocusStyle(s framework.Style) {
-	f.focusStyle = &s
+// Style blends the focus tint over the plain BaseNode-resolved style.
+// The one method this combo can't get for free -- see
+// FocusBehavior.ResolveFocusStyle for why.
+func (f *FocusableBaseNode) Style() framework.Style {
+	return f.FocusBehavior.ResolveFocusStyle(f.BaseNode.Style())
 }
 
-func (f *FocusableBaseNode) BindAction(k framework.Key, fn FocusableActionFunc) {
-	f.actions[k] = fn
-}
-
-// BoundKeys lists every key this node currently has an action bound
-// to. Used by Propagator's shadow-warning check.
-func (f *FocusableBaseNode) BoundKeys() []framework.Key {
-	keys := make([]framework.Key, 0, len(f.actions))
-	for k := range f.actions {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-func (f *FocusableBaseNode) HandleInput(ev framework.Event) (bool, error) {
-	fn, ok := f.actions[ev.Key]
-	if !ok {
-		return false, nil
-	}
-	refresh, err := fn(FocusableActionContext{node: f, ev: ev})
-	if err != nil {
-		f.Logger().Warning(err)
-	}
-	if refresh {
-		f.Invalidate()
-	}
-	return true, err
-}
-
-func (f *FocusableBaseNode) Focus() {
-	if f.focused {
-		return
-	}
-	f.focused = true
-	f.Logger().Debug("focused")
-	f.Invalidate()
-}
-
-func (f *FocusableBaseNode) Blur() {
-	if !f.focused {
-		return
-	}
-	f.focused = false
-	f.Logger().Debug("blurred")
-	f.Invalidate()
-}
-
-func (f *FocusableBaseNode) IsFocused() bool {
-	return f.focused
+// SetContext reaches both halves. This isn't resolving an ambiguity --
+// BaseNode.SetContext and FocusBehavior.SetFocusContext are different
+// names, so promotion alone would just silently pick BaseNode.SetContext
+// and never call SetFocusContext at all (FocusBehavior.ctx would sit at
+// its zero value forever, and every Focus()/Blur()/HandleInput() log or
+// redraw would silently no-op). This override exists to make sure both
+// get the call, not to pick a winner.
+func (f *FocusableBaseNode) SetContext(ctx framework.AppContext) {
+	f.BaseNode.SetContext(ctx)
+	f.FocusBehavior.SetFocusContext(ctx, f.BaseNode.ID())
 }

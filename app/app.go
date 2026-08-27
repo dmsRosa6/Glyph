@@ -24,9 +24,19 @@ type AppConfig struct {
 }
 
 type App struct {
-	Canvas     *canvas.Canvas
-	Renderer   *render.Renderer
-	Input      *input.Manager
+	Canvas *canvas.Canvas
+	// renderer and input are unexported deliberately: both own a Stop()
+	// that App.Stop() calls in a specific order (close(done), log, THEN
+	// renderer.Stop(), THEN input.Stop()) -- a caller reaching
+	// a.Renderer.Stop() or a.Input.Stop() directly could skip that
+	// ordering entirely, or stop only one of the two and leave the app
+	// half-shut-down with nothing to catch it. Canvas has no such
+	// lifecycle method (see canvas.go -- AddShape/Shapes/SetContext/etc,
+	// no Stop), so it stays exported: every example's
+	// a.Canvas.AddShape(...) is the normal, everyday way to build a UI,
+	// not a hazard.
+	renderer   *render.Renderer
+	input      *input.Manager
 	focus      *input.FocusManager
 	appEvents  map[framework.Key]AppActionFunc
 	logs       *fault.FaultManager
@@ -67,7 +77,7 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("failed to create canvas: %v", err)
 	}
 
-	r := render.NewRenderer(cfg.RenderMode.Mode, cfg.RenderMode.Fps, logs.Logs())
+	r := render.NewRenderer(cfg.RenderMode, logs.Logs())
 
 	in, err := input.NewManager(logs.Logs())
 	if err != nil {
@@ -93,8 +103,8 @@ func NewApp(cfg AppConfig) (*App, error) {
 
 	return &App{
 		Canvas:     c,
-		Renderer:   r,
-		Input:      in,
+		renderer:   r,
+		input:      in,
 		appEvents:  appEvents,
 		appSignals: appSignals,
 		logs:       logs,
@@ -132,7 +142,7 @@ func (a *App) Run() {
 
 	ctx := framework.AppContext{
 		Logs:       a.logs.Logs(),
-		Invalidate: a.Renderer.RequestRedraw,
+		Invalidate: a.renderer.RequestRedraw,
 		Focus:      a.focus,
 		Signal:     a.signal,
 		Registry:   a.nodes,
@@ -144,12 +154,12 @@ func (a *App) Run() {
 	}
 	a.Canvas.SetContext(ctx)
 
-	a.Renderer.Start(a.Canvas)
+	a.renderer.Start(a.Canvas)
 
-	err := a.Input.Start()
+	err := a.input.Start()
 	if err != nil {
 		a.logs.Logs() <- *core.NewInfoAppLog("Failed to start input Manager", string(core.AppSource))
-		a.Renderer.Stop() // otherwise the terminal stays corrupted and the render goroutine leaks
+		a.renderer.Stop() // otherwise the terminal stays corrupted and the render goroutine leaks
 		return
 	}
 
@@ -167,7 +177,7 @@ func (a *App) Run() {
 				return
 			}
 
-		case ev, ok := <-a.Input.Events():
+		case ev, ok := <-a.input.Events():
 			if !ok {
 				return
 			}
@@ -205,7 +215,7 @@ func (a *App) runGlobalAction(ctx framework.AppContext, ev framework.Event, fn A
 		a.logs.Logs() <- *core.NewWarningAppLog(err, string(core.AppSource))
 	}
 	if reRender {
-		a.Renderer.RequestRedraw()
+		a.renderer.RequestRedraw()
 	}
 }
 
@@ -214,7 +224,7 @@ func (a *App) Stop() {
 		close(a.done)
 	})
 	a.logs.Logs() <- *core.NewInfoAppLog("App Stopped", string(core.AppSource))
-	a.Renderer.Stop()
-	a.Input.Stop()
+	a.renderer.Stop()
+	a.input.Stop()
 	a.logs.Stop()
 }

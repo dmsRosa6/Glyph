@@ -6,7 +6,7 @@ type Cell struct {
 	Bg Color
 }
 
-func NewCell(ch rune, fg, bg Color) *Cell {
+func NewCell(ch rune, bg, fg Color) *Cell {
 	return &Cell{
 		Ch: ch,
 		Fg: fg,

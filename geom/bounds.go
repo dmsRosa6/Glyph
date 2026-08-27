@@ -1,5 +1,7 @@
 package geom
 
+import "errors"
+
 type Bounds struct {
 	Pos  *Point
 	W, H int
@@ -13,21 +15,9 @@ func NewBounds(x, y, w, h int) *Bounds {
 	}
 }
 
-func (b *Bounds) Validate() {
+func (b *Bounds) Valid() error {
 	if b.Pos.Y < 0 || b.Pos.X < 0 || b.W < 0 || b.H < 0 {
-		panic("bounds width and height must be > 0")
+		return errors.New("bounds width and height must be > 0")
 	}
-}
-
-func (b *Bounds) ValidateIfInsideBounds(other Bounds) {
-	if b.Pos.X < 0 || b.Pos.Y < 0 || b.W < 0 || b.H < 0 {
-		panic("bounds width and height must be >= 0")
-	}
-	if b.Pos.X+b.W > other.W || b.Pos.Y+b.H > other.H {
-		panic("bounds exceed parent bounds")
-	}
-}
-
-func (b *Bounds) ValidateNoPanic() bool {
-	return b.Pos.Y >= 0 && b.Pos.X >= 0 && b.W >= 0 && b.H >= 0
+	return nil
 }

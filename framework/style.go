@@ -27,8 +27,8 @@ func NewTransparentStyle() *Style {
 // each channel resolves independently.
 func ResolveStyle(style, parent Style) *Style {
 	resolved := Style{
-		Fg: style.Fg,
 		Bg: style.Bg,
+		Fg: style.Fg,
 	}
 
 	if style.Fg == core.Transparent {

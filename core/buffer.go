@@ -1,11 +1,8 @@
 package core
 
-import "github.com/dmsRosa6/glyph/geom"
-
 type Buffer struct {
-	W, H     int
-	cells    [][]*Cell
-	rootClip *geom.Bounds
+	W, H  int
+	cells [][]*Cell
 
 	Bg Color
 	Fg Color
@@ -20,8 +17,6 @@ type bufferClip struct {
 func NewBuffer(w, h int, fg, bg Color) *Buffer {
 	cells := make([][]*Cell, h)
 
-	rootClip := geom.NewBounds(0, 0, w-1, h-1)
-
 	for y := range h {
 		cells[y] = make([]*Cell, w)
 		for x := range w {
@@ -30,12 +25,11 @@ func NewBuffer(w, h int, fg, bg Color) *Buffer {
 	}
 
 	return &Buffer{
-		W:        w,
-		H:        h,
-		Fg:       fg,
-		Bg:       bg,
-		cells:    cells,
-		rootClip: rootClip,
+		W:     w,
+		H:     h,
+		Fg:    fg,
+		Bg:    bg,
+		cells: cells,
 	}
 }
 

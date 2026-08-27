@@ -29,10 +29,10 @@ type BaseNode struct {
 
 	style       *framework.Style
 	parentStyle *framework.Style
-	layer       int
+	layer       int64
 
 	ctx    framework.AppContext
-	source string // set once at construction, read by every Logger/Warn/Fault call -- never passed around again
+	source string
 	id     string
 }
 
@@ -57,12 +57,12 @@ func (n *BaseNode) SetLayer(l int) error {
 	if l < 0 {
 		return errors.New("layers must be >= 0")
 	}
-	n.layer = l
+	atomic.StoreInt64(&n.layer, int64(l))
 	return nil
 }
 
 func (n *BaseNode) GetLayer() int {
-	return n.layer
+	return int(atomic.LoadInt64(&n.layer))
 }
 
 func (n *BaseNode) SetParentStyle(s *framework.Style) {

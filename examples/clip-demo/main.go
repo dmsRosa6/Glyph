@@ -10,11 +10,15 @@ import (
 )
 
 func main() {
+	rm, err := render.FixedFPSMode(30)
+	if err != nil {
+		panic(err)
+	}
 	a, err := app.NewApp(app.AppConfig{
 		Width:      40,
 		Height:     10,
 		Bg:         &core.Black,
-		RenderMode: render.FixedFPSMode(30),
+		RenderMode: rm,
 	})
 	if err != nil {
 		panic(err)

@@ -1,5 +1,7 @@
 package render
 
+import "errors"
+
 type LoopMode int
 
 const (
@@ -20,12 +22,12 @@ func OnDemandMode() RenderMode {
 	}
 }
 
-func FixedFPSMode(fps int) RenderMode {
+func FixedFPSMode(fps int) (RenderMode, error) {
 	if fps <= 0 {
-		panic("FixedFPS requires fps > 0")
+		return RenderMode{}, errors.New("FixedFPS requires fps > 0")
 	}
 	return RenderMode{
 		Mode: FixedFPS,
 		Fps:  fps,
-	}
+	}, nil
 }

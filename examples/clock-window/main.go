@@ -48,7 +48,11 @@ func clockWindow() *widgets.Window {
 }
 
 func main() {
-	a, err := app.NewApp(app.AppConfig{Bg: &core.Beige, RenderMode: render.FixedFPSMode(30)})
+	rm, err := render.FixedFPSMode(30)
+	if err != nil {
+		panic(err)
+	}
+	a, err := app.NewApp(app.AppConfig{Bg: &core.Beige, RenderMode: rm})
 	if err != nil {
 		panic(err)
 	}

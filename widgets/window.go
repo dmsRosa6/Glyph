@@ -8,7 +8,8 @@ import (
 )
 
 type Window struct {
-	base.FocusableBaseNode
+	base.BaseNode
+	base.FocusBehavior
 	box   *Bordered
 	title *Text
 
@@ -42,11 +43,12 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 	}
 
 	w := &Window{
-		FocusableBaseNode: base.NewFocusableBaseNode(bn),
-		box:               box,
+		BaseNode:      bn,
+		FocusBehavior: base.NewFocusBehavior("Window"),
+		box:           box,
 	}
 	if cfg.FocusStyle != nil {
-		w.FocusableBaseNode.SetFocusStyle(*cfg.FocusStyle)
+		w.SetFocusStyle(*cfg.FocusStyle)
 	}
 
 	if cfg.Title != "" {
@@ -63,10 +65,13 @@ func NewWindow(bounds *geom.Bounds, cfg WindowConfig) (*Window, error) {
 	return w, nil
 }
 
+func (w *Window) Style() framework.Style {
+	return w.FocusBehavior.ResolveFocusStyle(w.BaseNode.Style())
+}
+
 func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
-	resolved := w.FocusableBaseNode.Style()
+	resolved := w.Style()
 	w.box.SetParentStyle(&resolved)
-	w.title.SetParentStyle(&resolved)
 	pos := w.ComputedPos()
 	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
 	wdt, hgt := w.Size()
@@ -76,6 +81,11 @@ func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
 
 	w.box.Draw(buf, v)
 	if w.title != nil {
+		// Bug fix in passing: this used to run unconditionally, one
+		// call above where it belongs here -- a titleless Window
+		// (cfg.Title == "") left w.title nil and would panic here
+		// before ever reaching this same nil check further down.
+		w.title.SetParentStyle(&resolved)
 		w.title.Draw(buf, v)
 	}
 }
@@ -93,21 +103,18 @@ func (w *Window) Children() []framework.Drawable {
 }
 
 func (w *Window) SetParentStyle(s *framework.Style) {
-	w.FocusableBaseNode.SetParentStyle(s)
-	resolved := w.FocusableBaseNode.Style()
+	w.BaseNode.SetParentStyle(s)
+	resolved := w.Style()
 	w.box.SetParentStyle(&resolved)
 }
 
 func (w *Window) SetContext(ctx framework.AppContext) {
-	w.FocusableBaseNode.SetContext(ctx)
+	w.BaseNode.SetContext(ctx)
+	w.FocusBehavior.SetFocusContext(ctx, w.BaseNode.ID())
 	w.box.SetContext(ctx)
 	if w.title != nil {
 		w.title.SetContext(ctx)
 	}
-}
-
-func (w *Window) SetLayer(l int) error {
-	return w.FocusableBaseNode.SetLayer(l)
 }
 
 // SetRaiser implements framework.Raisable. Wired automatically the
@@ -133,6 +140,6 @@ func (w *Window) FocusableChildren() []framework.Focusable {
 }
 
 func (w *Window) Focus() {
-	w.FocusableBaseNode.Focus()
+	w.FocusBehavior.Focus()
 	w.RaiseToFront()
 }

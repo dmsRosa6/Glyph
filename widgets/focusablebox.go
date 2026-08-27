@@ -7,25 +7,21 @@ import (
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// FocusableBox is Bordered plus focus behavior. Unlike Bordered/Window,
-// it can't just embed *canvas.Container: it needs base.FocusableBaseNode
-// for Focus/Blur/BindAction/HandleInput, and embedding BOTH
-// FocusableBaseNode (which itself embeds BaseNode) and *canvas.Container
-// (which also embeds BaseNode+Propagator) at the same depth would make
-// every BaseNode-derived method ambiguous -- Go embedding isn't virtual
-// dispatch, and two same-depth sources of the same method name is a
-// compile error, not a merge.
+// FocusableBox is Bordered plus focus behavior. It embeds base.BaseNode
+// and base.FocusBehavior side by side -- unambiguous now, since
+// FocusBehavior owns no BaseNode of its own -- and still holds box as a
+// plain field rather than embedding *Bordered.
 //
-// So FocusableBox holds its box as a plain field instead, and its own
-// SetParentStyle/SetInvalidator/SetLogChannel/SetLayer forward to that
-// ONE field directly. That's also why no base.Propagator is needed here
-// either, on top of the embedding conflict: Propagator's whole job is
-// fanning out to N owned sub-drawables, and there's only one (box) to
-// forward to -- a direct call already does that job.
-//
-// RECONSTRUCTED -- see the note atop bordered.go.
+// That field is NOT a leftover of the old ambiguity: this outer
+// BaseNode's own style is deliberately Transparent, used only to
+// receive whatever style FocusableBox's real parent hands it, so the
+// focus tint can be blended in before that style reaches box. box's own
+// Container has an unrelated BaseNode for its own bounds. Two BaseNodes
+// serving two different purposes, not two BaseNodes fighting over one
+// purpose -- FocusBehavior only ever fixed the second problem.
 type FocusableBox struct {
-	base.FocusableBaseNode
+	base.BaseNode
+	base.FocusBehavior
 	box *Bordered
 }
 
@@ -53,21 +49,28 @@ func NewFocusableBox(bounds *geom.Bounds, cfg FocusableBoxConfig) (*FocusableBox
 		return nil, err
 	}
 	fb := &FocusableBox{
-		FocusableBaseNode: base.NewFocusableBaseNode(bn),
-		box:               box,
+		BaseNode:      bn,
+		FocusBehavior: base.NewFocusBehavior("FocusableBox"),
+		box:           box,
 	}
 	if cfg.FocusStyle != nil {
-		fb.FocusableBaseNode.SetFocusStyle(*cfg.FocusStyle)
+		fb.SetFocusStyle(*cfg.FocusStyle)
 	}
 
 	return fb, nil
+}
+
+// Style blends the focus tint over this wrapper's own resolved style --
+// what actually gets pushed down into box, see Draw.
+func (fb *FocusableBox) Style() framework.Style {
+	return fb.FocusBehavior.ResolveFocusStyle(fb.BaseNode.Style())
 }
 
 func (fb *FocusableBox) Draw(buf *core.Buffer, vec geom.Vector) {
 	// Re-push the focus-resolved style every frame: Focus()/Blur() only
 	// flip a bool and call Invalidate(), they never re-call
 	// SetParentStyle, so this is where box actually picks up FocusStyle.
-	resolved := fb.FocusableBaseNode.Style()
+	resolved := fb.Style()
 	fb.box.SetParentStyle(&resolved)
 
 	pos := fb.ComputedPos()
@@ -88,7 +91,7 @@ func (fb *FocusableBox) Children() []framework.Drawable {
 }
 
 // FocusableChildren makes FocusableBox a framework.FocusContainer, so
-// FocusManager.Enter() can drill into it (main.go's focusDrillDemo).
+// FocusManager.Enter() can drill into it.
 func (fb *FocusableBox) FocusableChildren() []framework.Focusable {
 	var out []framework.Focusable
 	for _, c := range fb.box.Children() {
@@ -100,16 +103,13 @@ func (fb *FocusableBox) FocusableChildren() []framework.Focusable {
 }
 
 func (fb *FocusableBox) SetParentStyle(s *framework.Style) {
-	fb.FocusableBaseNode.SetParentStyle(s)
-	resolved := fb.FocusableBaseNode.Style()
+	fb.BaseNode.SetParentStyle(s)
+	resolved := fb.Style()
 	fb.box.SetParentStyle(&resolved)
 }
 
 func (fb *FocusableBox) SetContext(ctx framework.AppContext) {
-	fb.FocusableBaseNode.SetContext(ctx)
+	fb.BaseNode.SetContext(ctx)
+	fb.FocusBehavior.SetFocusContext(ctx, fb.BaseNode.ID())
 	fb.box.SetContext(ctx)
-}
-
-func (fb *FocusableBox) SetLayer(l int) error {
-	return fb.FocusableBaseNode.SetLayer(l)
 }

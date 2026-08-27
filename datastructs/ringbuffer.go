@@ -10,8 +10,9 @@ type RingBuffer struct {
 	writeIndex int
 }
 
+// This will be a panic cause its a framework fuck up and will not be exposed
 func NewRingBuffer(capacity int) *RingBuffer {
-	if capacity < 2 {
+	if capacity < 0 {
 		panic("ring buffer size must be at least 2")
 	}
 

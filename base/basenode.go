@@ -29,14 +29,29 @@ type BaseNode struct {
 
 	style       *framework.Style
 	parentStyle *framework.Style
-	layer       int64
+
+	// layer is read (GetLayer, from Container.Draw's sort comparator on
+	// the renderer goroutine) and written (SetLayer, from
+	// Propagator.BringToFront/SendToBack on whatever goroutine an input
+	// handler runs on) concurrently -- see base/propagator.go's sync
+	// fix. Plain atomic load/store on an int64, not the newer
+	// atomic.Int64 type: that type carries a noCopy marker that would
+	// fight with BaseNode being copied by value into every widget's
+	// struct at construction time (Container{BaseNode: bn},
+	// Border{BaseNode: bn}, ...). Same pattern nextID/idSeq above
+	// already uses.
+	layer int64
 
 	ctx    framework.AppContext
-	source string
+	source string // set once at construction, read by every Logger/Warn/Fault call -- never passed around again
 	id     string
 }
 
 func NewBaseNode(bounds *geom.Bounds, anchor framework.Anchor, style framework.Style, layer int, source string) (BaseNode, error) {
+	if !bounds.Valid() {
+		return BaseNode{}, errors.New("bounds must have non-negative position, width, and height")
+	}
+
 	n := BaseNode{
 		bounds:      bounds,
 		anchor:      anchor,

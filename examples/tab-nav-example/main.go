@@ -23,7 +23,7 @@ func newCard(bounds *geom.Bounds, title string, bodyColor core.Color) (*widgets.
 	}
 
 	label, err := widgets.NewText(&geom.Point{X: 1, Y: 1}, widgets.TextConfig{
-		Value: "Tab to switch",
+		Value: "Tab / Shift+Tab to switch",
 		Fg:    core.White,
 	})
 	if err != nil {
@@ -50,12 +50,8 @@ func main() {
 		Height:     12,
 		Bg:         &core.Black,
 		RenderMode: render.OnDemandMode(),
-		AppEvents: map[framework.Key]app.AppActionFunc{
-			framework.KeyTab: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
-				ctx.Nav().Next()
-				return true, nil
-			},
-		},
+
+		AppEvents: app.NavActions(),
 	})
 	if err != nil {
 		panic(err)

@@ -3,23 +3,25 @@ package base
 import "github.com/dmsRosa6/glyph/framework"
 
 // FocusBehavior is focus/input-handling behavior as a true mixin: it
-// owns no BaseNode of its own. That's the whole point -- the old
-// FocusableBaseNode embedded a BaseNode directly, which meant it
+// owns no BaseNode of its own. That's the whole point -- embedding a
+// BaseNode directly (the old FocusableBaseNode's design) meant it
 // competed with base.Propagator (or *canvas.Container, which embeds
 // both BaseNode and Propagator) for "the thing that owns BaseNode."
 // Two embedded types both claiming to be the source of BaseNode's
 // promoted methods (SetLayer, Style, SetContext, ...) is a compile
-// error, which is why no composite could embed FocusableBaseNode
-// alongside a Container -- every composite that needed both had to
-// hold one of them as a plain field and hand-forward every method the
-// field needed (see Window/FocusableBox/ListRow).
+// error, which is why no composite could embed both directly -- every
+// composite that needed both had to hold one as a plain field and
+// hand-forward every method it needed (see Window/FocusableBox/
+// ListRow's own doc comments for their specific reasons that field is
+// still there for a DIFFERENT reason today).
 //
 // FocusBehavior sidesteps this by contributing a disjoint set of
-// method names: BindAction, BoundKeys, HandleInput, Focus, Blur,
-// IsFocused, SetFocusStyle, ResolveFocusStyle. None of these exist on
-// BaseNode or on Container/Propagator, so a struct can embed BaseNode
-// (or *canvas.Container) AND FocusBehavior at the same depth with zero
-// ambiguity, and every one of those methods is promoted for free.
+// method names: BindAction, BindActionMod, BoundKeys, HandleInput,
+// Focus, Blur, IsFocused, SetFocusStyle, ResolveFocusStyle. None of
+// these exist on BaseNode or on Container/Propagator, so a struct can
+// embed BaseNode (or *canvas.Container) AND FocusBehavior at the same
+// depth with zero ambiguity, and every one of those methods is
+// promoted for free.
 //
 // Like base.Propagator, FocusBehavior keeps its own small copy of
 // AppContext (via SetFocusContext -- a deliberately different name
@@ -27,7 +29,7 @@ import "github.com/dmsRosa6/glyph/framework"
 // choose between) rather than reaching into a sibling BaseNode it
 // doesn't own.
 type FocusBehavior struct {
-	actions    map[framework.Key]FocusableActionFunc
+	actions    map[framework.Binding]FocusableActionFunc
 	focused    bool
 	focusStyle *framework.Style
 
@@ -39,8 +41,8 @@ type FocusBehavior struct {
 // FocusableActionContext is what a bound action receives: the
 // FocusBehavior it's bound to (for reaching the node Registry, or
 // introspecting bound keys) and the triggering Event. It can't hand
-// back a pointer to the owning widget the way the old version did --
-// FocusBehavior has no way to know what it's embedded in.
+// back a pointer to the owning widget -- FocusBehavior has no way to
+// know what it's embedded in.
 type FocusableActionContext struct {
 	behavior *FocusBehavior
 	ev       framework.Event
@@ -62,7 +64,7 @@ func (a FocusableActionContext) Nodes() *framework.Registry {
 
 func NewFocusBehavior(source string) FocusBehavior {
 	return FocusBehavior{
-		actions: make(map[framework.Key]FocusableActionFunc),
+		actions: make(map[framework.Binding]FocusableActionFunc),
 		source:  source,
 	}
 }
@@ -93,22 +95,36 @@ func (f *FocusBehavior) ResolveFocusStyle(base framework.Style) framework.Style 
 	return base
 }
 
+// BindAction binds fn to k with no modifiers (Binding{Key: k,
+// Modifiers: framework.ModNone}) -- the common case, e.g. plain typed
+// characters on KeyRune. Use BindActionMod for a specific modifier
+// combination.
 func (f *FocusBehavior) BindAction(k framework.Key, fn FocusableActionFunc) {
-	f.actions[k] = fn
+	f.BindActionMod(k, framework.ModNone, fn)
 }
 
-// BoundKeys lists every key this behavior currently has an action
-// bound to. Used by Propagator's shadow-warning check.
-func (f *FocusBehavior) BoundKeys() []framework.Key {
-	keys := make([]framework.Key, 0, len(f.actions))
-	for k := range f.actions {
-		keys = append(keys, k)
+// BindActionMod binds fn to an exact (k, mods) combination. Exact
+// match only -- see framework.Binding's doc comment for why (this is
+// what lets a widget bind Shift+Tab independently from plain Tab, and
+// is also what stops a plain KeyRune binding from accidentally firing
+// on a Ctrl+<letter> event).
+func (f *FocusBehavior) BindActionMod(k framework.Key, mods framework.Modifier, fn FocusableActionFunc) {
+	f.actions[framework.Binding{Key: k, Modifiers: mods}] = fn
+}
+
+// BoundKeys lists every (key, modifiers) binding this behavior
+// currently has an action for. Used by Propagator's shadow-warning
+// check.
+func (f *FocusBehavior) BoundKeys() []framework.Binding {
+	keys := make([]framework.Binding, 0, len(f.actions))
+	for b := range f.actions {
+		keys = append(keys, b)
 	}
 	return keys
 }
 
 func (f *FocusBehavior) HandleInput(ev framework.Event) (bool, error) {
-	fn, ok := f.actions[ev.Key]
+	fn, ok := f.actions[framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}]
 	if !ok {
 		return false, nil
 	}

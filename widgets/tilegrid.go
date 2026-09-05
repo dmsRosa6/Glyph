@@ -15,7 +15,7 @@ import (
 // content) stays pure user content, exactly like Panel/Bordered do.
 type TileGrid struct {
 	*canvas.Container
-	fill    *base.PalleteNode
+	fill    *base.PaletteNode
 	content *canvas.Container
 }
 
@@ -26,7 +26,7 @@ type TileGridConfig struct {
 }
 
 func NewTileGrid(pos *geom.Point, cfg TileGridConfig) (*TileGrid, error) {
-	fill, err := base.NewPalleteNode(&geom.Point{}, framework.Anchor{}, cfg.ColorMatrix, 0, "TileGrid")
+	fill, err := base.NewPaletteNode(&geom.Point{}, framework.Anchor{}, cfg.ColorMatrix, 0, "TileGrid")
 	if err != nil {
 		return nil, err
 	}

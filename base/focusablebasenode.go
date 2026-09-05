@@ -7,7 +7,10 @@ import "github.com/dmsRosa6/glyph/framework"
 // and holds no children of its own -- Button is the example. Because
 // FocusBehavior owns no BaseNode (see focusbehavior.go), embedding both
 // here is unambiguous: they promote disjoint method sets, merged into
-// one convenience type.
+// one convenience type. This file declares no types of its own beyond
+// FocusableBaseNode itself -- FocusableActionContext/FocusableActionFunc
+// live in focusbehavior.go, so there's exactly one declaration of each,
+// not two competing ones.
 //
 // Composites that ALSO need to hold children (Window, FocusableBox,
 // ListRow) don't use this combo -- they embed BaseNode and

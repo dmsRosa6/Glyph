@@ -9,12 +9,12 @@ import (
 	"github.com/dmsRosa6/glyph/framework"
 )
 
-// Propagator is now safe for concurrent use: Track/Untrack run from
-// whatever goroutine owns input handling, while Container.Draw reads
-// (and used to sort) the same data from the renderer's goroutine.
-// mu guards owned, parentStyle, ctx, and ctxSet together -- they're
-// read and mutated as a related group (see Track/PropagateContext),
-// not independently.
+// Propagator is safe for concurrent use: Track/Untrack/BringToFront/
+// SendToBack run from whatever goroutine owns input handling, while
+// Container.Draw reads (and used to sort in place) the same data from
+// the renderer's goroutine. mu guards owned, parentStyle, ctx, and
+// ctxSet together -- they're read and mutated as a related group (see
+// Track/PropagateContext), not independently.
 type Propagator struct {
 	mu    sync.RWMutex
 	owned []framework.Drawable
@@ -54,9 +54,9 @@ func (p *Propagator) Track(child framework.Drawable) {
 	}
 }
 
-// Untrack now reports whether it actually removed something, so
+// Untrack reports whether it actually removed something, so
 // Container.RemoveChild doesn't need to call Children() (which always
-// allocates now, see below) twice just to diff a length.
+// allocates, see below) just to diff a length.
 func (p *Propagator) Untrack(target framework.Drawable) (removed bool) {
 	p.mu.Lock()
 	idx := -1
@@ -205,34 +205,43 @@ func ownsChild(owned []framework.Drawable, target framework.Drawable) bool {
 	return false
 }
 
-// keyLister is satisfied by base.FocusBehavior (via BoundKeys).
+// keyLister is satisfied by base.FocusableBaseNode (via BoundKeys).
 type keyLister interface {
-	BoundKeys() []framework.Key
+	BoundKeys() []framework.Binding
 }
 
 // warnShadowedKeys catches the common case: a widget bound to a
-// structural key (Ctrl+C/Enter/Tab/Esc) that's ALSO bound globally will
-// never fire, since structural keys always dispatch global-first. Only
-// checked at the two moments context first reaches a child -- a global
-// binding added later isn't retroactively checked.
+// structural key (Ctrl+C/Enter/Tab/Esc) that's ALSO bound globally
+// under the SAME (key, modifiers) combination will never fire, since
+// structural keys always dispatch global-first. Only checked at the two
+// moments context first reaches a child -- a global binding added later
+// isn't retroactively checked.
+//
+// The match is exact per framework.Binding: a widget binding
+// Binding{KeyTab, ModShift} is NOT shadowed by an unrelated global
+// Binding{KeyTab, ModNone} (plain Tab) -- they're different bindings
+// that fire independently. Checking IsStructuralKey/GlobalKeyBound
+// against the bare Key here would produce a false positive for exactly
+// the Shift+Tab-vs-Tab case this whole Binding scheme exists to support.
 func warnShadowedKeys(ctx framework.AppContext, child framework.Drawable) {
 	kl, ok := child.(keyLister)
 	if !ok {
 		return
 	}
-	for _, k := range kl.BoundKeys() {
-		if !framework.IsStructuralKey(k) {
+	for _, b := range kl.BoundKeys() {
+		if !framework.IsStructuralKey(b.Key) {
 			continue // non-structural keys are widget-first now, can't be shadowed
 		}
-		if !ctx.GlobalKeyBound(k) {
+		if !ctx.GlobalKeyBound(b) {
 			continue
 		}
 		id := ""
 		if ident, ok := child.(framework.Identifiable); ok {
 			id = ident.ID()
 		}
+		desc := b.Modifiers.String() + b.Key.String()
 		ctx.Log(*core.NewWarningAppLog(
-			fmt.Errorf("key %q is a structural key bound both globally and on this widget -- the global binding always runs first, so this widget's action for %q will never fire", k.String(), k.String()),
+			fmt.Errorf("key %q is a structural key bound both globally and on this widget -- the global binding always runs first, so this widget's action for %q will never fire", desc, desc),
 			"Propagator",
 		).WithID(id))
 	}

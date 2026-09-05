@@ -19,8 +19,23 @@ type AppConfig struct {
 	Width, Height int
 	Fg, Bg        *core.Color
 	RenderMode    render.RenderMode
-	AppEvents     map[framework.Key]AppActionFunc
-	LogLevel      core.Severity
+	// AppEvents is keyed on framework.Binding (Key + Modifiers), not a
+	// bare Key -- this is what lets Tab and Shift+Tab (or Ctrl+Right and
+	// plain Right, etc.) carry different handlers instead of one
+	// handler having to inspect ev.Modifiers itself. NavActions()
+	// returns a ready-to-merge set covering standard Tab/Shift+Tab/
+	// Enter/Esc navigation; nothing here is auto-included by NewApp
+	// (except Ctrl+C, always seeded separately below) -- merge
+	// NavActions() in explicitly if you want it.
+	AppEvents map[framework.Binding]AppActionFunc
+	LogLevel  core.Severity
+	// MouseEnabled opts into terminal mouse-click/drag reporting (see
+	// input.Manager's decoder and render.Renderer.Init). Off by default
+	// -- enabling it changes what the terminal does with the mouse
+	// system-wide for the duration of the app (e.g. ordinary text
+	// selection by dragging stops working), which isn't something every
+	// app wants turned on unconditionally.
+	MouseEnabled bool
 }
 
 type App struct {
@@ -35,15 +50,22 @@ type App struct {
 	// no Stop), so it stays exported: every example's
 	// a.Canvas.AddShape(...) is the normal, everyday way to build a UI,
 	// not a hazard.
-	renderer   *render.Renderer
-	input      *input.Manager
-	focus      *input.FocusManager
-	appEvents  map[framework.Key]AppActionFunc
-	logs       *fault.FaultManager
-	appSignals chan core.AppSignal
-	nodes      *framework.Registry
-	done       chan struct{}
-	stopOnce   sync.Once
+	renderer  *render.Renderer
+	input     *input.Manager
+	focus     *input.FocusManager
+	appEvents map[framework.Binding]AppActionFunc
+	// mouseHandler is the one place a mouse event can go today -- see
+	// BindMouse. There's no per-widget or per-Binding routing for mouse
+	// (that needs hit-testing, deliberately not built -- see
+	// framework.MouseHandler's doc comment), so this is a single global
+	// callback, same shape as AppActionFunc, called for every decoded
+	// mouse event if set.
+	mouseHandler AppActionFunc
+	logs         *fault.FaultManager
+	appSignals   chan core.AppSignal
+	nodes        *framework.Registry
+	done         chan struct{}
+	stopOnce     sync.Once
 }
 
 func NewApp(cfg AppConfig) (*App, error) {
@@ -77,7 +99,7 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("failed to create canvas: %v", err)
 	}
 
-	r := render.NewRenderer(cfg.RenderMode, logs.Logs())
+	r := render.NewRenderer(cfg.RenderMode, cfg.MouseEnabled, logs.Logs())
 
 	in, err := input.NewManager(logs.Logs())
 	if err != nil {
@@ -94,11 +116,11 @@ func NewApp(cfg AppConfig) (*App, error) {
 	// isn't building nav) costs nothing and needs no boilerplate.
 	// Tab/Enter/Esc are NOT included here -- those stay fully opt-in via
 	// NavActions(), merged in only by apps that actually want them.
-	appEvents := map[framework.Key]AppActionFunc{
-		framework.KeyCtrlC: QuitAction(),
+	appEvents := map[framework.Binding]AppActionFunc{
+		{Key: framework.KeyCtrlC}: QuitAction(),
 	}
-	for k, fn := range cfg.AppEvents {
-		appEvents[k] = fn
+	for b, fn := range cfg.AppEvents {
+		appEvents[b] = fn
 	}
 
 	return &App{
@@ -124,15 +146,83 @@ func QuitAction() AppActionFunc {
 	}
 }
 
+// BindKey binds fn to k with no modifiers (Binding{Key: k, Modifiers:
+// framework.ModNone}). Use BindKeyMod for a specific modifier
+// combination -- e.g. BindKeyMod(KeyTab, framework.ModShift, prevFn)
+// alongside a plain BindKey(KeyTab, nextFn) for independent Tab /
+// Shift+Tab behavior.
 func (a *App) BindKey(k framework.Key, fn AppActionFunc) {
+	a.BindKeyMod(k, framework.ModNone, fn)
+}
+
+// BindKeyMod binds fn to an exact (k, mods) combination. Exact match
+// only -- see framework.Binding's doc comment.
+func (a *App) BindKeyMod(k framework.Key, mods framework.Modifier, fn AppActionFunc) {
 	if a.appEvents == nil {
-		a.appEvents = make(map[framework.Key]AppActionFunc)
+		a.appEvents = make(map[framework.Binding]AppActionFunc)
 	}
-	a.appEvents[k] = fn
+	a.appEvents[framework.Binding{Key: k, Modifiers: mods}] = fn
 }
 
 func (a *App) UnbindKey(k framework.Key) {
-	delete(a.appEvents, k)
+	a.UnbindKeyMod(k, framework.ModNone)
+}
+
+// BindMouse sets the single handler that receives every decoded mouse
+// event (press/release/drag/wheel -- see framework.MouseAction). There's
+// no per-widget or per-button routing here, only one global handler at
+// a time -- calling BindMouse again replaces the previous one. This
+// exists because there was otherwise NO way for application code to
+// receive a mouse event at all: App.Run's dispatch loop only logs
+// mouse events, deliberately never routing them through the Key-indexed
+// appEvents/per-widget maps (see the dispatch loop's own comment for
+// why). Doing real per-widget mouse dispatch needs hit-testing, which
+// remains an open, separate design decision -- see
+// framework.MouseHandler.
+func (a *App) BindMouse(fn AppActionFunc) {
+	a.mouseHandler = fn
+}
+
+func (a *App) UnbindMouse() {
+	a.mouseHandler = nil
+}
+
+func (a *App) UnbindKeyMod(k framework.Key, mods framework.Modifier) {
+	delete(a.appEvents, framework.Binding{Key: k, Modifiers: mods})
+}
+
+// NavActions returns a ready-to-merge set of standard focus-navigation
+// bindings: Tab/Shift+Tab cycle focus forward/backward, Enter drills
+// into a focused FocusContainer, Esc drills back out. None of this is
+// auto-included by NewApp -- an app that wants it merges it in
+// explicitly:
+//
+//	app.NewApp(app.AppConfig{AppEvents: app.NavActions()})
+//
+// or alongside other bindings:
+//
+//	events := app.NavActions()
+//	events[framework.Binding{Key: framework.KeyCtrlC}] = myQuitHandler
+//	app.NewApp(app.AppConfig{AppEvents: events})
+func NavActions() map[framework.Binding]AppActionFunc {
+	return map[framework.Binding]AppActionFunc{
+		{Key: framework.KeyTab}: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			ctx.Nav().Next()
+			return true, nil
+		},
+		{Key: framework.KeyTab, Modifiers: framework.ModShift}: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			ctx.Nav().Prev()
+			return true, nil
+		},
+		{Key: framework.KeyEnter}: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			drilled := ctx.Nav().Enter()
+			return drilled, nil
+		},
+		{Key: framework.KeyEsc}: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
+			ctx.Nav().Exit()
+			return true, nil
+		},
+	}
 }
 
 func (a *App) Run() {
@@ -147,8 +237,8 @@ func (a *App) Run() {
 		Signal:     a.signal,
 		Registry:   a.nodes,
 		Done:       a.done,
-		IsGlobalKey: func(k framework.Key) bool {
-			_, ok := a.appEvents[k]
+		IsGlobalKey: func(b framework.Binding) bool {
+			_, ok := a.appEvents[b]
 			return ok
 		},
 	}
@@ -181,11 +271,46 @@ func (a *App) Run() {
 			if !ok {
 				return
 			}
+
+			if ev.Kind == framework.EventKindMouse {
+				// Mouse decoding is real (input.Manager parses actual
+				// SGR mouse escape sequences into MouseButton/
+				// MouseAction/MouseX/MouseY). What's still NOT built is
+				// per-widget dispatch (hit-testing: mapping MouseX/
+				// MouseY to whichever Drawable's ABSOLUTE screen bounds
+				// contain it) -- no part of this tree currently tracks
+				// that (BaseNode only knows its position relative to
+				// its own parent), and it's left as an open, separate
+				// design decision rather than guessed at here -- see
+				// framework.MouseHandler's doc comment.
+				//
+				// mouseHandler (see BindMouse) is the one place a
+				// mouse event can go in the meantime: a single global
+				// callback, not per-widget or per-Binding routing.
+				//
+				// Deliberately checked and handled BEFORE any of the
+				// Key-indexed branches below: a mouse Event's Key field
+				// sits at its zero value (KeyRune), and both the
+				// per-widget actions map (FocusableBaseNode/
+				// FocusBehavior) and a.appEvents are indexed by Key --
+				// without this early return, every mouse click would be
+				// silently indistinguishable from a KeyRune keypress
+				// with Rune 0 to any widget or global binding on
+				// KeyRune.
+				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY), string(core.AppSource))
+				if a.mouseHandler != nil {
+					a.runGlobalAction(ctx, ev, a.mouseHandler)
+				}
+				continue
+			}
+
 			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
+
+			binding := framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}
 
 			if framework.IsStructuralKey(ev.Key) {
 				// Global-first, unconditionally, for Ctrl+C/Enter/Tab/Esc.
-				if fn, bound := a.appEvents[ev.Key]; bound {
+				if fn, bound := a.appEvents[binding]; bound {
 					a.runGlobalAction(ctx, ev, fn)
 					continue
 				}
@@ -201,7 +326,7 @@ func (a *App) Run() {
 					continue
 				}
 			}
-			if fn, bound := a.appEvents[ev.Key]; bound {
+			if fn, bound := a.appEvents[binding]; bound {
 				a.runGlobalAction(ctx, ev, fn)
 			}
 		}

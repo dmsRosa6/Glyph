@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"errors"
+
 	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
@@ -30,7 +32,7 @@ func DefaultBorderConfig() BorderConfig {
 
 func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 	if cfg.Thickness < 1 {
-		panic("border thickness must be >= 1")
+		return nil, errors.New("border thickness must be >= 1")
 	}
 
 	style := cfg.BorderStyle

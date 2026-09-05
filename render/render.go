@@ -16,24 +16,36 @@ import (
 type Renderer struct {
 	out *bufio.Writer
 	RenderMode
-	isDirty bool
-	logs    chan<- core.AppLog
+	isDirty      bool
+	logs         chan<- core.AppLog
+	mouseEnabled bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
-func NewRenderer(mode RenderMode, logs chan<- core.AppLog) *Renderer {
+// NewRenderer takes the already-constructed RenderMode directly rather
+// than a loose (mode, fps) pair it used to re-derive internally by
+// calling FixedFPSMode/OnDemandMode a second time. That second call was
+// redundant whenever the caller went through the constructors properly
+// (the value was already valid) and actively wasteful when it didn't
+// (e.g. it silently discarded the caller's OnDemandMode() Redraw
+// channel and allocated a fresh one). Since FixedFPSMode now returns an
+// error instead of panicking, NewRenderer can no longer call it
+// unchecked anyway -- taking the pre-built value sidesteps needing to
+// propagate that error through here at all.
+func NewRenderer(mode RenderMode, mouseEnabled bool, logs chan<- core.AppLog) *Renderer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	r := &Renderer{
-		out:        bufio.NewWriter(os.Stdout),
-		RenderMode: mode,
-		ctx:        ctx,
-		cancel:     cancel,
-		logs:       logs,
-		done:       make(chan struct{}),
+		out:          bufio.NewWriter(os.Stdout),
+		RenderMode:   mode,
+		mouseEnabled: mouseEnabled,
+		ctx:          ctx,
+		cancel:       cancel,
+		logs:         logs,
+		done:         make(chan struct{}),
 	}
 
 	return r
@@ -44,6 +56,19 @@ func (r *Renderer) Init() {
 	fmt.Fprint(r.out, "\x1b[?1049h")
 	fmt.Fprint(r.out, "\x1b[2J")
 	fmt.Fprint(r.out, "\x1b[H")
+	if r.mouseEnabled {
+		// 1000: click/release reporting. 1002: also report motion while
+		// a button is held (drag). 1006: SGR extended coordinate mode --
+		// modern, unambiguous, no 223-column limit like the legacy
+		// 1005/1015 modes restore() still defensively disables below.
+		//
+		// Deliberately NOT enabling 1003 (report every mouse move even
+		// with no button held): that would flood input.Manager's
+		// 16-slot event buffer (Events() silently drops on a full
+		// buffer, see Manager.send) under ordinary mouse movement, for
+		// a feature (hover tracking) nothing in this framework consumes.
+		fmt.Fprint(r.out, "\x1b[?1000h\x1b[?1002h\x1b[?1006h")
+	}
 	r.out.Flush()
 }
 
@@ -130,6 +155,14 @@ func (r *Renderer) render(c *canvas.Canvas) {
 	r.out.Flush()
 }
 
+// restore unconditionally disables all six mouse-reporting modes,
+// regardless of mouseEnabled -- 1000/1002/1006 are the ones Init() may
+// have turned on above; 1003/1005/1015 are never enabled by this
+// package at all, but disabling an already-disabled mode is a harmless
+// no-op, and this is cheap insurance against mouse-tracking state left
+// behind by some OTHER program that ran in this terminal before glyph
+// did (a crashed prior TUI app, for instance) -- not just this run's
+// own state.
 func (r *Renderer) restore() {
 	fmt.Fprint(r.out,
 		"\x1b[?1000l"+

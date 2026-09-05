@@ -16,6 +16,26 @@ type Container struct {
 	base.Propagator
 	layout framework.LayoutPolicy
 
+	// fitMu guards fitDirty and warned together, and is a separate lock
+	// from base.Propagator's -- Draw reads fitDirty/warned from the
+	// renderer goroutine while AddChild/RemoveChild/Resize write them
+	// from whatever goroutine an input handler runs on.
+	//
+	// The out-of-bounds/doesn't-fit/doesn't-satisfy-layout-policy checks
+	// this guards -- including CapacityAwareLayout.Fits's O(n) sum over
+	// a freshly allocated "others" slice per child -- used to run in
+	// full every single Draw call, for every not-yet-warned child. In
+	// steady state (nothing actually overflowing) that's every child,
+	// every frame: O(n^2) allocation work for a result that's static
+	// until an add, a remove, or a resize of THIS container. fitDirty
+	// starts true so the first Draw always computes; after that it's
+	// only re-armed by AddChild/RemoveChild/Resize.
+	//
+	// Known gap: a child resized in place after being added does NOT
+	// currently mark this dirty -- base.BaseNode.Resize has no hook
+	// back to its parent Container. Not exercised anywhere in this
+	// codebase today; would need a real Composable-level
+	// resize-notification design, not a patch here.
 	fitMu    sync.Mutex
 	fitDirty bool
 	warned   map[framework.Drawable]struct{}
@@ -52,6 +72,10 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 	v := geom.Vector{X: vec.X + pos.X, Y: vec.Y + pos.Y}
 	frame := c.LocalFrame()
 
+	// Children() hands back a fresh copy every call (see
+	// base.Propagator.Children) -- safe to sort in place here without
+	// corrupting insertion order for anyone else reading the tree
+	// concurrently.
 	children := c.Propagator.Children()
 
 	sort.SliceStable(children, func(i, j int) bool {

@@ -22,6 +22,11 @@ func OnDemandMode() RenderMode {
 	}
 }
 
+// FixedFPSMode returns an error rather than panicking on fps <= 0 --
+// this is a plausible caller-supplied config value (from a flag, a
+// config file, etc.), not a programmer invariant violation, so it
+// should be reportable rather than fatal. See geom.NewPoint's doc
+// comment for the same rule applied elsewhere.
 func FixedFPSMode(fps int) (RenderMode, error) {
 	if fps <= 0 {
 		return RenderMode{}, errors.New("FixedFPS requires fps > 0")

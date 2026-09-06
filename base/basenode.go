@@ -170,7 +170,7 @@ func (n *BaseNode) Source() string {
 }
 
 func (n *BaseNode) Logger() framework.Logger {
-	return framework.NewLogger(n.ctx.Logs, n.source, n.id)
+	return framework.NewLogger(n.ctx.Logs, n.ctx.LogLevel, n.source, n.id)
 }
 
 func (n *BaseNode) Fault(err error) {

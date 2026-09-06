@@ -12,12 +12,14 @@ import (
 // "fill + content, correctly ordered, correctly delegated" -- the only
 // thing that's actually Bordered's own concern is that inset math, and
 // positioning the two pieces relative to each other.
-//
-// RECONSTRUCTED -- see the note atop this package's other composite
-// widgets; not your real file.
 type Bordered struct {
 	*canvas.Container
-	panel *Panel
+	border *Border
+	panel  *Panel
+	// inset is border thickness + padding, recomputed against, rather
+	// than recovered from, the current size on every Resize -- see
+	// Resize below.
+	inset int
 }
 
 type BoxConfig struct {
@@ -64,7 +66,21 @@ func NewBox(bounds *geom.Bounds, cfg BoxConfig) (*Bordered, error) {
 	outer.AddChild(border)
 	outer.AddChild(panel)
 
-	return &Bordered{Container: outer, panel: panel}, nil
+	return &Bordered{Container: outer, border: border, panel: panel, inset: inset}, nil
+}
+
+// Resize shadows the promoted *canvas.Container.Resize, which by itself
+// only changes Bordered's own outer bounds and leaves border and panel
+// at whatever size NewBox originally gave them -- concretely, resizing
+// a Window used to change its size bookkeeping while the border and
+// panel actually drawn inside it stayed the old size. border is
+// resized to match the new outer size exactly (it's always drawn edge
+// to edge); panel is resized to the new size shrunk by inset on each
+// side, same formula NewBox used at construction, just re-applied here.
+func (bx *Bordered) Resize(w, h int) {
+	bx.Container.Resize(w, h)
+	bx.border.Resize(w, h)
+	bx.panel.Resize(w-2*bx.inset, h-2*bx.inset)
 }
 
 // AddChild puts user content into the panel, not the outer wrapper --

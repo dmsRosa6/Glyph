@@ -11,8 +11,22 @@ type RingBuffer struct {
 }
 
 // This will be a panic cause its a framework fuck up and will not be exposed
+//
+// capacity < 2 is rejected, not just capacity < 0: readIndex ==
+// writeIndex means empty (see Read/Size), which is also exactly what
+// happens after Add fills the last free slot -- full and empty are
+// otherwise indistinguishable with a single read/write index pair.
+// capacity 0 hits that ambiguity immediately (the very first Add does
+// (writeIndex+1) % len(buffer), a divide-by-zero on an empty backing
+// slice) and capacity 1 can never hold anything (every Add would
+// immediately look full to Read). This is also why a RingBuffer only
+// ever has capacity-1 truly usable slots for any capacity >= 2 --
+// fault.FaultManager's NewRingBuffer(100) really gives 99 usable retry
+// slots, not 100. That's a deliberate consequence of this same
+// full-vs-empty scheme, not a bug -- don't "fix" it without addressing
+// full/empty ambiguity everywhere else in this type first.
 func NewRingBuffer(capacity int) *RingBuffer {
-	if capacity < 0 {
+	if capacity < 2 {
 		panic("ring buffer size must be at least 2")
 	}
 

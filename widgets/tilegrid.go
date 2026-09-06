@@ -54,6 +54,21 @@ func NewTileGrid(pos *geom.Point, cfg TileGridConfig) (*TileGrid, error) {
 	return &TileGrid{Container: outer, fill: fill, content: content}, nil
 }
 
+// Resize shadows the promoted *canvas.Container.Resize to at least
+// cascade to content, matching Panel/Bordered. It deliberately does
+// NOT resize fill: fill's bounds are derived from -- and by
+// base.NewPaletteNode's own contract can never disagree with -- its
+// color matrix (see PaletteNode's doc comment). Stretching fill's
+// reported bounds without also reshaping the matrix would just make
+// the two disagree, which is exactly what that contract exists to
+// prevent. A TileGrid's true size IS the size of its palette; this
+// only changes how much room its content children (drawn on top of the
+// palette) have to work with.
+func (t *TileGrid) Resize(w, h int) {
+	t.Container.Resize(w, h)
+	t.content.Resize(w, h)
+}
+
 // AddChild puts user content into the content container, not the outer
 // wrapper -- shadows the promoted Container.AddChild, same reason
 // Bordered/Panel shadow it: otherwise it'd land next to fill.

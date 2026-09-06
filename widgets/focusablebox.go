@@ -78,6 +78,14 @@ func (fb *FocusableBox) Draw(buf *core.Buffer, vec geom.Vector) {
 	fb.box.Draw(buf, v)
 }
 
+// Resize resizes both halves FocusableBox actually owns: its own
+// BaseNode and box, the Bordered doing the real drawing -- same reason
+// and same shape as Window.Resize.
+func (fb *FocusableBox) Resize(w, h int) {
+	fb.BaseNode.Resize(w, h)
+	fb.box.Resize(w, h)
+}
+
 func (fb *FocusableBox) AddChild(child framework.Drawable) {
 	fb.box.AddChild(child)
 }

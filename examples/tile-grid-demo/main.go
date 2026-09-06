@@ -28,7 +28,7 @@ func main() {
 	a, err := app.NewApp(app.AppConfig{
 		Width:      40,
 		Height:     20,
-		RenderMode: render.RenderMode{Mode: render.OnDemand},
+		RenderMode: render.OnDemandMode(),
 	})
 	if err != nil {
 		panic(err)

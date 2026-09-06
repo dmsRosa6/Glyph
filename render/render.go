@@ -3,6 +3,7 @@ package render
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -17,7 +18,7 @@ type Renderer struct {
 	out *bufio.Writer
 	RenderMode
 	isDirty      bool
-	logs         chan<- core.AppLog
+	logger       framework.Logger
 	mouseEnabled bool
 
 	ctx    context.Context
@@ -35,7 +36,22 @@ type Renderer struct {
 // error instead of panicking, NewRenderer can no longer call it
 // unchecked anyway -- taking the pre-built value sidesteps needing to
 // propagate that error through here at all.
-func NewRenderer(mode RenderMode, mouseEnabled bool, logs chan<- core.AppLog) *Renderer {
+//
+// mode is validated here rather than trusted: RenderMode's fields are
+// unexported (see rendermode.go), but the all-zero RenderMode{} is
+// still legal from any package and reads as an unconfigured FixedFPS
+// mode with Fps == 0 -- exactly what AppConfig{} produces when
+// RenderMode is left unset. Left unchecked, that reaches Run's
+// `time.NewTicker(time.Second / time.Duration(r.fps))` as a
+// divide-by-zero panic. A mode built by hand outside this package
+// (impossible today with unexported fields, but this guards the
+// zero-value case regardless) could similarly leave redraw nil and
+// hang Run forever on startup. Both are reported here instead.
+func NewRenderer(mode RenderMode, mouseEnabled bool, logger framework.Logger) (*Renderer, error) {
+	if !mode.valid() {
+		return nil, errors.New("render: invalid RenderMode; build one with render.FixedFPSMode(fps) or render.OnDemandMode(), don't leave AppConfig.RenderMode unset")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	r := &Renderer{
@@ -44,11 +60,11 @@ func NewRenderer(mode RenderMode, mouseEnabled bool, logs chan<- core.AppLog) *R
 		mouseEnabled: mouseEnabled,
 		ctx:          ctx,
 		cancel:       cancel,
-		logs:         logs,
+		logger:       logger,
 		done:         make(chan struct{}),
 	}
 
-	return r
+	return r, nil
 }
 
 func (r *Renderer) Init() {
@@ -83,11 +99,11 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 	c.SetParentStyle(&framework.Style{Bg: core.Transparent, Fg: core.Transparent})
 
 	var ticker *time.Ticker
-	if r.RenderMode.Mode == FixedFPS {
-		ticker = time.NewTicker(time.Second / time.Duration(r.Fps))
+	if r.mode == FixedFPS {
+		ticker = time.NewTicker(time.Second / time.Duration(r.fps))
 		defer ticker.Stop()
 	} else {
-		r.Redraw <- struct{}{}
+		r.redraw <- struct{}{}
 	}
 
 	applySize := func() {
@@ -102,7 +118,7 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 
 	resizeCh := term.WatchResize()
 
-	r.logs <- *core.NewInfoAppLog("Renderer Started", string(core.RendererSource))
+	r.logger.Info("Renderer Started")
 
 	for {
 		select {
@@ -114,8 +130,8 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 			applySize()
 			r.render(c)
 
-		case <-r.Redraw:
-			if r.Mode == OnDemand {
+		case <-r.redraw:
+			if r.mode == OnDemand {
 				r.render(c)
 			}
 
@@ -125,7 +141,7 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 			}
 			return nil
 		}():
-			if r.Mode == FixedFPS {
+			if r.mode == FixedFPS {
 				r.render(c)
 			}
 		}
@@ -133,14 +149,14 @@ func (r *Renderer) Run(c *canvas.Canvas) {
 }
 
 func (r *Renderer) RequestRedraw() {
-	if r.RenderMode.Mode != OnDemand {
+	if r.mode != OnDemand {
 		return
 	}
 
-	r.logs <- *core.NewDebugAppLog("On Demand render cycle triggered", string(core.RendererSource))
+	r.logger.Debug("On Demand render cycle triggered")
 
 	select {
-	case r.Redraw <- struct{}{}:
+	case r.redraw <- struct{}{}:
 	default:
 	}
 }
@@ -178,7 +194,7 @@ func (r *Renderer) restore() {
 }
 
 func (r *Renderer) Stop() {
-	r.logs <- *core.NewInfoAppLog("Renderer Stopped", string(core.RendererSource))
+	r.logger.Info("Renderer Stopped")
 	r.cancel()
 	<-r.done
 }

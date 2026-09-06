@@ -9,6 +9,13 @@ type AppContext struct {
 	Signal     func(core.AppSignal)
 	Registry   *Registry
 	Done       <-chan struct{}
+	// LogLevel is the configured minimum severity (AppConfig.LogLevel),
+	// threaded through so every framework.Logger built from this
+	// context -- BaseNode.Logger(), FocusBehavior's own logger -- can
+	// filter Debug/Info noise at the source instead of relying solely
+	// on FaultManager's downstream check. See framework.Logger's doc
+	// comment for why filtering here, not just downstream, matters.
+	LogLevel core.Severity
 	// IsGlobalKey takes a Binding, not a bare Key, now that global
 	// bindings are keyed on (Key, Modifiers) -- a Key alone can't
 	// distinguish "Tab is globally bound" from "Shift+Tab is globally

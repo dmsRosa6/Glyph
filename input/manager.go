@@ -2,6 +2,7 @@ package input
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -20,9 +21,40 @@ const (
 	stateCSIParams             // accumulating CSI parameter bytes until a terminator
 )
 
+// DefaultEventBufferSize is Events()'s buffer capacity when
+// NewManager's bufferSize is left at 0 (or negative). Events beyond
+// this, arriving faster than the consumer drains them, are dropped
+// (see send below) rather than blocking the decode loop -- 16 is
+// plenty of headroom for ordinary typing and clicking, but a
+// drag-heavy app (see examples/mouse-paint-demo, which can easily
+// emit more than 16 MouseDrag events between renderer ticks under
+// OnDemand mode) may want to pass a larger bufferSize explicitly.
+const DefaultEventBufferSize = 16
+
+// byteSource is the seam between Manager's decode loop and the actual
+// byte stream it reads from. Production code always gets stdinSource
+// (below), a thin wrapper over term.ReadStdin against the real tty;
+// tests substitute a scripted sequence of bytes/timeouts/errors so
+// every branch of the escape-sequence decoder -- plain keys,
+// Ctrl+letter, arrows, modified arrows, SGR mouse press/drag/wheel,
+// malformed/truncated sequences -- can be exercised without a real tty
+// at all. Before this seam existed, the decoder was fused directly to
+// term.ReadStdin and had zero test coverage despite being genuinely
+// intricate state-machine logic.
+type byteSource interface {
+	Read(buf []byte) (int, error)
+}
+
+type stdinSource struct{}
+
+func (stdinSource) Read(buf []byte) (int, error) {
+	return term.ReadStdin(buf)
+}
+
 type Manager struct {
 	events chan framework.Event
-	logs   chan<- core.AppLog
+	logger framework.Logger
+	source byteSource
 
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -30,13 +62,20 @@ type Manager struct {
 	stopped chan struct{}
 }
 
-func NewManager(logs chan<- core.AppLog) (*Manager, error) {
+// NewManager builds a Manager reading from the real terminal.
+// bufferSize sets Events()'s channel capacity; <= 0 uses
+// DefaultEventBufferSize.
+func NewManager(logger framework.Logger, bufferSize int) (*Manager, error) {
+	if bufferSize <= 0 {
+		bufferSize = DefaultEventBufferSize
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Manager{
-		events:  make(chan framework.Event, 16),
-		logs:    logs,
+		events:  make(chan framework.Event, bufferSize),
+		logger:  logger,
+		source:  stdinSource{},
 		ctx:     ctx,
 		cancel:  cancel,
 		stopped: make(chan struct{}),
@@ -59,11 +98,19 @@ func (m *Manager) Start() error {
 	return nil
 }
 
+// Stop can take up to ~100ms: the read loop only checks m.ctx.Done()
+// between blocking term.ReadStdin calls, and those time out at ~100ms
+// each (VMIN=0/VTIME=1 -- see term.EnableRawMode's doc comment), so in
+// the worst case Stop blocks on <-m.stopped for nearly a full read
+// timeout before the loop notices it should exit. Not a bug -- just
+// worth knowing if you're calling this from a signal handler expecting
+// a near-instant return. (App.Stop layers FaultManager.Stop's own
+// potential wait, on its 1s retry ticker, on top of this.)
 func (m *Manager) Stop() {
 	if m.restore == nil {
 		return
 	}
-	m.logs <- *core.NewInfoAppLog("Input manager stopping", string(core.InputSource))
+	m.logger.Info("Input manager stopping")
 	m.cancel()
 	<-m.stopped
 	m.restore()
@@ -77,7 +124,7 @@ func (m *Manager) run() {
 	var csiBuf []byte
 	var buf [1]byte
 
-	m.logs <- *core.NewInfoAppLog("Input manager started", string(core.InputSource))
+	m.logger.Info("Input manager started")
 
 	for {
 		select {
@@ -86,7 +133,7 @@ func (m *Manager) run() {
 		default:
 		}
 
-		n, err := term.ReadStdin(buf[:])
+		n, err := m.source.Read(buf[:])
 		if err != nil {
 			return
 		}
@@ -94,14 +141,30 @@ func (m *Manager) run() {
 		if n == 0 {
 			if state == stateEsc {
 				m.send(framework.Event{Key: framework.KeyEsc})
-				state = stateNormal
 			}
-			// A CSI sequence that stalls mid-parameter (state == stateCSI
-			// or stateCSIParams) on a read timeout is abandoned here --
-			// an incomplete escape sequence has no safe single-key
-			// interpretation, so it's silently dropped rather than
-			// replayed as raw KeyRune events, same convention as an
-			// unrecognized sequence below.
+			// A sequence that stalls mid-flight on a read timeout --
+			// whether a lone ESC (state == stateEsc, handled above) or
+			// a CSI sequence that got partway through its parameters
+			// (state == stateCSI or stateCSIParams) -- is abandoned
+			// here: state resets to stateNormal UNCONDITIONALLY, not
+			// only for the stateEsc case. An incomplete escape
+			// sequence has no safe single-key interpretation, so it's
+			// dropped rather than replayed as raw KeyRune events, same
+			// convention as an unrecognized sequence below.
+			//
+			// This used to only reset state inside the `if state ==
+			// stateEsc` branch above, leaving state stuck at stateCSI/
+			// stateCSIParams across the timeout despite this comment
+			// already claiming the sequence was abandoned. Concretely:
+			// type ESC [ 1, then pause long enough to time out, then
+			// type A (a plain Up-arrow key) -- without this reset, that
+			// stray 'A' gets fed into handleCSIParams as if it were
+			// still completing the abandoned "ESC [ 1..." sequence,
+			// misreading an ordinary later keypress using stale csiBuf
+			// bytes from a sequence that had already timed out. Caught
+			// by TestTimeoutMidCSIParamsDoesNotLeakIntoNextByte once
+			// the byteSource seam made this decoder testable at all.
+			state = stateNormal
 			continue
 		}
 
@@ -361,9 +424,23 @@ func (m *Manager) handleNormal(ch byte) decodeState {
 	return stateNormal
 }
 
+// send is non-blocking: a full Events() buffer means the consumer
+// (App.Run's dispatch loop) isn't keeping up, and blocking the decode
+// loop to wait for it would just stall reading the terminal too. A
+// drop used to be completely silent -- no log, no counter -- which
+// made a fast MouseDrag burst outrunning a 16-slot buffer under
+// OnDemand render mode (see examples/mouse-paint-demo) look like
+// unexplained jerky/broken painting with no diagnostic trail. Now it's
+// a Debug-level log naming what got dropped and the buffer's capacity,
+// cheap enough to leave in thanks to Logger's own severity-gated,
+// non-blocking send (see framework.Logger's doc comment) -- this can't
+// itself become a second thing stalling the decode loop.
 func (m *Manager) send(e framework.Event) {
 	select {
 	case m.events <- e:
 	default:
+		if m.logger.Enabled(core.Debug) {
+			m.logger.Debug(fmt.Sprintf("dropped %s event: input buffer full (cap %d)", e.Kind, cap(m.events)))
+		}
 	}
 }

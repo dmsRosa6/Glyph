@@ -90,6 +90,16 @@ func (w *Window) Draw(buf *core.Buffer, vec geom.Vector) {
 	}
 }
 
+// Resize resizes both halves Window actually owns: its own BaseNode
+// (bounds/anchor bookkeeping, e.g. what IsInBounds checks against) and
+// box, the Bordered doing the real drawing. Without this, box's border
+// and panel keep whatever size NewWindow originally gave them forever,
+// while Window itself reports a new size nothing visible backs up.
+func (w *Window) Resize(width, height int) {
+	w.BaseNode.Resize(width, height)
+	w.box.Resize(width, height)
+}
+
 func (w *Window) AddChild(child framework.Drawable) {
 	w.box.AddChild(child)
 }

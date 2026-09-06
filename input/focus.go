@@ -3,7 +3,6 @@ package input
 import (
 	"fmt"
 
-	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 )
 
@@ -14,12 +13,12 @@ type FocusScope struct {
 }
 
 type FocusManager struct {
-	stack []*FocusScope
-	logs  chan<- core.AppLog
+	stack  []*FocusScope
+	logger framework.Logger
 }
 
-func NewFocusManager(root []framework.Focusable, logs chan<- core.AppLog) *FocusManager {
-	m := &FocusManager{stack: []*FocusScope{{children: root}}, logs: logs}
+func NewFocusManager(root []framework.Focusable, logger framework.Logger) *FocusManager {
+	m := &FocusManager{stack: []*FocusScope{{children: root}}, logger: logger}
 	if c := m.Current(); c != nil {
 		c.Focus()
 		m.log(fmt.Sprintf("focus: start at %s", focusDesc(c)))
@@ -122,12 +121,12 @@ func focusDesc(f framework.Focusable) string {
 	return fmt.Sprintf("%T", f)
 }
 
-// log is a no-op if this FocusManager was built without a log channel
-// (logs == nil), same nil-safe contract every other logging path in
-// this codebase already follows.
+// log is Debug-severity, not Info -- a focus-navigation trace line
+// (Next/Prev/Enter/Exit) fires on every nav interaction, the same
+// "high-volume, low-stakes" shape as App.Run's per-keystroke logging,
+// so it gets the same treatment. framework.Logger is nil-safe on its
+// own; this wrapper exists only to keep call sites above reading as
+// `m.log(...)` instead of repeating the source string everywhere.
 func (m *FocusManager) log(msg string) {
-	if m.logs == nil {
-		return
-	}
-	m.logs <- *core.NewInfoAppLog(msg, string(core.InputSource))
+	m.logger.Debug(msg)
 }

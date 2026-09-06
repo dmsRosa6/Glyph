@@ -4,8 +4,21 @@ import "fmt"
 
 type Severity int
 
+// Severity's zero value is Warning, not Debug -- deliberately, even
+// though "Debug first" is the more obvious iota to reach for. Severity
+// does double duty as both a log record's own level AND
+// AppConfig.LogLevel's filter threshold, and Go can't tell "the caller
+// explicitly chose Debug" apart from "the caller left LogLevel unset."
+// With Debug at zero, app.NewApp(app.AppConfig{}) -- the very first
+// thing anyone naturally writes -- used to silently log every keystroke
+// and mouse event to a new timestamped file forever, no rotation, no
+// opt-out. Shifting the iota so Warning lands on zero instead means the
+// unset case now defaults to something a library should actually ship
+// with, while Debug < Info < Warning < Fatal (the ordering every
+// severity comparison in this codebase relies on) is unchanged --
+// Debug/Info just sit at negative values instead of 0/1.
 const (
-	Debug Severity = iota
+	Debug Severity = iota - 2
 	Info
 	Warning
 	Fatal

@@ -16,6 +16,7 @@ import (
 // canvas.Container, which has no fill of its own at all.
 type Panel struct {
 	*canvas.Container
+	fill    *Rect
 	content *canvas.Container
 }
 
@@ -56,7 +57,19 @@ func NewPanel(bounds *geom.Bounds, cfg PanelConfig) (*Panel, error) {
 	outer.AddChild(fill)
 	outer.AddChild(content)
 
-	return &Panel{Container: outer, content: content}, nil
+	return &Panel{Container: outer, fill: fill, content: content}, nil
+}
+
+// Resize shadows the promoted *canvas.Container.Resize, which by itself
+// only changes Panel's own outer bounds -- fill and content, the two
+// pieces that actually fill and hold the visible area, would otherwise
+// keep whatever size they were constructed with forever. Both are
+// resized to match so a resized Panel doesn't leave a stale-sized fill
+// underneath correctly-clipped content, or vice versa.
+func (p *Panel) Resize(w, h int) {
+	p.Container.Resize(w, h)
+	p.fill.Resize(w, h)
+	p.content.Resize(w, h)
 }
 
 func (p *Panel) AddChild(child framework.Drawable) {

@@ -28,7 +28,21 @@ type AppConfig struct {
 	// (except Ctrl+C, always seeded separately below) -- merge
 	// NavActions() in explicitly if you want it.
 	AppEvents map[framework.Binding]AppActionFunc
-	LogLevel  core.Severity
+	// LogLevel's zero value is core.Warning, not core.Debug -- see
+	// core.Severity's doc comment. Leaving this unset gives a sane
+	// default (warnings and fatals only) instead of logging every
+	// keystroke and mouse event forever.
+	LogLevel core.Severity
+	// LogDir overrides where per-run log files are written (default:
+	// "logs", relative to the process's working directory). Ignored if
+	// DisableFileLog is true.
+	LogDir string
+	// DisableFileLog skips file logging entirely -- no directory or
+	// file is created. Fatal-severity logs still trigger a SIGTERM
+	// shutdown regardless; this only turns off persisting log lines to
+	// disk, for a host app embedding glyph that doesn't want its cwd
+	// littered with logs/log_*.txt files unconditionally.
+	DisableFileLog bool
 	// MouseEnabled opts into terminal mouse-click/drag reporting (see
 	// input.Manager's decoder and render.Renderer.Init). Off by default
 	// -- enabling it changes what the terminal does with the mouse
@@ -36,6 +50,16 @@ type AppConfig struct {
 	// selection by dragging stops working), which isn't something every
 	// app wants turned on unconditionally.
 	MouseEnabled bool
+	// InputBufferSize overrides the input event channel's buffer
+	// capacity (default input.DefaultEventBufferSize, 16). A drag-heavy
+	// app (see examples/mouse-paint-demo) can easily emit more
+	// MouseDrag events between renderer ticks than the default holds,
+	// especially under OnDemand render mode where the consumer only
+	// wakes on RequestRedraw -- events beyond capacity are dropped
+	// (logged at Debug, see input.Manager.send) rather than blocking
+	// the decode loop, so bumping this is a real tuning knob for that
+	// case, not just a cosmetic one.
+	InputBufferSize int
 }
 
 type App struct {
@@ -62,20 +86,34 @@ type App struct {
 	// mouse event if set.
 	mouseHandler AppActionFunc
 	logs         *fault.FaultManager
-	appSignals   chan core.AppSignal
-	nodes        *framework.Registry
-	done         chan struct{}
-	stopOnce     sync.Once
+	// logger wraps logs.Logs() through the same framework.Logger every
+	// widget uses (see framework/logger.go's doc comment for why this
+	// replaced raw `a.logs.Logs() <- *core.NewXAppLog(...)` sends at
+	// every call site in this file) -- one logging convention across
+	// the whole codebase, not two.
+	logger framework.Logger
+	// logLevel is kept alongside logger (rather than only inside it)
+	// because framework.AppContext.LogLevel -- populated in Run() below
+	// -- needs a plain core.Severity to hand every widget's own Logger,
+	// not something baked unexported into this one.
+	logLevel   core.Severity
+	appSignals chan core.AppSignal
+	nodes      *framework.Registry
+	done       chan struct{}
+	stopOnce   sync.Once
 }
 
 func NewApp(cfg AppConfig) (*App, error) {
 
 	appSignals := make(chan core.AppSignal, 10)
 
-	logs, error := fault.NewFaultManager(cfg.LogLevel, appSignals)
-
-	if error != nil {
-		return nil, fmt.Errorf("failed to create fault manager: %v", error)
+	logs, err := fault.NewFaultManager(fault.Config{
+		LogLevel:       cfg.LogLevel,
+		LogDir:         cfg.LogDir,
+		DisableFileLog: cfg.DisableFileLog,
+	}, appSignals)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create fault manager: %v", err)
 	}
 
 	if cfg.Width < 0 {
@@ -99,9 +137,12 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("failed to create canvas: %v", err)
 	}
 
-	r := render.NewRenderer(cfg.RenderMode, cfg.MouseEnabled, logs.Logs())
+	r, err := render.NewRenderer(cfg.RenderMode, cfg.MouseEnabled, framework.NewLogger(logs.Logs(), cfg.LogLevel, string(core.RendererSource), ""))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create renderer: %v", err)
+	}
 
-	in, err := input.NewManager(logs.Logs())
+	in, err := input.NewManager(framework.NewLogger(logs.Logs(), cfg.LogLevel, string(core.InputSource), ""), cfg.InputBufferSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create input manager: %v", err)
 	}
@@ -130,6 +171,8 @@ func NewApp(cfg AppConfig) (*App, error) {
 		appEvents:  appEvents,
 		appSignals: appSignals,
 		logs:       logs,
+		logger:     framework.NewLogger(logs.Logs(), cfg.LogLevel, string(core.AppSource), ""),
+		logLevel:   cfg.LogLevel,
 		nodes:      framework.NewRegistry(),
 		done:       make(chan struct{}),
 	}, nil
@@ -228,7 +271,7 @@ func NavActions() map[framework.Binding]AppActionFunc {
 func (a *App) Run() {
 	a.logs.Start()
 
-	a.focus = input.NewFocusManager(a.Canvas.CollectFocusable(), a.logs.Logs())
+	a.focus = input.NewFocusManager(a.Canvas.CollectFocusable(), framework.NewLogger(a.logs.Logs(), a.logLevel, string(core.InputSource), ""))
 
 	ctx := framework.AppContext{
 		Logs:       a.logs.Logs(),
@@ -237,6 +280,7 @@ func (a *App) Run() {
 		Signal:     a.signal,
 		Registry:   a.nodes,
 		Done:       a.done,
+		LogLevel:   a.logLevel,
 		IsGlobalKey: func(b framework.Binding) bool {
 			_, ok := a.appEvents[b]
 			return ok
@@ -246,14 +290,14 @@ func (a *App) Run() {
 
 	a.renderer.Start(a.Canvas)
 
-	err := a.input.Start()
-	if err != nil {
-		a.logs.Logs() <- *core.NewInfoAppLog("Failed to start input Manager", string(core.AppSource))
+	if err := a.input.Start(); err != nil {
+		a.logger.Warning(fmt.Errorf("failed to start input manager: %w", err))
 		a.renderer.Stop() // otherwise the terminal stays corrupted and the render goroutine leaks
+		a.logs.Stop()     // otherwise FaultManager's goroutine and open log file leak for the rest of the process's life
 		return
 	}
 
-	a.logs.Logs() <- *core.NewInfoAppLog("App Started", string(core.AppSource))
+	a.logger.Info("App Started")
 
 	for {
 		select {
@@ -261,7 +305,7 @@ func (a *App) Run() {
 			if !ok {
 				return
 			}
-			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App signal '%s' received", sig.String()), string(core.AppSource))
+			a.logger.Info(fmt.Sprintf("App signal '%s' received", sig.String()))
 			if sig == core.SIGTERM {
 				a.Stop()
 				return
@@ -297,14 +341,28 @@ func (a *App) Run() {
 				// silently indistinguishable from a KeyRune keypress
 				// with Rune 0 to any widget or global binding on
 				// KeyRune.
-				a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY), string(core.AppSource))
+				//
+				// Debug, not Info, and guarded by Enabled(core.Debug)
+				// before the fmt.Sprintf runs at all: this fires on
+				// EVERY decoded mouse event (including every single
+				// MouseDrag sample of an ordinary click-drag), so at
+				// the default LogLevel it should cost nothing beyond
+				// one cheap comparison, not an allocation + a channel
+				// send it's just going to filter out downstream anyway.
+				if a.logger.Enabled(core.Debug) {
+					a.logger.Debug(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY))
+				}
 				if a.mouseHandler != nil {
 					a.runGlobalAction(ctx, ev, a.mouseHandler)
 				}
 				continue
 			}
 
-			a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("Key '%s' pressed", ev.Key.String()), string(core.AppSource))
+			// Same Debug + Enabled-guard reasoning as the mouse branch
+			// above -- this fires on every keystroke.
+			if a.logger.Enabled(core.Debug) {
+				a.logger.Debug(fmt.Sprintf("Key '%s' pressed", ev.Key.String()))
+			}
 
 			binding := framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}
 
@@ -335,20 +393,27 @@ func (a *App) Run() {
 
 func (a *App) runGlobalAction(ctx framework.AppContext, ev framework.Event, fn AppActionFunc) {
 	reRender, err := fn(ctx, ev)
-	a.logs.Logs() <- *core.NewInfoAppLog(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'", ev.Key.String(), reRender), string(core.AppSource))
+	a.logger.Info(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'", ev.Key.String(), reRender))
 	if err != nil {
-		a.logs.Logs() <- *core.NewWarningAppLog(err, string(core.AppSource))
+		a.logger.Warning(err)
 	}
 	if reRender {
 		a.renderer.RequestRedraw()
 	}
 }
 
+// Stop can take over a second in the worst case, not milliseconds --
+// worth knowing if something calls this from a signal handler expecting
+// a near-instant exit. Three waits stack up serially, not concurrently:
+// a.input.Stop() alone can take ~100ms (see input.Manager.Stop's doc
+// comment), and a.logs.Stop() can separately wait on FaultManager's 1s
+// retry ticker if a log write was mid-retry. Nothing here is wrong,
+// just not instant.
 func (a *App) Stop() {
 	a.stopOnce.Do(func() {
 		close(a.done)
 	})
-	a.logs.Logs() <- *core.NewInfoAppLog("App Stopped", string(core.AppSource))
+	a.logger.Info("App Stopped")
 	a.renderer.Stop()
 	a.input.Stop()
 	a.logs.Stop()

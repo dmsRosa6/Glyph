@@ -161,5 +161,5 @@ func (f *FocusBehavior) IsFocused() bool {
 }
 
 func (f *FocusBehavior) logger() framework.Logger {
-	return framework.NewLogger(f.ctx.Logs, f.source, f.id)
+	return framework.NewLogger(f.ctx.Logs, f.ctx.LogLevel, f.source, f.id)
 }

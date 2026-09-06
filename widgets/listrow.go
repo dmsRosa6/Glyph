@@ -47,6 +47,17 @@ func (r *ListRow) Draw(buf *core.Buffer, vec geom.Vector) {
 	r.content.Draw(buf, v)
 }
 
+// Resize resizes both halves ListRow actually owns: its own BaseNode
+// and content, the inner Container doing the real drawing -- same
+// reason and same shape as Window.Resize/FocusableBox.Resize. Not
+// called anywhere internally today (List.AddItem sizes a row once, at
+// construction), but left unfixed here it's the exact same trap the
+// moment anything resizes a row later.
+func (r *ListRow) Resize(w, h int) {
+	r.BaseNode.Resize(w, h)
+	r.content.Resize(w, h)
+}
+
 func (r *ListRow) AddChild(child framework.Drawable) {
 	r.content.AddChild(child)
 }

@@ -77,6 +77,14 @@ func (p *Propagator) Untrack(target framework.Drawable) (removed bool) {
 	if r, ok := target.(framework.Raisable); ok {
 		r.SetRaiser(nil)
 	}
+	// Stop before unregisterChild -- unregisterChild also walks and
+	// unregisters grandchildren via ChildrenLister, and a Stoppable
+	// widget's own Draw/Invalidate calls should have already stopped
+	// arriving by the time this node disappears from the Registry, not
+	// after.
+	if s, ok := target.(framework.Stoppable); ok {
+		s.Stop()
+	}
 	unregisterChild(ctx, target)
 	return true
 }
@@ -87,6 +95,21 @@ func (p *Propagator) Untrack(target framework.Drawable) (removed bool) {
 // backing array as p.owned, the sort silently and permanently
 // overwrote insertion order as a side effect of rendering. Every
 // caller now gets its own snapshot to read or reorder freely.
+//
+// Cost note: this is an O(n) allocation on every call, and
+// Container.Draw calls it once per container, every single frame --
+// even a frame where nothing in that container changed. Fine at the
+// tree sizes this framework has actually been exercised with; worth
+// knowing before building deep/wide trees, since it's the one
+// per-frame allocation left in the render path after Buffer's
+// flat-storage rewrite and Renderer.Flush's diffing (see core.Buffer
+// and render.Renderer.Flush). Not changed here: avoiding it needs a
+// real dirty-tracking scheme (invalidate a cached copy on Track/
+// Untrack/BringToFront/SendToBack, correctly, under the same mu this
+// method already takes) -- meaningfully more moving parts than this
+// method has today, for a cost nothing has actually reported hitting
+// yet. A defensive copy that's simple and provably correct beats a
+// cache that's fast and subtly wrong.
 func (p *Propagator) Children() []framework.Drawable {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

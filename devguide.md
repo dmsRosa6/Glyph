@@ -23,10 +23,16 @@ This describes the code as it stands today, not where it's headed — see
 ### geom — geometry primitives
 
 - `Point`, `Vector`, `Bounds` (`Pos *Point` + W/H), `Axis`.
-- `Bounds` has `Validate`/`ValidateIfInsideBounds`/`ValidateNoPanic` helpers
-  for rejecting negative or out-of-parent geometry, though most
+- `Bounds` has a single `Valid()` helper for rejecting negative
+  position/width/height. It used to be three separate helpers
+  (`Validate`, `ValidateIfInsideBounds`, `ValidateNoPanic`) -- see
+  `bounds.go`'s own comment for why they were consolidated: `Validate()`
+  panicked on a plausible runtime value where every other fallible
+  constructor in this codebase returns an error instead, and
+  `ValidateIfInsideBounds`'s containment check duplicated
+  `base.BaseNode.IsInBounds`, which already does the same check. Most
   constructors currently do their own bounds checks rather than calling
-  these directly.
+  `Valid()` directly.
 
 ### framework — the contracts everything else implements against
 
@@ -89,7 +95,7 @@ This describes the code as it stands today, not where it's headed — see
   NOT pick up `FocusableBaseNode`'s focus-tinted override. Anything that
   needs the focus-tinted style has to call
   `focusableBaseNode.Style()` explicitly, not `.ResolvedStyle()`.
-- `PalleteNode` — a grid of independently-colored cells (a color matrix
+- `PaletteNode` — a grid of independently-colored cells (a color matrix
   instead of a single `Style`); bounds are derived from the matrix so
   they can never disagree with it. Backs `widgets.TileGrid`.
 - `Propagator` — fans `SetParentStyle`/`SetContext` out to a dynamic set
@@ -169,7 +175,7 @@ This describes the code as it stands today, not where it's headed — see
   field-forwarding shape as `FocusableBox`/`Window`.
 - `TileGrid` — a grid of independently-colored, one-character cells
   (color picker, heatmap, minimap). Structurally `Panel` with its `Rect`
-  fill swapped for a `base.PalleteNode`; `SetCell` recolors one tile at
+  fill swapped for a `base.PaletteNode`; `SetCell` recolors one tile at
   runtime.
 - `Button` — a focusable widget with a bound action and its own
   rendering: fills its bounds, then draws a centered, width-clamped
@@ -196,8 +202,25 @@ This describes the code as it stands today, not where it's headed — see
   ticker or purely on-demand (redraw only when `RequestRedraw` fires,
   itself only reachable if some node's `Invalidate()` reaches the
   `AppContext.Redraw` hook it was given). Handles terminal resize via
-  `term.WatchResize`. `Flush` walks the `core.Buffer` and writes ANSI
-  escape codes per cell.
+  `term.WatchResize`. `Flush` diffs each frame's cells against the
+  previous one and only writes what actually changed, batching adjacent
+  changed cells that share a style into a single escape + run of
+  characters, rather than re-emitting a full cursor-move + color escape
+  for every cell every frame.
+- `RenderMode` (`FixedFPSMode(fps)` / `OnDemandMode()`) has unexported
+  fields on purpose -- it's only constructible through those two
+  functions, not a `RenderMode{}` literal. This closes a real trap: a
+  hand-built or left-unset `RenderMode` used to compile fine but panic
+  or hang at runtime (`FixedFPS` is `RenderMode`'s zero-value `Mode`,
+  so `AppConfig{}`'s unset `RenderMode` produced `{Mode: FixedFPS, Fps:
+  0}` -- a divide-by-zero the moment `Renderer.Run` built its ticker;
+  separately, a hand-built `RenderMode{Mode: OnDemand}` skipped
+  `OnDemandMode`'s channel allocation, leaving `Renderer.Run` blocked
+  forever on a nil channel with no error and no panic, just silence).
+  `render.NewRenderer` additionally validates at construction and
+  returns an error rather than trusting whatever it's handed, since the
+  all-zero `RenderMode{}` is still legal Go from any package regardless
+  of the unexported fields.
 
 ### term — raw terminal I/O
 
@@ -214,12 +237,28 @@ This describes the code as it stands today, not where it's headed — see
   `datastructs.RingBuffer` and retrying on a 1s ticker. A `Fatal`-severity
   log is written immediately (skipping the buffer) and sends `SIGTERM` up
   to the App, but keeps draining afterward so `App.Stop()`'s own shutdown
-  logs still land.
+  logs still land -- including logs still sitting in the channel's
+  buffer the instant `Stop()` is called, which are drained before
+  returning rather than possibly lost to a race between "new log
+  arrived" and "shutting down." `NewFaultManager` takes a `fault.Config`
+  (`LogLevel`, `LogDir`, `DisableFileLog`) and does its fallible setup --
+  creating the log directory, opening this run's file -- synchronously,
+  right there, returning a real error on failure rather than deferring
+  that into the goroutine `Start()` launches later. `Config{}`'s zero
+  value is a safe default: `LogLevel` reads as `core.Warning` (see
+  `core.Severity`'s own doc comment for why that's the zero value, not
+  `Debug`), `LogDir` empty falls back to `"logs"`, and
+  `DisableFileLog` false keeps writing to disk as before.
 
 ### datastructs
 
 - `RingBuffer` — fixed-capacity string ring buffer, oldest-entry-drops-on-overflow.
-  Used only by `fault.FaultManager` for its write-retry buffer.
+  Used only by `fault.FaultManager` for its write-retry buffer. Capacity
+  must be >= 2 (`NewRingBuffer` panics below that) -- a single-index
+  read/write scheme can't tell full apart from empty otherwise, and as a
+  consequence any capacity `N` only ever holds `N-1` items usable at
+  once. `fault.NewFaultManager`'s own `NewRingBuffer(100)` really gives
+  99 usable retry slots, not 100 -- expected, not a bug.
 
 ### app — top-level wiring
 
@@ -262,7 +301,7 @@ Each subfolder is a standalone `package main` demonstrating one thing:
   a-goroutine pattern.
 - `status-bar` — a `Bordered` used as a simple status bar.
 - `tile-grid-demo` — a `TileGrid` checkerboard, exercising the
-  `PalleteNode` fill primitive.
+  `PaletteNode` fill primitive.
 
 ## How a frame actually happens
 

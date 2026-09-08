@@ -12,6 +12,14 @@ import (
 
 // Text always draws with a transparent background, so it blends with
 // whatever is behind it rather than punching an opaque box.
+//
+// Text is deliberately single-line only, with no wrapping or
+// justification -- NewText builds its bounds as H: 1, and SetValue
+// resizes width but never height. This is a scope limit, not a bug:
+// there's no multi-line text widget in this framework yet. If a value
+// containing '\n' is passed in, each rune (including the newline
+// itself) is drawn as one cell wide, in a straight horizontal line --
+// it will NOT visually wrap to a second row.
 type Text struct {
 	base.BaseNode
 

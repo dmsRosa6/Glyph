@@ -17,7 +17,7 @@ func main() {
 	a, err := app.NewApp(app.AppConfig{
 		Width:      40,
 		Height:     10,
-		Bg:         &core.Black,
+		Bg:         core.Black,
 		RenderMode: rm,
 	})
 	if err != nil {

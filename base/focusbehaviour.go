@@ -1,6 +1,10 @@
 package base
 
-import "github.com/dmsRosa6/glyph/framework"
+import (
+	"sync"
+
+	"github.com/dmsRosa6/glyph/framework"
+)
 
 // FocusBehavior is focus/input-handling behavior as a true mixin: it
 // owns no BaseNode of its own. That's the whole point -- embedding a
@@ -29,6 +33,26 @@ import "github.com/dmsRosa6/glyph/framework"
 // choose between) rather than reaching into a sibling BaseNode it
 // doesn't own.
 type FocusBehavior struct {
+	// actionsMu guards actions. BindAction/BindActionMod are public,
+	// callable from any goroutine at any time (same reasoning as
+	// app.App.bindingsMu), while HandleInput reads actions on every
+	// input dispatch and BoundKeys reads it whenever Propagator's
+	// shadow-key check runs -- i.e. whenever this widget is attached to
+	// a container, possibly from a background goroutine.
+	//
+	// A *sync.RWMutex, not a value: FocusBehavior itself is a value
+	// type embedded BY VALUE into every composite that uses it (Window,
+	// FocusableBox, ListRow, FocusableBaseNode all copy one out of
+	// NewFocusBehavior once, at construction time). go vet's copylocks
+	// check flags any struct containing a value-type mutex that's ever
+	// returned/copied by value, even a provably-safe one-time
+	// zero-value copy like NewFocusBehavior's return. A pointer field
+	// sidesteps that entirely: every copy of a constructed
+	// FocusBehavior shares the SAME underlying mutex, which is exactly
+	// what's needed once it's embedded into a composite and accessed
+	// through a pointer receiver from then on -- the standard idiom for
+	// "value type that still needs an internal mutex."
+	actionsMu  *sync.RWMutex
 	actions    map[framework.Binding]FocusableActionFunc
 	focused    bool
 	focusStyle *framework.Style
@@ -64,8 +88,9 @@ func (a FocusableActionContext) Nodes() *framework.Registry {
 
 func NewFocusBehavior(source string) FocusBehavior {
 	return FocusBehavior{
-		actions: make(map[framework.Binding]FocusableActionFunc),
-		source:  source,
+		actionsMu: &sync.RWMutex{},
+		actions:   make(map[framework.Binding]FocusableActionFunc),
+		source:    source,
 	}
 }
 
@@ -109,6 +134,8 @@ func (f *FocusBehavior) BindAction(k framework.Key, fn FocusableActionFunc) {
 // is also what stops a plain KeyRune binding from accidentally firing
 // on a Ctrl+<letter> event).
 func (f *FocusBehavior) BindActionMod(k framework.Key, mods framework.Modifier, fn FocusableActionFunc) {
+	f.actionsMu.Lock()
+	defer f.actionsMu.Unlock()
 	f.actions[framework.Binding{Key: k, Modifiers: mods}] = fn
 }
 
@@ -116,6 +143,8 @@ func (f *FocusBehavior) BindActionMod(k framework.Key, mods framework.Modifier, 
 // currently has an action for. Used by Propagator's shadow-warning
 // check.
 func (f *FocusBehavior) BoundKeys() []framework.Binding {
+	f.actionsMu.RLock()
+	defer f.actionsMu.RUnlock()
 	keys := make([]framework.Binding, 0, len(f.actions))
 	for b := range f.actions {
 		keys = append(keys, b)
@@ -124,7 +153,9 @@ func (f *FocusBehavior) BoundKeys() []framework.Binding {
 }
 
 func (f *FocusBehavior) HandleInput(ev framework.Event) (bool, error) {
+	f.actionsMu.RLock()
 	fn, ok := f.actions[framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}]
+	f.actionsMu.RUnlock()
 	if !ok {
 		return false, nil
 	}

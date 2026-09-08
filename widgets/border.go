@@ -89,4 +89,6 @@ func (b *Border) SetBorderStyle(s BorderStyle) {
 		s = EmptyBorder
 	}
 	b.borderStyle = s
+	b.Invalidate()
+	b.Logger().Debug("border style updated")
 }

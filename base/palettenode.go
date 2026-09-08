@@ -8,7 +8,7 @@ import (
 	"github.com/dmsRosa6/glyph/geom"
 )
 
-// PalleteNode is a grid of independently-colored cells -- BaseNode plus
+// PaletteNode is a grid of independently-colored cells -- BaseNode plus
 // a color matrix instead of a single Style. Bounds are derived from the
 // matrix (W = row length, H = row count), not passed in separately, so
 // the two can never disagree.

@@ -10,7 +10,7 @@ import (
 
 // TileGrid is a grid of independently-colored, one-character cells --
 // think a color-picker swatch, a heatmap, or a minimap. Structurally
-// it's Panel with its Rect fill swapped for a base.PalleteNode: the
+// it's Panel with its Rect fill swapped for a base.PaletteNode: the
 // outer Container holds [fill, content] as siblings so Children() (via
 // content) stays pure user content, exactly like Panel/Bordered do.
 type TileGrid struct {

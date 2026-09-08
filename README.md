@@ -44,9 +44,14 @@ import (
 )
 
 func main() {
+	rm, err := render.FixedFPSMode(30)
+	if err != nil {
+		panic(err)
+	}
+
 	a, err := app.NewApp(app.AppConfig{
-		Bg:         &core.Black,
-		RenderMode: render.FixedFPSMode(30),
+		Bg:         core.Black,
+		RenderMode: rm,
 	})
 	if err != nil {
 		panic(err)
@@ -92,10 +97,21 @@ a tile grid, a spinner, and a self-updating clock window.
 - **Spinner** — an animated loading indicator; ticks itself on a
   background goroutine and requests a redraw each frame. Several
   built-in cycles (slash, dots, pulse, braille, blocks, clock, and more).
+  `Stop()` ends its own ticking goroutine independently of the whole
+  app; it's also called automatically the moment a Spinner is removed
+  from its container (`RemoveChild`), so a removed Spinner doesn't keep
+  ticking (and requesting redraws) for the rest of the process's life.
 
 ## Render modes
 
-Passed as `RenderMode` in `app.AppConfig`.
+Passed as `RenderMode` in `app.AppConfig`, built via `FixedFPSMode(fps)`
+or `OnDemandMode()` -- not a `RenderMode{}` literal. `RenderMode`'s
+fields are unexported specifically to rule that out: a hand-built or
+left-unset `RenderMode` used to compile fine but panic (`FixedFPS` with
+`Fps: 0`, a divide-by-zero) or hang forever with no error at all
+(`OnDemand` missing its channel allocation) the moment the renderer
+actually started. `app.NewApp`/`render.NewRenderer` now return an error
+for an invalid `RenderMode` instead of trusting it.
 
 - **FixedFPS** — redraws on a fixed timer regardless of whether anything
   changed. Simple and predictable, at the cost of drawing frames that

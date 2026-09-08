@@ -42,6 +42,30 @@ type BaseNode struct {
 	// already uses.
 	layer int64
 
+	// ctx is written exactly once per attach, by SetContext -- called
+	// from base.Propagator.Track/PropagateContext when this node is
+	// added to a container, or when an ancestor's context changes and
+	// cascades back down. NOT guarded by a mutex, unlike appEvents/
+	// FocusBehavior.actions (see app.App.bindingsMu and
+	// FocusBehavior.actionsMu's doc comments for that same review's
+	// OTHER option, taken there instead).
+	//
+	// That's a deliberate asymmetry, not an oversight: appEvents/
+	// actions are touched rarely (a handful of Bind calls) and read
+	// once per dispatched event, so a lock costs nothing that matters.
+	// ctx is read by Style/Invalidate/Logger/Context/Fault/Warn --
+	// called on the hottest path in this framework, once per visible
+	// widget, every single frame. Locking every one of those for a race
+	// that only opens if SetContext is called on THIS node concurrently
+	// with a read of THIS node's ctx -- not just anywhere in the tree --
+	// would trade a real per-frame cost for protection against a
+	// narrower, rarer mistake. If your app calls AddChild on a node
+	// from a background goroutine while that SAME node is already being
+	// driven by one of its own (the Spinner pattern), be aware ctx
+	// itself isn't synchronized here: keep tree-shape changes (AddChild/
+	// RemoveChild and anything that reaches SetContext) on one
+	// goroutine, the same assumption base.Propagator's own API already
+	// makes for Track/Untrack.
 	ctx    framework.AppContext
 	source string // set once at construction, read by every Logger/Warn/Fault call -- never passed around again
 	id     string

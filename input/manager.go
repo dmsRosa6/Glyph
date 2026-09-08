@@ -29,7 +29,7 @@ const (
 // drag-heavy app (see examples/mouse-paint-demo, which can easily
 // emit more than 16 MouseDrag events between renderer ticks under
 // OnDemand mode) may want to pass a larger bufferSize explicitly.
-const DefaultEventBufferSize = 16
+const DefaultEventBufferSize = 32
 
 // byteSource is the seam between Manager's decode loop and the actual
 // byte stream it reads from. Production code always gets stdinSource

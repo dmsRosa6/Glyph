@@ -133,6 +133,15 @@ func (c *Canvas) AddShape(s framework.Drawable) {
 	c.root.AddChild(s)
 }
 
+// RemoveShape is AddShape's counterpart. Before this, once something
+// was added to the canvas root there was no way to remove it short of
+// reaching into the unexported canvas.root directly -- an asymmetric
+// API that ruled out any dynamic UI that adds/removes top-level shapes
+// at runtime.
+func (c *Canvas) RemoveShape(s framework.Drawable) {
+	c.root.RemoveChild(s)
+}
+
 func (c *Canvas) Shapes() []framework.Drawable {
 	return c.root.Children()
 }

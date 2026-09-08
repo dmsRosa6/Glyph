@@ -48,7 +48,7 @@ func main() {
 	a, err := app.NewApp(app.AppConfig{
 		Width:      36,
 		Height:     12,
-		Bg:         &core.Black,
+		Bg:         core.Black,
 		RenderMode: render.OnDemandMode(),
 
 		AppEvents: app.NavActions(),

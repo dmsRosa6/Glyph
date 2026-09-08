@@ -65,6 +65,19 @@ type Raisable interface {
 	SetRaiser(raise func())
 }
 
+// Stoppable is implemented by a Drawable that owns a background
+// goroutine (or other resource) needing explicit cleanup once it's no
+// longer part of the tree -- widgets.Spinner's self-ticking goroutine
+// is the motivating case. base.Propagator.Untrack calls Stop()
+// automatically on any removed child implementing this, so a plain
+// RemoveChild is enough to stop it -- no call site needs to separately
+// remember a widget-specific cleanup step, and nothing keeps ticking
+// (and calling Invalidate() forever) just because it's still attached
+// to ctx.Lifecycle() instead of to the widget's own removal.
+type Stoppable interface {
+	Stop()
+}
+
 // MouseHandler is implemented by a Drawable that wants to react to
 // mouse input. Deliberately separate from Focusable.HandleInput: a key
 // event is dispatched to whichever widget currently holds keyboard

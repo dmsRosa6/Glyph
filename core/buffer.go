@@ -1,8 +1,16 @@
 package core
 
+// Buffer is a W*H grid of terminal cells plus a clip-rect stack. cells
+// is flat, row-major storage (index y*W+x) of plain Cell values, not
+// [][]*Cell -- see Cell's doc comment for why. Clear/Set write values
+// in place here; nothing in this package touches the heap per cell
+// touched anymore. At 120x30 and 30 FPS, the old [][]*Cell shape meant
+// Clear alone allocated a fresh *Cell for all 3600 cells on every
+// single frame (~108k allocations/sec just to reset state) -- this
+// shape allocates nothing after construction.
 type Buffer struct {
 	W, H  int
-	cells [][]*Cell
+	cells []Cell
 
 	Bg Color
 	Fg Color
@@ -15,37 +23,29 @@ type bufferClip struct {
 }
 
 func NewBuffer(w, h int, fg, bg Color) *Buffer {
-	cells := make([][]*Cell, h)
-
-	for y := range h {
-		cells[y] = make([]*Cell, w)
-		for x := range w {
-			cells[y][x] = NewCell(' ', fg, bg)
-		}
-	}
-
-	return &Buffer{
+	b := &Buffer{
 		W:     w,
 		H:     h,
 		Fg:    fg,
 		Bg:    bg,
-		cells: cells,
+		cells: make([]Cell, w*h),
 	}
+	b.ClearUsingDefaults()
+	return b
 }
 
 func (b *Buffer) ClearUsingDefaults() {
-	for y := 0; y < b.H; y++ {
-		for x := 0; x < b.W; x++ {
-			b.cells[y][x] = NewCell(' ', b.Fg, b.Bg)
-		}
-	}
+	b.Clear(b.Fg, b.Bg)
 }
 
+// Clear overwrites every cell in place with a blank space in fg/bg --
+// one Cell value computed once, then copied into every slot, rather
+// than a fresh heap allocation per cell (the old NewCell(...) per
+// cell, per Clear call).
 func (b *Buffer) Clear(fg, bg Color) {
-	for y := 0; y < b.H; y++ {
-		for x := 0; x < b.W; x++ {
-			b.cells[y][x] = NewCell(' ', fg, bg)
-		}
+	blank := Cell{Ch: ' ', Fg: fg, Bg: bg}
+	for i := range b.cells {
+		b.cells[i] = blank
 	}
 }
 
@@ -78,6 +78,11 @@ func (b *Buffer) PopClip() {
 	b.clipStack = b.clipStack[:len(b.clipStack)-1]
 }
 
+// Set writes one cell in place -- Cell{Ch: ch, Fg: fg, Bg: bg}
+// constructed directly, no allocation, and (unlike the old
+// NewCell(ch, fg, bg) this used to call) no argument-order swap: bg
+// goes into Bg, fg goes into Fg, matching this method's own parameter
+// names exactly. See Cell's doc comment for the bug this replaced.
 func (b *Buffer) Set(x, y int, ch rune, bg, fg Color) {
 	if y >= b.H || x >= b.W || y < 0 || x < 0 {
 		return
@@ -90,13 +95,28 @@ func (b *Buffer) Set(x, y int, ch rune, bg, fg Color) {
 		}
 	}
 
-	b.cells[y][x] = NewCell(ch, fg, bg)
+	b.cells[y*b.W+x] = Cell{Ch: ch, Fg: fg, Bg: bg}
 }
 
-func (b *Buffer) Get(x, y int) *Cell {
-	return b.cells[y][x]
+// Get returns a copy of the cell at (x, y). Cell is a small value type
+// (a rune plus two colors), so returning it by value rather than a
+// pointer into internal storage is cheap and avoids exposing a pointer
+// callers might be tempted to mutate through -- Set is the only
+// supported way to write a cell.
+func (b *Buffer) Get(x, y int) Cell {
+	return b.cells[y*b.W+x]
 }
 
-func (b *Buffer) GetCells() ([][]*Cell, int, int) {
-	return b.cells, b.W, b.H
+// Cells returns the buffer's live, flat (row-major, index y*W+x) cell
+// storage -- NOT a defensive copy, unlike base.Propagator.Children()'s
+// copy-on-read convention elsewhere in this codebase. That copy exists
+// to protect against concurrent mutation from other goroutines; a
+// Buffer is only ever touched from the single render goroutine that
+// owns one frame's whole compose-then-flush cycle, so there's no
+// concurrent writer here to protect against, and a defensive copy would
+// undo exactly the per-frame allocation this type exists to avoid.
+// Callers must treat the result as read-only -- Set is still the only
+// supported way to write a cell.
+func (b *Buffer) Cells() []Cell {
+	return b.cells
 }

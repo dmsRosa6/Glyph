@@ -52,7 +52,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	a, err := app.NewApp(app.AppConfig{Bg: &core.Beige, RenderMode: rm})
+	a, err := app.NewApp(app.AppConfig{Bg: core.AliceBlue, RenderMode: rm})
 	if err != nil {
 		panic(err)
 	}

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/dmsRosa6/glyph/base"
-	"github.com/dmsRosa6/glyph/canvas"
 	"github.com/dmsRosa6/glyph/core"
+	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
 )
 
@@ -14,7 +14,32 @@ type Button struct {
 	label string
 }
 
-func NewButton(bounds *geom.Bounds, label string, cfg canvas.ContainerConfig) (*Button, error) {
+type ButtonConfig struct {
+	Style  framework.Style
+	Layer  int
+	Anchor framework.Anchor
+	// OnActivate, if set, is bound to Space (KeyRune, rune ' '), not
+	// Enter -- deliberately. Enter is a structural key (see
+	// framework.IsStructuralKey), dispatched global-first by
+	// App.Run: if an app merges app.NavActions() (which binds Enter to
+	// drill into FocusContainers), a Button's own Enter binding would
+	// silently never fire -- exactly the shadow-key conflict
+	// base.Propagator's own warnShadowedKeys exists to warn about the
+	// moment this Button is attached to a tree. Space is an ordinary
+	// key, dispatched widget-first, so it always reaches this handler
+	// regardless of what's bound globally. Bind Enter yourself via the
+	// promoted BindAction if you want it too, with that shadow-key
+	// tradeoff made explicitly rather than baked in silently here.
+	//
+	// nil (the default) leaves activation entirely up to the caller,
+	// same as before this field existed -- constructing a Button gives
+	// you rendering and focus, but no bound action, matching
+	// FocusBehavior's mixin philosophy: nothing here is auto-included
+	// that a caller didn't ask for.
+	OnActivate base.FocusableActionFunc
+}
+
+func NewButton(bounds *geom.Bounds, label string, cfg ButtonConfig) (*Button, error) {
 	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Button")
 	if err != nil {
 		return nil, err
@@ -23,6 +48,15 @@ func NewButton(bounds *geom.Bounds, label string, cfg canvas.ContainerConfig) (*
 	b := &Button{
 		FocusableBaseNode: base.NewFocusableBaseNode(bn),
 		label:             label,
+	}
+
+	if cfg.OnActivate != nil {
+		b.BindAction(framework.KeyRune, func(a base.FocusableActionContext) (bool, error) {
+			if a.Event().Rune != ' ' {
+				return false, nil // some other printable character -- not activation
+			}
+			return cfg.OnActivate(a)
+		})
 	}
 
 	return b, nil

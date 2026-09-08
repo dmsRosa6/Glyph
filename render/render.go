@@ -21,6 +21,12 @@ type Renderer struct {
 	logger       framework.Logger
 	mouseEnabled bool
 
+	// lastFrame/lastW/lastH cache the previous frame's cells so Flush
+	// can diff against them instead of repainting everything every
+	// time -- see Flush's own doc comment.
+	lastFrame    []core.Cell
+	lastW, lastH int
+
 	ctx    context.Context
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -161,10 +167,13 @@ func (r *Renderer) RequestRedraw() {
 	}
 }
 
+// render composes one frame and flushes it. It no longer writes a
+// leading unconditional "\x1b[H" (cursor home) before Flush: that made
+// sense when Flush unconditionally repainted every cell starting from
+// a known position, but Flush now emits its own precise "\x1b[Y;XH"
+// before each run it writes (see Flush's doc comment), so the cursor's
+// position going in never mattered to begin with.
 func (r *Renderer) render(c *canvas.Canvas) {
-
-	fmt.Fprint(r.out, "\x1b[H")
-
 	c.Compose()
 
 	r.Flush(c.Buf)
@@ -199,12 +208,71 @@ func (r *Renderer) Stop() {
 	<-r.done
 }
 
+// Flush writes only what actually changed since the last Flush, and
+// batches adjacent changed cells that share the same resolved fg/bg
+// into a single cursor move + one style escape + a run of characters --
+// instead of the old behavior of an unconditional full cursor-position
+// escape AND a fresh 24-bit fg/bg escape for EVERY cell, every single
+// frame, regardless of whether anything actually changed. For any real
+// terminal size this used to dominate render cost (worse over SSH,
+// where every byte written is real network latency); a completely
+// still frame now writes nothing at all beyond flushing an empty
+// bufio.Writer.
+//
+// lastFrame/lastW/lastH cache the previous frame's cells (Cell is a
+// small, pointer-free value type, so a plain == comparison is enough
+// to tell "unchanged" from "changed" -- no deep-equal machinery
+// needed). A size mismatch against the incoming buffer -- lastFrame
+// starting nil, or right after a terminal resize -- forces every cell
+// to be treated as changed rather than diffed against stale,
+// wrongly-shaped data from a previous size.
 func (r *Renderer) Flush(buf *core.Buffer) {
-	cells, width, height := buf.GetCells()
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			cell := cells[y][x]
-			fmt.Fprintf(r.out, "\x1b[%d;%dH%s", y+1, x+1, term.CellToANSI(*cell, buf.Fg, buf.Bg))
+	cells := buf.Cells()
+	w, h := buf.W, buf.H
+
+	fullRepaint := r.lastFrame == nil || r.lastW != w || r.lastH != h
+	if fullRepaint {
+		r.lastFrame = make([]core.Cell, len(cells))
+		r.lastW, r.lastH = w, h
+	}
+
+	for y := 0; y < h; y++ {
+		rowStart := y * w
+		x := 0
+		for x < w {
+			idx := rowStart + x
+			cell := cells[idx]
+			if !fullRepaint && cell == r.lastFrame[idx] {
+				x++
+				continue // unchanged: no escape, no cursor move, nothing written at all
+			}
+
+			// A run starts here: every following cell in this row that
+			// is ALSO changed AND shares this cell's resolved fg/bg
+			// gets folded into the same cursor move + style escape,
+			// rather than repeating both per cell.
+			fg, bg := term.ResolveCellColors(cell, buf.Bg, buf.Fg)
+			fmt.Fprintf(r.out, "\x1b[%d;%dH%s", y+1, x+1, term.StyleANSI(fg, bg))
+
+			for x < w {
+				idx2 := rowStart + x
+				c2 := cells[idx2]
+				if !fullRepaint && c2 == r.lastFrame[idx2] {
+					break // unchanged cell ends this run
+				}
+				f2, b2 := term.ResolveCellColors(c2, buf.Bg, buf.Fg)
+				if f2 != fg || b2 != bg {
+					break // style changed: end this run, a new one starts at the same x on the next outer iteration
+				}
+				ch := c2.Ch
+				if ch == 0 {
+					ch = ' '
+				}
+				r.out.WriteRune(ch)
+				x++
+			}
 		}
 	}
+
+	copy(r.lastFrame, cells)
 }

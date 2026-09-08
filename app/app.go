@@ -17,8 +17,20 @@ type AppActionFunc func(ctx framework.AppContext, ev framework.Event) (redraw bo
 
 type AppConfig struct {
 	Width, Height int
-	Fg, Bg        *core.Color
-	RenderMode    render.RenderMode
+	// Fg, Bg follow the same convention as framework.Style everywhere
+	// else in this codebase: core.Transparent means "let NewCanvas pick
+	// its own default (White bg / Black fg)," and the Go zero value
+	// (core.Color{}) reads as opaque Black, NOT as Transparent -- see
+	// framework.StyleBg's doc comment for the same gotcha already
+	// documented there. AppConfig{} with Fg/Bg left unset therefore
+	// gets a black canvas, same as a bare framework.Style{} gets a
+	// black fill; pass core.Transparent explicitly for NewCanvas's own
+	// substituted defaults instead. These used to be *core.Color, with
+	// NewApp nil-checking each one to fall back to core.Transparent --
+	// a second, App-specific way of spelling the exact same "unset"
+	// sentinel core.Color already has, for no real benefit.
+	Fg, Bg     core.Color
+	RenderMode render.RenderMode
 	// AppEvents is keyed on framework.Binding (Key + Modifiers), not a
 	// bare Key -- this is what lets Tab and Shift+Tab (or Ctrl+Right and
 	// plain Right, etc.) carry different handlers instead of one
@@ -74,10 +86,28 @@ type App struct {
 	// no Stop), so it stays exported: every example's
 	// a.Canvas.AddShape(...) is the normal, everyday way to build a UI,
 	// not a hazard.
-	renderer  *render.Renderer
-	input     *input.Manager
-	focus     *input.FocusManager
-	appEvents map[framework.Binding]AppActionFunc
+	renderer *render.Renderer
+	input    *input.Manager
+	focus    *input.FocusManager
+	// bindingsMu guards appEvents and mouseHandler together. Both are
+	// runtime-rebindable via the public BindKey/UnbindKey/BindMouse/
+	// UnbindMouse methods, none of which restrict which goroutine calls
+	// them, while Run's dispatch loop reads them on every event and
+	// ctx.IsGlobalKey (below) reads appEvents from whatever goroutine
+	// calls Propagator.Track/PropagateContext (i.e. AddChild, possibly
+	// from a background goroutine -- Spinner already establishes that
+	// as a normal pattern in this framework). base.Propagator got a
+	// sync.RWMutex after presumably hitting exactly this kind of real
+	// concurrent-access bug on its own owned slice; this is the same
+	// class of risk, guarded the same way, rather than merely
+	// documented away -- Bind*/Unbind* are low-frequency calls, so the
+	// lock costs nothing that matters. Contrast base.BaseNode.ctx,
+	// which takes the OTHER option the same review flagged (an explicit
+	// "when this is safe" doc comment, no lock) precisely because it's
+	// read on the hottest path in the framework -- see its own comment
+	// for why that tradeoff goes the other way there.
+	bindingsMu sync.RWMutex
+	appEvents  map[framework.Binding]AppActionFunc
 	// mouseHandler is the one place a mouse event can go today -- see
 	// BindMouse. There's no per-widget or per-Binding routing for mouse
 	// (that needs hit-testing, deliberately not built -- see
@@ -123,16 +153,7 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, errors.New("height is less than 0")
 	}
 
-	bg := core.Transparent
-	if cfg.Bg != nil {
-		bg = *cfg.Bg
-	}
-	fg := core.Transparent
-	if cfg.Fg != nil {
-		fg = *cfg.Fg
-	}
-
-	c, err := canvas.NewCanvas(canvas.CanvasConfig{Width: cfg.Width, Height: cfg.Height, Fg: fg, Bg: bg})
+	c, err := canvas.NewCanvas(canvas.CanvasConfig{Width: cfg.Width, Height: cfg.Height, Fg: cfg.Fg, Bg: cfg.Bg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create canvas: %v", err)
 	}
@@ -201,6 +222,8 @@ func (a *App) BindKey(k framework.Key, fn AppActionFunc) {
 // BindKeyMod binds fn to an exact (k, mods) combination. Exact match
 // only -- see framework.Binding's doc comment.
 func (a *App) BindKeyMod(k framework.Key, mods framework.Modifier, fn AppActionFunc) {
+	a.bindingsMu.Lock()
+	defer a.bindingsMu.Unlock()
 	if a.appEvents == nil {
 		a.appEvents = make(map[framework.Binding]AppActionFunc)
 	}
@@ -223,15 +246,42 @@ func (a *App) UnbindKey(k framework.Key) {
 // remains an open, separate design decision -- see
 // framework.MouseHandler.
 func (a *App) BindMouse(fn AppActionFunc) {
+	a.bindingsMu.Lock()
+	defer a.bindingsMu.Unlock()
 	a.mouseHandler = fn
 }
 
 func (a *App) UnbindMouse() {
+	a.bindingsMu.Lock()
+	defer a.bindingsMu.Unlock()
 	a.mouseHandler = nil
 }
 
 func (a *App) UnbindKeyMod(k framework.Key, mods framework.Modifier) {
+	a.bindingsMu.Lock()
+	defer a.bindingsMu.Unlock()
 	delete(a.appEvents, framework.Binding{Key: k, Modifiers: mods})
+}
+
+// globalAction looks up binding b's global handler, if any, guarded by
+// bindingsMu -- the one place appEvents is read from, so Run's dispatch
+// loop and ctx.IsGlobalKey (see Run below) can't race with BindKey/
+// UnbindKey being called from another goroutine while a lookup is in
+// flight.
+func (a *App) globalAction(b framework.Binding) (AppActionFunc, bool) {
+	a.bindingsMu.RLock()
+	defer a.bindingsMu.RUnlock()
+	fn, ok := a.appEvents[b]
+	return fn, ok
+}
+
+// currentMouseHandler reads mouseHandler under bindingsMu -- same
+// reasoning as globalAction, for the other half of what that mutex
+// guards.
+func (a *App) currentMouseHandler() AppActionFunc {
+	a.bindingsMu.RLock()
+	defer a.bindingsMu.RUnlock()
+	return a.mouseHandler
 }
 
 // NavActions returns a ready-to-merge set of standard focus-navigation
@@ -282,7 +332,7 @@ func (a *App) Run() {
 		Done:       a.done,
 		LogLevel:   a.logLevel,
 		IsGlobalKey: func(b framework.Binding) bool {
-			_, ok := a.appEvents[b]
+			_, ok := a.globalAction(b)
 			return ok
 		},
 	}
@@ -352,8 +402,8 @@ func (a *App) Run() {
 				if a.logger.Enabled(core.Debug) {
 					a.logger.Debug(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY))
 				}
-				if a.mouseHandler != nil {
-					a.runGlobalAction(ctx, ev, a.mouseHandler)
+				if handler := a.currentMouseHandler(); handler != nil {
+					a.runGlobalAction(ctx, ev, handler)
 				}
 				continue
 			}
@@ -368,7 +418,7 @@ func (a *App) Run() {
 
 			if framework.IsStructuralKey(ev.Key) {
 				// Global-first, unconditionally, for Ctrl+C/Enter/Tab/Esc.
-				if fn, bound := a.appEvents[binding]; bound {
+				if fn, bound := a.globalAction(binding); bound {
 					a.runGlobalAction(ctx, ev, fn)
 					continue
 				}
@@ -384,7 +434,7 @@ func (a *App) Run() {
 					continue
 				}
 			}
-			if fn, bound := a.appEvents[binding]; bound {
+			if fn, bound := a.globalAction(binding); bound {
 				a.runGlobalAction(ctx, ev, fn)
 			}
 		}

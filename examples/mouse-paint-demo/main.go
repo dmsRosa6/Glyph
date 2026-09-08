@@ -102,7 +102,7 @@ func main() {
 	a, err := app.NewApp(app.AppConfig{
 		Width:        gridOriginX*2 + gridW,
 		Height:       gridOriginY + gridH + 4,
-		Bg:           &core.Black,
+		Bg:           core.Black,
 		RenderMode:   render.OnDemandMode(),
 		MouseEnabled: true,
 	})

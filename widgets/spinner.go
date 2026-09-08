@@ -19,6 +19,11 @@ type Spinner struct {
 	TicksPerSecond int
 
 	startOnce sync.Once
+	stopOnce  sync.Once
+	// stop ends startCycle independently of ctx.Lifecycle() (the
+	// app-wide Done channel) -- see Stop's doc comment for why this
+	// exists at all.
+	stop chan struct{}
 }
 
 type SpinnerConfig struct {
@@ -48,6 +53,7 @@ func NewSpinner(cfg SpinnerConfig) (*Spinner, error) {
 		SpinnerContext: cfg.SpinnerType,
 		value:          []rune(cfg.SpinnerType.Cycle()),
 		TicksPerSecond: t,
+		stop:           make(chan struct{}),
 	}
 
 	return spinner, nil
@@ -60,7 +66,7 @@ func (t *Spinner) SetContext(ctx framework.AppContext) {
 	})
 }
 
-func (t *Spinner) startCycle(done <-chan struct{}) {
+func (t *Spinner) startCycle(appDone <-chan struct{}) {
 	ticker := time.NewTicker(time.Second / time.Duration(t.TicksPerSecond))
 	defer ticker.Stop()
 
@@ -71,10 +77,38 @@ func (t *Spinner) startCycle(done <-chan struct{}) {
 			t.value = []rune(t.SpinnerContext.Cycle())
 			t.mu.Unlock()
 			t.Invalidate() // was missing entirely before: OnDemand mode never saw the new frame without this
-		case <-done:
+		case <-appDone:
+			return
+		case <-t.stop:
 			return
 		}
 	}
+}
+
+// Stop ends this Spinner's own ticking goroutine independently of the
+// whole app. Previously startCycle only ever exited via ctx.Lifecycle()
+// -- the app-wide Done channel, closed once by App.Stop() -- so a
+// Spinner removed from the tree mid-run (RemoveChild/Untrack) had no
+// way to actually stop: its goroutine kept ticking and calling
+// Invalidate() forever, a leak scoped to "until the whole app exits,"
+// not "until this widget is done."
+//
+// Stop is idempotent (safe to call more than once) via stopOnce, and
+// safe to call even on a Spinner that was never attached to a tree
+// (startCycle never started, so this just closes a channel nothing is
+// listening on yet -- harmless, and correctly makes a LATER SetContext
+// a no-op-for-ticking-purposes too, since startCycle would select on an
+// already-closed stop and return immediately).
+//
+// base.Propagator.Untrack also calls this automatically on any removed
+// child implementing framework.Stoppable (Spinner does) -- so plain
+// RemoveChild is enough on its own; calling Stop directly is only
+// needed for a Spinner never added to a container in the first place,
+// or for stopping one deliberately without removing it from the tree.
+func (t *Spinner) Stop() {
+	t.stopOnce.Do(func() {
+		close(t.stop)
+	})
 }
 
 func (t *Spinner) Draw(buf *core.Buffer, vec geom.Vector) {

@@ -11,14 +11,6 @@ func NewRegistry() *Registry {
 	return &Registry{nodes: make(map[string]Drawable)}
 }
 
-// Register records d under id, returning collided=true if id already
-// had a *different* node registered under it -- that previous node is
-// now unreachable via Find even though it's still alive and drawing.
-// Empty IDs are ignored -- not every node needs to be independently
-// addressable, and BaseNode.SetID defaults to the auto-generated
-// "<source>#<n>" form until a caller opts into their own, which can
-// never collide with another auto-generated ID (idSeq is process-wide
-// and monotonic) or with a hand-chosen one (different format).
 func (r *Registry) Register(id string, d Drawable) (collided bool) {
 	if r == nil || id == "" {
 		return false

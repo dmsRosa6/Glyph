@@ -7,7 +7,7 @@ import (
 )
 
 type FocusScope struct {
-	owner    framework.Focusable // nil for the root scope
+	owner    framework.Focusable
 	children []framework.Focusable
 	index    int
 }
@@ -67,10 +67,6 @@ func (m *FocusManager) Prev() {
 	m.log(fmt.Sprintf("focus: %s -> %s", focusDesc(old), focusDesc(prev)))
 }
 
-// Enter drills into the current focused widget's children, if it has
-// any. Returns false (no-op) if the current widget isn't a
-// FocusContainer or has nothing to drill into -- callers should treat
-// that as "let the widget's own bound action handle it instead."
 func (m *FocusManager) Enter() bool {
 	cur := m.Current()
 	fc, ok := cur.(framework.FocusContainer)
@@ -81,9 +77,6 @@ func (m *FocusManager) Enter() bool {
 	if len(children) == 0 {
 		return false
 	}
-	// Deliberately NOT blurring cur -- it stays visually focused as
-	// "the container you're inside," while its first child also lights
-	// up. That's what makes "outer box AND inner box both recolor" work.
 	m.stack = append(m.stack, &FocusScope{owner: cur, children: children})
 	children[0].Focus()
 	m.log(fmt.Sprintf("focus: drilled into %s, now %s", focusDesc(cur), focusDesc(children[0])))
@@ -92,7 +85,7 @@ func (m *FocusManager) Enter() bool {
 
 func (m *FocusManager) Exit() {
 	if len(m.stack) <= 1 {
-		return // already at root, nothing to pop
+		return
 	}
 	s := m.top()
 	var blurred framework.Focusable
@@ -102,15 +95,9 @@ func (m *FocusManager) Exit() {
 	}
 	owner := s.owner
 	m.stack = m.stack[:len(m.stack)-1]
-	// owner was never blurred on Enter, so no re-focus needed here --
-	// it's still exactly where we left it.
 	m.log(fmt.Sprintf("focus: exited %s, back to %s", focusDesc(blurred), focusDesc(owner)))
 }
 
-// focusDesc identifies a Focusable for a log line: its Registry id if
-// it's Identifiable (every BaseNode-derived widget is, auto-generated
-// as "<source>#<n>" unless overridden via SetID), or its Go type as a
-// fallback for a hand-rolled Focusable that isn't built on BaseNode.
 func focusDesc(f framework.Focusable) string {
 	if f == nil {
 		return "<none>"
@@ -121,12 +108,6 @@ func focusDesc(f framework.Focusable) string {
 	return fmt.Sprintf("%T", f)
 }
 
-// log is Debug-severity, not Info -- a focus-navigation trace line
-// (Next/Prev/Enter/Exit) fires on every nav interaction, the same
-// "high-volume, low-stakes" shape as App.Run's per-keystroke logging,
-// so it gets the same treatment. framework.Logger is nil-safe on its
-// own; this wrapper exists only to keep call sites above reading as
-// `m.log(...)` instead of repeating the source string everywhere.
 func (m *FocusManager) log(msg string) {
 	m.logger.Debug(msg)
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/primitive"
 	"github.com/dmsRosa6/glyph/render"
 	"github.com/dmsRosa6/glyph/widgets"
 )
@@ -23,7 +24,7 @@ func listDemo(width int) *widgets.List {
 		if err != nil {
 			panic(err)
 		}
-		text, err := widgets.NewText(&geom.Point{X: 0, Y: 0}, widgets.TextConfig{
+		text, err := primitive.NewText(&geom.Point{X: 0, Y: 0}, primitive.TextConfig{
 			Value: "row",
 			Fg:    core.Green,
 		})

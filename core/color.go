@@ -8,18 +8,12 @@ type Color struct {
 }
 
 func NewColor(r, g, b uint8) Color {
-	return Color{
-		R:             r,
-		G:             g,
-		B:             b,
-		IsTransparent: false,
-	}
+	return Color{R: r, G: g, B: b, IsTransparent: false}
 }
 
 var (
 	Transparent = Color{IsTransparent: true}
 
-	// Reds
 	Maroon      = Color{R: 128, G: 0, B: 0}
 	DarkRed     = Color{R: 139, G: 0, B: 0}
 	Brown       = Color{R: 165, G: 42, B: 42}
@@ -35,7 +29,6 @@ var (
 	LightSalmon = Color{R: 255, G: 160, B: 122}
 	OrangeRed   = Color{R: 255, G: 69, B: 0}
 
-	// Oranges / Yellows
 	DarkOrange     = Color{R: 255, G: 140, B: 0}
 	Orange         = Color{R: 255, G: 165, B: 0}
 	Gold           = Color{R: 255, G: 215, B: 0}
@@ -53,7 +46,6 @@ var (
 	Chartreuse     = Color{R: 127, G: 255, B: 0}
 	GreenYellow    = Color{R: 173, G: 255, B: 47}
 
-	// Greens
 	DarkGreen         = Color{R: 0, G: 100, B: 0}
 	Green             = Color{R: 0, G: 128, B: 0}
 	ForestGreen       = Color{R: 34, G: 139, B: 34}
@@ -69,7 +61,6 @@ var (
 	MediumSeaGreen    = Color{R: 60, G: 179, B: 113}
 	LightSeaGreen     = Color{R: 32, G: 178, B: 170}
 
-	// Cyans / Teals
 	DarkSlateGray   = Color{R: 47, G: 79, B: 79}
 	Teal            = Color{R: 0, G: 128, B: 128}
 	DarkCyan        = Color{R: 0, G: 139, B: 139}
@@ -82,7 +73,6 @@ var (
 	PaleTurquoise   = Color{R: 175, G: 238, B: 238}
 	AquaMarine      = Color{R: 127, G: 255, B: 212}
 
-	// Blues
 	PowderBlue     = Color{R: 176, G: 224, B: 230}
 	CadetBlue      = Color{R: 95, G: 158, B: 160}
 	SteelBlue      = Color{R: 70, G: 130, B: 180}
@@ -99,7 +89,6 @@ var (
 	Blue           = Color{R: 0, G: 0, B: 255}
 	RoyalBlue      = Color{R: 65, G: 105, B: 225}
 
-	// Purples / Violets
 	BlueViolet      = Color{R: 138, G: 43, B: 226}
 	Indigo          = Color{R: 75, G: 0, B: 130}
 	DarkSlateBlue   = Color{R: 72, G: 61, B: 139}
@@ -123,7 +112,6 @@ var (
 	LightPink       = Color{R: 255, G: 182, B: 193}
 	Pink            = Color{R: 255, G: 192, B: 203}
 
-	// Browns / Tans
 	AntiqueWhite         = Color{R: 250, G: 235, B: 215}
 	Beige                = Color{R: 245, G: 245, B: 220}
 	Bisque               = Color{R: 255, G: 228, B: 196}
@@ -152,7 +140,6 @@ var (
 	SeaShell             = Color{R: 255, G: 245, B: 238}
 	MintCream            = Color{R: 245, G: 255, B: 250}
 
-	// Light / Pale colors
 	SlateGray      = Color{R: 112, G: 128, B: 144}
 	LightSlateGray = Color{R: 119, G: 136, B: 153}
 	LightSteelBlue = Color{R: 176, G: 196, B: 222}
@@ -165,7 +152,6 @@ var (
 	Azure          = Color{R: 240, G: 255, B: 255}
 	Snow           = Color{R: 255, G: 250, B: 250}
 
-	// Grays
 	Black      = Color{R: 0, G: 0, B: 0}
 	DimGray    = Color{R: 105, G: 105, B: 105}
 	Gray       = Color{R: 128, G: 128, B: 128}

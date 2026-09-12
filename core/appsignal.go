@@ -11,10 +11,8 @@ func (a AppSignal) String() string {
 	switch a {
 	case NOOP:
 		return "NO OP"
-
 	case SIGTERM:
 		return "SIGTERM"
-
 	default:
 		return ""
 	}

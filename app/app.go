@@ -96,12 +96,12 @@ type App struct {
 	// ctx.IsGlobalKey (below) reads appEvents from whatever goroutine
 	// calls Propagator.Track/PropagateContext (i.e. AddChild, possibly
 	// from a background goroutine -- Spinner already establishes that
-	// as a normal pattern in this framework). base.Propagator got a
+	// as a normal pattern in this framework). mixin.Propagator got a
 	// sync.RWMutex after presumably hitting exactly this kind of real
 	// concurrent-access bug on its own owned slice; this is the same
 	// class of risk, guarded the same way, rather than merely
 	// documented away -- Bind*/Unbind* are low-frequency calls, so the
-	// lock costs nothing that matters. Contrast base.BaseNode.ctx,
+	// lock costs nothing that matters. Contrast mixin.Node.ctx,
 	// which takes the OTHER option the same review flagged (an explicit
 	// "when this is safe" doc comment, no lock) precisely because it's
 	// read on the hottest path in the framework -- see its own comment
@@ -365,79 +365,89 @@ func (a *App) Run() {
 			if !ok {
 				return
 			}
-
-			if ev.Kind == framework.EventKindMouse {
-				// Mouse decoding is real (input.Manager parses actual
-				// SGR mouse escape sequences into MouseButton/
-				// MouseAction/MouseX/MouseY). What's still NOT built is
-				// per-widget dispatch (hit-testing: mapping MouseX/
-				// MouseY to whichever Drawable's ABSOLUTE screen bounds
-				// contain it) -- no part of this tree currently tracks
-				// that (BaseNode only knows its position relative to
-				// its own parent), and it's left as an open, separate
-				// design decision rather than guessed at here -- see
-				// framework.MouseHandler's doc comment.
-				//
-				// mouseHandler (see BindMouse) is the one place a
-				// mouse event can go in the meantime: a single global
-				// callback, not per-widget or per-Binding routing.
-				//
-				// Deliberately checked and handled BEFORE any of the
-				// Key-indexed branches below: a mouse Event's Key field
-				// sits at its zero value (KeyRune), and both the
-				// per-widget actions map (FocusableBaseNode/
-				// FocusBehavior) and a.appEvents are indexed by Key --
-				// without this early return, every mouse click would be
-				// silently indistinguishable from a KeyRune keypress
-				// with Rune 0 to any widget or global binding on
-				// KeyRune.
-				//
-				// Debug, not Info, and guarded by Enabled(core.Debug)
-				// before the fmt.Sprintf runs at all: this fires on
-				// EVERY decoded mouse event (including every single
-				// MouseDrag sample of an ordinary click-drag), so at
-				// the default LogLevel it should cost nothing beyond
-				// one cheap comparison, not an allocation + a channel
-				// send it's just going to filter out downstream anyway.
-				if a.logger.Enabled(core.Debug) {
-					a.logger.Debug(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY))
-				}
-				if handler := a.currentMouseHandler(); handler != nil {
-					a.runGlobalAction(ctx, ev, handler)
-				}
-				continue
-			}
-
-			// Same Debug + Enabled-guard reasoning as the mouse branch
-			// above -- this fires on every keystroke.
-			if a.logger.Enabled(core.Debug) {
-				a.logger.Debug(fmt.Sprintf("Key '%s' pressed", ev.Key.String()))
-			}
-
-			binding := framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}
-
-			if framework.IsStructuralKey(ev.Key) {
-				// Global-first, unconditionally, for Ctrl+C/Enter/Tab/Esc.
-				if fn, bound := a.globalAction(binding); bound {
-					a.runGlobalAction(ctx, ev, fn)
-					continue
-				}
-				if f := a.focus.Current(); f != nil {
-					f.HandleInput(ev)
-				}
-				continue
-			}
-
-			// Every other key: widget-first, global as fallback.
-			if f := a.focus.Current(); f != nil {
-				if handled, _ := f.HandleInput(ev); handled {
-					continue
-				}
-			}
-			if fn, bound := a.globalAction(binding); bound {
-				a.runGlobalAction(ctx, ev, fn)
-			}
+			a.handleEvent(ctx, ev)
 		}
+	}
+}
+
+// handleEvent applies App's dispatch rules to one input event: mouse
+// events go to the single global mouseHandler if bound; key events
+// split on framework.IsStructuralKey into global-first (Ctrl+C/Enter/
+// Tab/Esc) versus widget-first (everything else) dispatch -- see the
+// devguide's "app" section for the full rationale. Extracted out of
+// Run's select loop into its own method so it can be exercised
+// directly in tests, with a synthetic focused widget and synthetic
+// bindings, without needing a real terminal/input.Manager at all.
+func (a *App) handleEvent(ctx framework.AppContext, ev framework.Event) {
+	if ev.Kind == framework.EventKindMouse {
+		// Mouse decoding is real (input.Manager parses actual
+		// SGR mouse escape sequences into MouseButton/
+		// MouseAction/MouseX/MouseY). What's still NOT built is
+		// per-widget dispatch (hit-testing: mapping MouseX/
+		// MouseY to whichever Drawable's ABSOLUTE screen bounds
+		// contain it) -- no part of this tree currently tracks
+		// that (mixin.Node only knows its position relative to
+		// its own parent), and it's left as an open, separate
+		// design decision rather than guessed at here -- see
+		// framework.MouseHandler's doc comment.
+		//
+		// mouseHandler (see BindMouse) is the one place a
+		// mouse event can go in the meantime: a single global
+		// callback, not per-widget or per-Binding routing.
+		//
+		// Deliberately checked and handled BEFORE any of the
+		// Key-indexed branches below: a mouse Event's Key field
+		// sits at its zero value (KeyRune), and both the
+		// per-widget actions map (FocusableNode/FocusBehavior)
+		// and a.appEvents are indexed by Key -- without this
+		// early return, every mouse click would be silently
+		// indistinguishable from a KeyRune keypress with Rune 0
+		// to any widget or global binding on KeyRune.
+		//
+		// Debug, not Info, and guarded by Enabled(core.Debug)
+		// before the fmt.Sprintf runs at all: this fires on
+		// EVERY decoded mouse event (including every single
+		// MouseDrag sample of an ordinary click-drag), so at
+		// the default LogLevel it should cost nothing beyond
+		// one cheap comparison, not an allocation + a channel
+		// send it's just going to filter out downstream anyway.
+		if a.logger.Enabled(core.Debug) {
+			a.logger.Debug(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY))
+		}
+		if handler := a.currentMouseHandler(); handler != nil {
+			a.runGlobalAction(ctx, ev, handler)
+		}
+		return
+	}
+
+	// Same Debug + Enabled-guard reasoning as the mouse branch
+	// above -- this fires on every keystroke.
+	if a.logger.Enabled(core.Debug) {
+		a.logger.Debug(fmt.Sprintf("Key '%s' pressed", ev.Key.String()))
+	}
+
+	binding := framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}
+
+	if framework.IsStructuralKey(ev.Key) {
+		// Global-first, unconditionally, for Ctrl+C/Enter/Tab/Esc.
+		if fn, bound := a.globalAction(binding); bound {
+			a.runGlobalAction(ctx, ev, fn)
+			return
+		}
+		if f := a.focus.Current(); f != nil {
+			f.HandleInput(ev)
+		}
+		return
+	}
+
+	// Every other key: widget-first, global as fallback.
+	if f := a.focus.Current(); f != nil {
+		if handled, _ := f.HandleInput(ev); handled {
+			return
+		}
+	}
+	if fn, bound := a.globalAction(binding); bound {
+		a.runGlobalAction(ctx, ev, fn)
 	}
 }
 

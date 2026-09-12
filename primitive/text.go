@@ -1,27 +1,17 @@
-package widgets
+package primitive
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/mixin"
 )
 
-// Text always draws with a transparent background, so it blends with
-// whatever is behind it rather than punching an opaque box.
-//
-// Text is deliberately single-line only, with no wrapping or
-// justification -- NewText builds its bounds as H: 1, and SetValue
-// resizes width but never height. This is a scope limit, not a bug:
-// there's no multi-line text widget in this framework yet. If a value
-// containing '\n' is passed in, each rune (including the newline
-// itself) is drawn as one cell wide, in a straight horizontal line --
-// it will NOT visually wrap to a second row.
 type Text struct {
-	base.BaseNode
+	mixin.Node
 
 	mu    sync.RWMutex
 	value []rune
@@ -39,12 +29,12 @@ func NewText(pos *geom.Point, cfg TextConfig) (*Text, error) {
 	bounds := geom.NewBounds(pos.X, pos.Y, len(runes), 1)
 	style := framework.Style{Bg: core.Transparent, Fg: cfg.Fg}
 
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, style, cfg.Layer, "Text")
+	bn, err := mixin.NewNode(bounds, cfg.Anchor, style, cfg.Layer, "Text")
 	if err != nil {
 		return nil, err
 	}
 
-	return &Text{BaseNode: bn, value: runes}, nil
+	return &Text{Node: bn, value: runes}, nil
 }
 
 func (t *Text) Draw(buf *core.Buffer, vec geom.Vector) {

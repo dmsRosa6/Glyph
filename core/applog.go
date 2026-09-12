@@ -4,19 +4,6 @@ import "fmt"
 
 type Severity int
 
-// Severity's zero value is Warning, not Debug -- deliberately, even
-// though "Debug first" is the more obvious iota to reach for. Severity
-// does double duty as both a log record's own level AND
-// AppConfig.LogLevel's filter threshold, and Go can't tell "the caller
-// explicitly chose Debug" apart from "the caller left LogLevel unset."
-// With Debug at zero, app.NewApp(app.AppConfig{}) -- the very first
-// thing anyone naturally writes -- used to silently log every keystroke
-// and mouse event to a new timestamped file forever, no rotation, no
-// opt-out. Shifting the iota so Warning lands on zero instead means the
-// unset case now defaults to something a library should actually ship
-// with, while Debug < Info < Warning < Fatal (the ordering every
-// severity comparison in this codebase relies on) is unchanged --
-// Debug/Info just sit at negative values instead of 0/1.
 const (
 	Debug Severity = iota - 2
 	Info
@@ -48,55 +35,26 @@ type AppLog struct {
 }
 
 func NewWarningAppLog(err error, source string) *AppLog {
-	return &AppLog{
-		severity: Warning,
-		err:      err,
-		source:   source,
-	}
+	return &AppLog{severity: Warning, err: err, source: source}
 }
 
 func NewFatalAppLog(err error, source string) *AppLog {
-	return &AppLog{
-		severity: Fatal,
-		err:      err,
-		source:   source,
-	}
+	return &AppLog{severity: Fatal, err: err, source: source}
 }
 
 func NewInfoAppLog(msg, source string) *AppLog {
-	return &AppLog{
-		severity: Info,
-		msg:      msg,
-		source:   source,
-	}
+	return &AppLog{severity: Info, msg: msg, source: source}
 }
 
 func NewDebugAppLog(msg, source string) *AppLog {
-	return &AppLog{
-		severity: Debug,
-		msg:      msg,
-		source:   source,
-	}
+	return &AppLog{severity: Debug, msg: msg, source: source}
 }
 
-// WithID attaches a specific instance id to an already-built log,
-// without touching the four constructors above -- so the top-level
-// App/Renderer/Input logs (which have no per-instance id, just a fixed
-// core.InternalSource) keep working exactly as before, and only
-// widget-level logs (routed through framework.Logger, which does know
-// a BaseNode's id) opt into the extra detail. Returns the same *AppLog
-// so it chains directly off a constructor call.
 func (l *AppLog) WithID(id string) *AppLog {
 	l.id = id
 	return l
 }
 
-// Reason formats source (the component's *kind*, e.g. "Text") and, when
-// present, id (the specific *instance*, e.g. "Text#4" or a caller-chosen
-// "scoreLabel") together -- source alone can't tell two Text widgets'
-// log lines apart, id alone loses the readable "this is a Text" context
-// once a caller has overridden it to something like "scoreLabel". They
-// complement each other; neither replaces the other in the log line.
 func (l AppLog) Reason() string {
 	rsn := l.msg
 	if l.severity >= Warning && l.err != nil {

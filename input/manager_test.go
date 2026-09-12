@@ -8,21 +8,11 @@ import (
 	"github.com/dmsRosa6/glyph/framework"
 )
 
-// step is one scripted result fed to a test byteSource: either a
-// single byte, or a "timeout" (n=0, err=nil) -- exactly what
-// term.ReadStdin returns when its ~100ms VTIME elapses with nothing
-// typed (see term.EnableRawMode's doc comment). Modeling timeouts
-// explicitly, not just concatenating bytes, is what lets these tests
-// reach states real typing can actually produce -- a lone ESC with no
-// follow-up, or a CSI sequence abandoned mid-parameter -- without
-// needing a real tty at all.
 type step struct {
 	b       byte
 	timeout bool
 }
 
-// bytesOf turns a plain string into one step per byte -- the common
-// case for scripting a sequence of keys/escape codes.
 func bytesOf(s string) []step {
 	steps := make([]step, len(s))
 	for i := 0; i < len(s); i++ {
@@ -41,10 +31,6 @@ func concat(groups ...[]step) []step {
 	return out
 }
 
-// scriptSource is the byteSource this whole test file substitutes for
-// stdinSource: it replays a fixed sequence of steps, then reports
-// io.EOF -- a real read error, which is exactly what ends Manager.run's
-// loop in production too (see run's `if err != nil { return }`).
 type scriptSource struct {
 	steps []step
 	i     int
@@ -63,11 +49,6 @@ func (s *scriptSource) Read(buf []byte) (int, error) {
 	return 1, nil
 }
 
-// decode runs Manager.run() to completion against a scripted byte
-// sequence and returns every framework.Event it emitted, in order.
-// run() is called directly, not Start() -- Start() would try to put a
-// real tty into raw mode, which the byteSource seam exists specifically
-// to avoid ever needing in a test.
 func decode(t *testing.T, steps []step) []framework.Event {
 	t.Helper()
 
@@ -170,6 +151,91 @@ func TestDecodeArrowKeys(t *testing.T) {
 	}
 }
 
+func TestDecodeBackspace(t *testing.T) {
+	got := decode(t, []step{{b: 0x7f}})
+	want := []framework.Event{{Key: framework.KeyBackspace}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+// TestDecodeHomeEnd covers every wire form this decoder accepts for
+// Home/End: xterm's unmodified "ESC[H"/"ESC[F", and the two numeric-
+// code families terminals disagree on (vt220's 1/4, rxvt's 7/8) via
+// "ESC[N~". A terminal only ever sends one of these per key, but the
+// decoder has to accept whichever one shows up without knowing in
+// advance which convention the user's terminal follows.
+func TestDecodeHomeEnd(t *testing.T) {
+	cases := []struct {
+		name string
+		seq  string
+		want framework.Key
+	}{
+		{"xterm home", "\x1b[H", framework.KeyHome},
+		{"xterm end", "\x1b[F", framework.KeyEnd},
+		{"vt220 home", "\x1b[1~", framework.KeyHome},
+		{"vt220 end", "\x1b[4~", framework.KeyEnd},
+		{"rxvt home", "\x1b[7~", framework.KeyHome},
+		{"rxvt end", "\x1b[8~", framework.KeyEnd},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := decode(t, bytesOf(tc.seq))
+			want := []framework.Event{{Key: tc.want}}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("got %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestDecodeDelete(t *testing.T) {
+	got := decode(t, bytesOf("\x1b[3~"))
+	want := []framework.Event{{Key: framework.KeyDelete}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+// TestDecodeModifiedHomeEndDelete covers the modifier-parameter form
+// each family uses: letter-terminated Home/End ("1;N<H|F>", same shape
+// Ctrl+Left etc. already use) via decodeModifiedKey, and '~'-terminated
+// Delete ("3;N~") via decodeNumericKey.
+func TestDecodeModifiedHomeEndDelete(t *testing.T) {
+	cases := []struct {
+		name string
+		seq  string
+		want framework.Event
+	}{
+		{"shift+home (xterm form)", "\x1b[1;2H", framework.Event{Key: framework.KeyHome, Modifiers: framework.ModShift}},
+		{"ctrl+end (xterm form)", "\x1b[1;5F", framework.Event{Key: framework.KeyEnd, Modifiers: framework.ModCtrl}},
+		{"ctrl+delete", "\x1b[3;5~", framework.Event{Key: framework.KeyDelete, Modifiers: framework.ModCtrl}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := decode(t, bytesOf(tc.seq))
+			want := []framework.Event{tc.want}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("got %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+// TestDecodeUnrecognizedNumericCodeIsDropped covers a '~'-terminated
+// code this decoder has no Key for yet (5 is Page Up) -- dropped
+// silently, same convention as every other unrecognized sequence, and
+// decoding resumes cleanly on the next byte rather than misreading it.
+func TestDecodeUnrecognizedNumericCodeIsDropped(t *testing.T) {
+	got := decode(t, concat(bytesOf("\x1b[5~"), bytesOf("a")))
+	want := []framework.Event{{Key: framework.KeyRune, Rune: 'a'}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
 func TestDecodeShiftTab(t *testing.T) {
 	got := decode(t, bytesOf("\x1b[Z"))
 	want := []framework.Event{{Key: framework.KeyTab, Modifiers: framework.ModShift}}
@@ -269,11 +335,6 @@ func TestDecodeSGRMouse(t *testing.T) {
 	}
 }
 
-// TestDecodeMalformedSequencesAreDroppedNotMisread covers the
-// "unrecognized/malformed/truncated" branches the decoder itself
-// documents as silently-drop cases -- and confirms each one actually
-// recovers to stateNormal afterward instead of corrupting how the next
-// real keystroke decodes.
 func TestDecodeMalformedSequencesAreDroppedNotMisread(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -296,13 +357,7 @@ func TestDecodeMalformedSequencesAreDroppedNotMisread(t *testing.T) {
 			want:  []framework.Event{{Key: framework.KeyRune, Rune: 'a'}},
 		},
 		{
-			name: "a CSI sequence abandoned by a timeout does not leak into the next byte",
-			// ESC [ 1 <timeout> -- before the fix documented on run()'s
-			// n==0 branch, `state` stayed stuck at stateCSIParams
-			// across the timeout, so this next 'A' got fed into
-			// handleCSIParams as if it were still completing "ESC [ 1"
-			// -- misread as a bare KeyUp using the stale csiBuf, rather
-			// than the plain 'A' rune it actually is.
+			name:  "a CSI sequence abandoned by a timeout does not leak into the next byte",
 			steps: concat(bytesOf("\x1b[1"), []step{timeout()}, bytesOf("A")),
 			want:  []framework.Event{{Key: framework.KeyRune, Rune: 'A'}},
 		},
@@ -318,10 +373,6 @@ func TestDecodeMalformedSequencesAreDroppedNotMisread(t *testing.T) {
 	}
 }
 
-// TestDecodeMouseNeverMisreadAsKeyRuneZero guards the exact invariant
-// app.go's dispatch loop depends on: a mouse Event's Key field sits at
-// its zero value (KeyRune), so mouse events MUST be distinguishable via
-// Kind alone, never by Key.
 func TestDecodeMouseNeverMisreadAsKeyRuneZero(t *testing.T) {
 	got := decode(t, bytesOf("\x1b[<0;1;1M"))
 	if len(got) != 1 {

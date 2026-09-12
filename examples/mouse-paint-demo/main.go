@@ -7,6 +7,7 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/primitive"
 	"github.com/dmsRosa6/glyph/render"
 	"github.com/dmsRosa6/glyph/widgets"
 )
@@ -83,7 +84,7 @@ func main() {
 
 	state := newPaletteState(gridOriginX, gridOriginY, gridW, gridH)
 
-	status, err := widgets.NewText(&geom.Point{X: gridOriginX, Y: gridOriginY + gridH + 1}, widgets.TextConfig{
+	status, err := primitive.NewText(&geom.Point{X: gridOriginX, Y: gridOriginY + gridH + 1}, primitive.TextConfig{
 		Value: fmt.Sprintf("Color: %s", state.currentColorName()),
 		Fg:    core.White,
 	})
@@ -91,7 +92,7 @@ func main() {
 		panic(err)
 	}
 
-	help, err := widgets.NewText(&geom.Point{X: gridOriginX, Y: gridOriginY + gridH + 2}, widgets.TextConfig{
+	help, err := primitive.NewText(&geom.Point{X: gridOriginX, Y: gridOriginY + gridH + 2}, primitive.TextConfig{
 		Value: "Left: paint   Right: erase   Scroll: change color   Ctrl+C: quit",
 		Fg:    core.LightGray,
 	})

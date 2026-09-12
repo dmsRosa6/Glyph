@@ -1,16 +1,16 @@
-package widgets
+package primitive
 
 import (
 	"errors"
 
-	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/mixin"
 )
 
 type Border struct {
-	base.BaseNode
+	mixin.Node
 	borderStyle BorderStyle
 	thickness   int
 }
@@ -40,13 +40,13 @@ func NewBorder(bounds *geom.Bounds, cfg BorderConfig) (*Border, error) {
 		style = EmptyBorder
 	}
 
-	bn, err := base.NewBaseNode(bounds, framework.Anchor{}, cfg.Style, cfg.Layer, "Border")
+	bn, err := mixin.NewNode(bounds, framework.Anchor{}, cfg.Style, cfg.Layer, "Border")
 	if err != nil {
 		return nil, err
 	}
 
 	return &Border{
-		BaseNode:    bn,
+		Node:        bn,
 		borderStyle: style,
 		thickness:   cfg.Thickness,
 	}, nil
@@ -64,19 +64,16 @@ func (b *Border) Draw(buf *core.Buffer, vec geom.Vector) {
 		x1 := ox + w - 1 - layer
 		y1 := oy + h - 1 - layer
 
-		// corners
 		buf.Set(vec.X+x0, vec.Y+y0, b.borderStyle.TopLeft, s.Bg, s.Fg)
 		buf.Set(vec.X+x1, vec.Y+y0, b.borderStyle.TopRight, s.Bg, s.Fg)
 		buf.Set(vec.X+x0, vec.Y+y1, b.borderStyle.BottomLeft, s.Bg, s.Fg)
 		buf.Set(vec.X+x1, vec.Y+y1, b.borderStyle.BottomRight, s.Bg, s.Fg)
 
-		// top & bottom edges
 		for x := x0 + 1; x < x1; x++ {
 			buf.Set(vec.X+x, vec.Y+y0, b.borderStyle.Horizontal, s.Bg, s.Fg)
 			buf.Set(vec.X+x, vec.Y+y1, b.borderStyle.Horizontal, s.Bg, s.Fg)
 		}
 
-		// left & right edges
 		for y := y0 + 1; y < y1; y++ {
 			buf.Set(vec.X+x0, vec.Y+y, b.borderStyle.Vertical, s.Bg, s.Fg)
 			buf.Set(vec.X+x1, vec.Y+y, b.borderStyle.Vertical, s.Bg, s.Fg)

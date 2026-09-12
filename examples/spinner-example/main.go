@@ -4,8 +4,8 @@ import (
 	"github.com/dmsRosa6/glyph/app"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
+	"github.com/dmsRosa6/glyph/primitive"
 	"github.com/dmsRosa6/glyph/render"
-	"github.com/dmsRosa6/glyph/widgets"
 )
 
 func main() {
@@ -17,14 +17,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	cfg := widgets.SpinnerConfig{
+	cfg := primitive.SpinnerConfig{
 		SpinnerType:    *framework.NewPulseSpinnerContext(),
 		Anchor:         framework.Anchor{V: framework.Center, H: framework.Center},
 		Style:          framework.Style{Fg: core.Black, Bg: core.Transparent},
 		TicksPerSecond: 10,
 	}
 
-	sp, _ := widgets.NewSpinner(cfg)
+	sp, _ := primitive.NewSpinner(cfg)
 	a.Canvas.AddShape(sp)
 
 	a.Run()

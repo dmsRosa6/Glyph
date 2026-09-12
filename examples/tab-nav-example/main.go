@@ -5,6 +5,7 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/primitive"
 	"github.com/dmsRosa6/glyph/render"
 	"github.com/dmsRosa6/glyph/widgets"
 )
@@ -14,7 +15,7 @@ func newCard(bounds *geom.Bounds, title string, bodyColor core.Color) (*widgets.
 	card, err := widgets.NewWindow(bounds, widgets.WindowConfig{
 		BoxStyle:     framework.Style{Bg: bodyColor, Fg: core.White},
 		FocusStyle:   &focus,
-		BorderConfig: widgets.DefaultBorderConfig(),
+		BorderConfig: primitive.DefaultBorderConfig(),
 		Title:        title,
 		TitleFg:      core.White,
 	})
@@ -22,7 +23,7 @@ func newCard(bounds *geom.Bounds, title string, bodyColor core.Color) (*widgets.
 		return nil, err
 	}
 
-	label, err := widgets.NewText(&geom.Point{X: 1, Y: 1}, widgets.TextConfig{
+	label, err := primitive.NewText(&geom.Point{X: 1, Y: 1}, primitive.TextConfig{
 		Value: "Tab / Shift+Tab to switch",
 		Fg:    core.White,
 	})

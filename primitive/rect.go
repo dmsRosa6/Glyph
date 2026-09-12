@@ -1,14 +1,14 @@
-package widgets
+package primitive
 
 import (
-	"github.com/dmsRosa6/glyph/base"
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/mixin"
 )
 
 type Rect struct {
-	base.BaseNode
+	mixin.Node
 }
 
 type RectConfig struct {
@@ -18,11 +18,11 @@ type RectConfig struct {
 }
 
 func NewRect(bounds *geom.Bounds, cfg RectConfig) (*Rect, error) {
-	bn, err := base.NewBaseNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Rect")
+	bn, err := mixin.NewNode(bounds, cfg.Anchor, cfg.Style, cfg.Layer, "Rect")
 	if err != nil {
 		return nil, err
 	}
-	return &Rect{BaseNode: bn}, nil
+	return &Rect{Node: bn}, nil
 }
 
 func (r *Rect) Draw(buf *core.Buffer, vec geom.Vector) {

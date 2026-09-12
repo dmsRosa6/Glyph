@@ -5,6 +5,7 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/primitive"
 	"github.com/dmsRosa6/glyph/render"
 	"github.com/dmsRosa6/glyph/widgets"
 )
@@ -26,7 +27,7 @@ func main() {
 
 	tooBig, err := widgets.NewWindow(geom.NewBounds(1, 1, 16, 6), widgets.WindowConfig{
 		BoxStyle:     framework.Style{Bg: core.DarkSlateGray, Fg: core.White},
-		BorderConfig: widgets.DefaultBorderConfig(),
+		BorderConfig: primitive.DefaultBorderConfig(),
 		Title:        "Too Big",
 		TitleFg:      core.White,
 	})
@@ -34,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	overflow, err := widgets.NewRect(geom.NewBounds(0, 0, 40, 20), widgets.RectConfig{
+	overflow, err := primitive.NewRect(geom.NewBounds(0, 0, 40, 20), primitive.RectConfig{
 		Style: framework.Style{Bg: core.Firebrick},
 	})
 	if err != nil {
@@ -44,7 +45,7 @@ func main() {
 
 	fits, err := widgets.NewWindow(geom.NewBounds(20, 1, 16, 6), widgets.WindowConfig{
 		BoxStyle:     framework.Style{Bg: core.DarkSlateGray, Fg: core.White},
-		BorderConfig: widgets.DefaultBorderConfig(),
+		BorderConfig: primitive.DefaultBorderConfig(),
 		Title:        "Fits",
 		TitleFg:      core.White,
 	})
@@ -52,7 +53,7 @@ func main() {
 		panic(err)
 	}
 
-	label, err := widgets.NewText(&geom.Point{X: 1, Y: 1}, widgets.TextConfig{
+	label, err := primitive.NewText(&geom.Point{X: 1, Y: 1}, primitive.TextConfig{
 		Value: "inside",
 		Fg:    core.White,
 	})

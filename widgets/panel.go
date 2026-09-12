@@ -5,18 +5,12 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/primitive"
 )
 
-// Panel is a styled, filled rectangle you can add children to -- the
-// "fill + content, correctly ordered, correctly delegated" primitive
-// that used to be hand-derived inline inside Bordered's NewBox. Bordered
-// is now just this plus a Border sized and inset around it; anything
-// else that wants "an area with a real background and children" (a List
-// row, say) can reach for this directly instead of a bare
-// canvas.Container, which has no fill of its own at all.
 type Panel struct {
 	*canvas.Container
-	fill    *Rect
+	fill    *primitive.Rect
 	content *canvas.Container
 }
 
@@ -43,11 +37,7 @@ func NewPanel(bounds *geom.Bounds, cfg PanelConfig) (*Panel, error) {
 		return nil, err
 	}
 
-	// Container.Draw never paints its own area, only its children's --
-	// fill is what actually renders cfg.Style's Bg. Sibling of content on
-	// the outer container, not nested inside it, so it never shows up in
-	// Panel.Children(), which must stay pure user content.
-	fill, err := NewRect(geom.NewBounds(0, 0, bounds.W, bounds.H), RectConfig{
+	fill, err := primitive.NewRect(geom.NewBounds(0, 0, bounds.W, bounds.H), primitive.RectConfig{
 		Style: cfg.Style,
 	})
 	if err != nil {
@@ -60,12 +50,6 @@ func NewPanel(bounds *geom.Bounds, cfg PanelConfig) (*Panel, error) {
 	return &Panel{Container: outer, fill: fill, content: content}, nil
 }
 
-// Resize shadows the promoted *canvas.Container.Resize, which by itself
-// only changes Panel's own outer bounds -- fill and content, the two
-// pieces that actually fill and hold the visible area, would otherwise
-// keep whatever size they were constructed with forever. Both are
-// resized to match so a resized Panel doesn't leave a stale-sized fill
-// underneath correctly-clipped content, or vice versa.
 func (p *Panel) Resize(w, h int) {
 	p.Container.Resize(w, h)
 	p.fill.Resize(w, h)

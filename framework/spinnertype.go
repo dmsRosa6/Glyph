@@ -11,101 +11,43 @@ func NewSpinnerContext(cycle []string, size int) *SpinnerContext {
 }
 
 func NewSlashSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		"\\", "|", "/", "-",
-	}, 1)
+	return NewSpinnerContext([]string{"\\", "|", "/", "-"}, 1)
 }
 
 func NewDotsSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		".  ",
-		".. ",
-		"...",
-		" ..",
-		"  .",
-		"   ",
-	}, 3)
+	return NewSpinnerContext([]string{".  ", ".. ", "...", " ..", "  .", "   "}, 3)
 }
 
 func NewPulseSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		"●○○",
-		"○●○",
-		"○○●",
-		"○●○",
-	}, 3)
+	return NewSpinnerContext([]string{"●○○", "○●○", "○○●", "○●○"}, 3)
 }
 
 func NewBounceSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		"[=  ]",
-		"[ = ]",
-		"[  =]",
-		"[ = ]",
-	}, 5)
+	return NewSpinnerContext([]string{"[=  ]", "[ = ]", "[  =]", "[ = ]"}, 5)
 }
 
 func NewBrailleSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		"⠁", "⠂", "⠄", "⡀",
-		"⢀", "⠠", "⠐", "⠈",
-	}, 1)
+	return NewSpinnerContext([]string{"⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"}, 1)
 }
 
 func NewBlockSpinnerContext() *SpinnerContext {
 	return NewSpinnerContext([]string{
-		"▏",
-		"▎",
-		"▍",
-		"▌",
-		"▋",
-		"▊",
-		"▉",
-		"█",
-		"▉",
-		"▊",
-		"▋",
-		"▌",
-		"▍",
-		"▎",
+		"▏", "▎", "▍", "▌", "▋", "▊", "▉", "█", "▉", "▊", "▋", "▌", "▍", "▎",
 	}, 1)
 }
 
 func NewGrowSpinnerContext() *SpinnerContext {
 	return NewSpinnerContext([]string{
-		"▁",
-		"▂",
-		"▃",
-		"▄",
-		"▅",
-		"▆",
-		"▇",
-		"█",
-		"▇",
-		"▆",
-		"▅",
-		"▄",
-		"▃",
-		"▂",
+		"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂",
 	}, 1)
 }
 
 func NewSquareSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		"◰",
-		"◳",
-		"◲",
-		"◱",
-	}, 1)
+	return NewSpinnerContext([]string{"◰", "◳", "◲", "◱"}, 1)
 }
 
 func NewClockSpinnerContext() *SpinnerContext {
-	return NewSpinnerContext([]string{
-		"◴",
-		"◷",
-		"◶",
-		"◵",
-	}, 1)
+	return NewSpinnerContext([]string{"◴", "◷", "◶", "◵"}, 1)
 }
 
 func (s *SpinnerContext) Cycle() string {

@@ -1,4 +1,4 @@
-package base
+package primitive
 
 import (
 	"errors"
@@ -6,14 +6,11 @@ import (
 	"github.com/dmsRosa6/glyph/core"
 	"github.com/dmsRosa6/glyph/framework"
 	"github.com/dmsRosa6/glyph/geom"
+	"github.com/dmsRosa6/glyph/mixin"
 )
 
-// PaletteNode is a grid of independently-colored cells -- BaseNode plus
-// a color matrix instead of a single Style. Bounds are derived from the
-// matrix (W = row length, H = row count), not passed in separately, so
-// the two can never disagree.
 type PaletteNode struct {
-	BaseNode
+	mixin.Node
 	colorMatrix [][]core.Color
 }
 
@@ -34,12 +31,12 @@ func NewPaletteNode(pos *geom.Point, anchor framework.Anchor, colorMatrix [][]co
 
 	bounds := geom.NewBounds(pos.X, pos.Y, w, h)
 
-	bn, err := NewBaseNode(bounds, anchor, *framework.NewTransparentStyle(), layer, source)
+	bn, err := mixin.NewNode(bounds, anchor, *framework.NewTransparentStyle(), layer, source)
 	if err != nil {
 		return nil, err
 	}
 
-	return &PaletteNode{BaseNode: bn, colorMatrix: colorMatrix}, nil
+	return &PaletteNode{Node: bn, colorMatrix: colorMatrix}, nil
 }
 
 func (n *PaletteNode) Draw(buf *core.Buffer, vec geom.Vector) {
@@ -51,10 +48,6 @@ func (n *PaletteNode) Draw(buf *core.Buffer, vec geom.Vector) {
 	}
 }
 
-// SetCell updates a single cell's color and requests a redraw. Returns
-// an error rather than panicking so callers driving this from user
-// input (e.g. a click handler) can no-op on an out-of-range coordinate
-// instead of crashing the app.
 func (n *PaletteNode) SetCell(x, y int, c core.Color) error {
 	if y < 0 || y >= len(n.colorMatrix) || x < 0 || x >= len(n.colorMatrix[y]) {
 		return errors.New("cell out of bounds")

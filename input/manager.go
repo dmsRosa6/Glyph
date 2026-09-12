@@ -11,36 +11,17 @@ import (
 	"github.com/dmsRosa6/glyph/term"
 )
 
-// decodeState tracks how far into a multi-byte escape sequence we are.
 type decodeState int
 
 const (
-	stateNormal    decodeState = iota
-	stateEsc                   // just saw 0x1b, waiting to see if more follows
-	stateCSI                   // saw ESC [, waiting to see what kind of sequence this is
-	stateCSIParams             // accumulating CSI parameter bytes until a terminator
+	stateNormal decodeState = iota
+	stateEsc
+	stateCSI
+	stateCSIParams
 )
 
-// DefaultEventBufferSize is Events()'s buffer capacity when
-// NewManager's bufferSize is left at 0 (or negative). Events beyond
-// this, arriving faster than the consumer drains them, are dropped
-// (see send below) rather than blocking the decode loop -- 16 is
-// plenty of headroom for ordinary typing and clicking, but a
-// drag-heavy app (see examples/mouse-paint-demo, which can easily
-// emit more than 16 MouseDrag events between renderer ticks under
-// OnDemand mode) may want to pass a larger bufferSize explicitly.
-const DefaultEventBufferSize = 32
+const DefaultEventBufferSize = 16
 
-// byteSource is the seam between Manager's decode loop and the actual
-// byte stream it reads from. Production code always gets stdinSource
-// (below), a thin wrapper over term.ReadStdin against the real tty;
-// tests substitute a scripted sequence of bytes/timeouts/errors so
-// every branch of the escape-sequence decoder -- plain keys,
-// Ctrl+letter, arrows, modified arrows, SGR mouse press/drag/wheel,
-// malformed/truncated sequences -- can be exercised without a real tty
-// at all. Before this seam existed, the decoder was fused directly to
-// term.ReadStdin and had zero test coverage despite being genuinely
-// intricate state-machine logic.
 type byteSource interface {
 	Read(buf []byte) (int, error)
 }
@@ -62,9 +43,6 @@ type Manager struct {
 	stopped chan struct{}
 }
 
-// NewManager builds a Manager reading from the real terminal.
-// bufferSize sets Events()'s channel capacity; <= 0 uses
-// DefaultEventBufferSize.
 func NewManager(logger framework.Logger, bufferSize int) (*Manager, error) {
 	if bufferSize <= 0 {
 		bufferSize = DefaultEventBufferSize
@@ -98,14 +76,6 @@ func (m *Manager) Start() error {
 	return nil
 }
 
-// Stop can take up to ~100ms: the read loop only checks m.ctx.Done()
-// between blocking term.ReadStdin calls, and those time out at ~100ms
-// each (VMIN=0/VTIME=1 -- see term.EnableRawMode's doc comment), so in
-// the worst case Stop blocks on <-m.stopped for nearly a full read
-// timeout before the loop notices it should exit. Not a bug -- just
-// worth knowing if you're calling this from a signal handler expecting
-// a near-instant return. (App.Stop layers FaultManager.Stop's own
-// potential wait, on its 1s retry ticker, on top of this.)
 func (m *Manager) Stop() {
 	if m.restore == nil {
 		return
@@ -142,28 +112,6 @@ func (m *Manager) run() {
 			if state == stateEsc {
 				m.send(framework.Event{Key: framework.KeyEsc})
 			}
-			// A sequence that stalls mid-flight on a read timeout --
-			// whether a lone ESC (state == stateEsc, handled above) or
-			// a CSI sequence that got partway through its parameters
-			// (state == stateCSI or stateCSIParams) -- is abandoned
-			// here: state resets to stateNormal UNCONDITIONALLY, not
-			// only for the stateEsc case. An incomplete escape
-			// sequence has no safe single-key interpretation, so it's
-			// dropped rather than replayed as raw KeyRune events, same
-			// convention as an unrecognized sequence below.
-			//
-			// This used to only reset state inside the `if state ==
-			// stateEsc` branch above, leaving state stuck at stateCSI/
-			// stateCSIParams across the timeout despite this comment
-			// already claiming the sequence was abandoned. Concretely:
-			// type ESC [ 1, then pause long enough to time out, then
-			// type A (a plain Up-arrow key) -- without this reset, that
-			// stray 'A' gets fed into handleCSIParams as if it were
-			// still completing the abandoned "ESC [ 1..." sequence,
-			// misreading an ordinary later keypress using stale csiBuf
-			// bytes from a sequence that had already timed out. Caught
-			// by TestTimeoutMidCSIParamsDoesNotLeakIntoNextByte once
-			// the byteSource seam made this decoder testable at all.
 			state = stateNormal
 			continue
 		}
@@ -192,12 +140,6 @@ func (m *Manager) run() {
 	}
 }
 
-// handleCSI decides what KIND of CSI sequence this is from the first
-// byte right after ESC [. Plain, parameter-less sequences (arrow keys,
-// Shift+Tab) resolve immediately. Anything that carries parameters -- a
-// mouse report (starts with '<') or a modified key like Ctrl+Left
-// ("1;5D") -- switches to stateCSIParams to accumulate the
-// variable-length parameter bytes that follow.
 func (m *Manager) handleCSI(ch byte, csiBuf *[]byte) decodeState {
 	switch ch {
 	case 'A':
@@ -213,33 +155,32 @@ func (m *Manager) handleCSI(ch byte, csiBuf *[]byte) decodeState {
 		m.send(framework.Event{Key: framework.KeyLeft})
 		return stateNormal
 	case 'Z':
-		// CSI Z is the fixed, parameter-less xterm sequence for
-		// Shift+Tab -- unlike Ctrl+Left etc. it does NOT go through the
-		// "1;N<letter>" modifier-parameter form below.
 		m.send(framework.Event{Key: framework.KeyTab, Modifiers: framework.ModShift})
 		return stateNormal
+	case 'H':
+		// ESC [ H -- xterm's unmodified Home. Modified Home (e.g.
+		// Shift+Home, "1;2H") starts with a digit and is handled by
+		// the parameterized path below via decodeModifiedKey, exactly
+		// like Ctrl+Left already is.
+		m.send(framework.Event{Key: framework.KeyHome})
+		return stateNormal
+	case 'F':
+		// ESC [ F -- xterm's unmodified End. See 'H' above for the
+		// modified case.
+		m.send(framework.Event{Key: framework.KeyEnd})
+		return stateNormal
 	case '<':
-		// Start of an SGR mouse report: ESC [ < Cb ; Cx ; Cy M/m.
 		*csiBuf = append(*csiBuf, ch)
 		return stateCSIParams
 	default:
 		if ch >= '0' && ch <= '9' {
-			// Start of a parameterized sequence, e.g. "1;5D" for
-			// Ctrl+Left.
 			*csiBuf = append(*csiBuf, ch)
 			return stateCSIParams
 		}
-		// unrecognized escape sequence -- drop it silently, same as the
-		// original decoder's default case.
 		return stateNormal
 	}
 }
 
-// handleCSIParams accumulates parameter bytes (digits, ';') until a
-// terminator. Mouse sequences (buffer starts with '<') terminate on 'M'
-// (press/drag) or 'm' (release); modified-key sequences terminate on
-// the direction letter itself (A/B/C/D), the same alphabet as the
-// unmodified arrow keys in handleCSI.
 func (m *Manager) handleCSIParams(ch byte, csiBuf *[]byte) decodeState {
 	isMouse := len(*csiBuf) > 0 && (*csiBuf)[0] == '<'
 
@@ -250,8 +191,18 @@ func (m *Manager) handleCSIParams(ch byte, csiBuf *[]byte) decodeState {
 
 	if !isMouse {
 		switch ch {
-		case 'A', 'B', 'C', 'D':
-			m.decodeModifiedArrow(string(*csiBuf), ch)
+		case 'A', 'B', 'C', 'D', 'H', 'F':
+			// Modified arrow, or modified Home/End ("1;2H" for
+			// Shift+Home, "1;5F" for Ctrl+End) -- same "1;N<letter>"
+			// shape xterm already uses for Ctrl+Left etc.
+			m.decodeModifiedKey(string(*csiBuf), ch)
+			return stateNormal
+		case '~':
+			// The other family of xterm-ish sequences: a bare numeric
+			// code (optionally followed by ";N" for a modifier),
+			// terminated by '~' instead of a letter -- how Delete,
+			// and vt220/rxvt's own Home/End, arrive on the wire.
+			m.decodeNumericKey(string(*csiBuf))
 			return stateNormal
 		}
 	}
@@ -261,37 +212,13 @@ func (m *Manager) handleCSIParams(ch byte, csiBuf *[]byte) decodeState {
 		return stateCSIParams
 	}
 
-	// Any other byte mid-sequence (an unrecognized terminator, garbage,
-	// a second ESC) abandons this sequence -- dropped silently, same
-	// convention as everywhere else in this decoder.
 	return stateNormal
 }
 
-// decodeMouseSequence parses the "Cb;Cx;Cy" body of an SGR mouse report
-// (the ESC [ < prefix and the M/m terminator are already stripped by
-// the caller) and sends the resulting Event. press is true for a
-// trailing 'M' (button pressed, or held-drag), false for a trailing 'm'
-// (button released).
-//
-// Cb encodes, per the xterm SGR mouse protocol:
-//
-//	bits 0-1: button number (0=left, 1=middle, 2=right)
-//	bit 2 (4):  Shift held
-//	bit 3 (8):  Alt/Meta held
-//	bit 4 (16): Ctrl held
-//	bit 5 (32): motion flag -- set for a drag report (button held while
-//	            moving), NOT set for a plain press/release
-//	bit 6 (64): wheel flag -- when set, bits 0-1 distinguish wheel up
-//	            (0) from wheel down (1) instead of a button number
-//
-// Cx/Cy are 1-indexed terminal columns/rows in the wire protocol; this
-// converts to 0-indexed to match every other coordinate in this
-// codebase (geom.Point, core.Buffer, BaseNode.ComputedPos are all
-// 0-indexed from the top-left).
 func (m *Manager) decodeMouseSequence(body string, press bool) {
 	parts := strings.Split(body, ";")
 	if len(parts) != 3 {
-		return // malformed -- drop silently
+		return
 	}
 	cb, err1 := strconv.Atoi(parts[0])
 	cx, err2 := strconv.Atoi(parts[1])
@@ -318,7 +245,6 @@ func (m *Manager) decodeMouseSequence(body string, press bool) {
 
 	switch {
 	case cb&64 != 0:
-		// Wheel event: bits 0-1 distinguish direction, not a button.
 		ev.MouseButton = framework.MouseButtonNone
 		if cb&3 == 0 {
 			ev.MouseAction = framework.MouseWheelUp
@@ -326,7 +252,6 @@ func (m *Manager) decodeMouseSequence(body string, press bool) {
 			ev.MouseAction = framework.MouseWheelDown
 		}
 	case cb&32 != 0:
-		// Motion flag set alongside a real button: a drag report.
 		ev.MouseButton = framework.MouseButton(cb & 3)
 		ev.MouseAction = framework.MouseDrag
 	default:
@@ -341,16 +266,15 @@ func (m *Manager) decodeMouseSequence(body string, press bool) {
 	m.send(ev)
 }
 
-// decodeModifiedArrow parses the "N" or "N;M" parameter body of a
-// modified arrow-key sequence (e.g. "1;5" before a trailing 'D' for
-// Ctrl+Left) and sends the resulting Event. dir is the terminator byte
-// already seen by the caller (A/B/C/D).
-//
-// The xterm convention always sends a leading "1" as the first
-// parameter for these (a legacy "repeat count" that never actually
-// varies for a plain keypress), followed by ";M" where M-1 is a
-// bitmask: bit0=Shift, bit1=Alt, bit2=Ctrl.
-func (m *Manager) decodeModifiedArrow(body string, dir byte) {
+// decodeModifiedKey parses the "N" or "N;M" parameter body of a
+// modified xterm CSI sequence terminated by a letter (e.g. "1;5" before
+// a trailing 'D' for Ctrl+Left, or "1;2" before 'H' for Shift+Home) and
+// sends the resulting Event. dir is the terminator byte already seen by
+// the caller. Was decodeModifiedArrow -- renamed and extended to also
+// cover Home/End ('H'/'F') once those needed the same "1;N<letter>"
+// modifier-parameter handling arrows already had; the parsing itself
+// didn't need to change, only the letter-to-Key mapping below.
+func (m *Manager) decodeModifiedKey(body string, dir byte) {
 	var key framework.Key
 	switch dir {
 	case 'A':
@@ -361,6 +285,10 @@ func (m *Manager) decodeModifiedArrow(body string, dir byte) {
 		key = framework.KeyRight
 	case 'D':
 		key = framework.KeyLeft
+	case 'H':
+		key = framework.KeyHome
+	case 'F':
+		key = framework.KeyEnd
 	}
 
 	ev := framework.Event{Key: key}
@@ -384,32 +312,73 @@ func (m *Manager) decodeModifiedArrow(body string, dir byte) {
 	m.send(ev)
 }
 
-// handleNormal decodes a single byte outside of any escape sequence.
-// 0x01-0x1A is the C0 control range that plain Ctrl+<letter> arrives as
-// on the wire -- a terminal gives no way to distinguish "the user
-// pressed Ctrl+H" from "byte 0x08 arrived," so this range IS the
-// modifier information for these keys, decoded directly rather than
-// through an escape sequence.
-//
-// A few values in that range already had dedicated, load-bearing
-// meanings before Modifiers existed -- 0x03 (KeyCtrlC), 0x09 (KeyTab),
-// 0x0D/0x0A (KeyEnter) -- and keep those exact meanings unchanged
-// rather than being reinterpreted as Ctrl+C/Ctrl+I/Ctrl+M now that a
-// Modifiers field exists; see event.go's doc comment on why KeyCtrlC in
-// particular stays a dedicated constant. Every OTHER byte in the range
-// (previously falling through to the default case as an unprintable
-// KeyRune -- e.g. Ctrl+H arriving as Rune(0x08)) now decodes as the
-// actual letter with ModCtrl set instead.
+// decodeNumericKey parses the "N" or "N;M" parameter body of a
+// '~'-terminated CSI sequence (ESC [ N ~, optionally ESC [ N ; M ~ for
+// a modifier) -- the other shape terminal Delete/Home/End/etc. arrive
+// in, distinct from decodeModifiedKey's letter-terminated shape above.
+// Terminal convention for which numeric code means what isn't fully
+// standardized: Delete is universally 3, but Home/End show up as
+// either vt220's 1/4 or rxvt's 7/8 depending on the terminal, so both
+// pairs are accepted here rather than picking just one and guessing
+// wrong for the other family. Any other code (2 Insert, 5/6 Page Up/
+// Down, anything unrecognized) is silently dropped -- same convention
+// as every other unrecognized sequence in this decoder -- since this
+// codebase has no Key constant for them yet.
+func (m *Manager) decodeNumericKey(body string) {
+	parts := strings.Split(body, ";")
+
+	var key framework.Key
+	switch parts[0] {
+	case "3":
+		key = framework.KeyDelete
+	case "1", "7":
+		key = framework.KeyHome
+	case "4", "8":
+		key = framework.KeyEnd
+	default:
+		return // unrecognized numeric code -- drop, don't guess
+	}
+
+	ev := framework.Event{Key: key}
+
+	if len(parts) == 2 {
+		if mod, err := strconv.Atoi(parts[1]); err == nil && mod > 0 {
+			bits := mod - 1
+			if bits&1 != 0 {
+				ev.Modifiers |= framework.ModShift
+			}
+			if bits&2 != 0 {
+				ev.Modifiers |= framework.ModAlt
+			}
+			if bits&4 != 0 {
+				ev.Modifiers |= framework.ModCtrl
+			}
+		}
+	}
+
+	m.send(ev)
+}
+
 func (m *Manager) handleNormal(ch byte) decodeState {
 	switch ch {
-	case 0x1b: // ESC
+	case 0x1b:
 		return stateEsc
-	case 0x03: // Ctrl+C
+	case 0x03:
 		m.send(framework.Event{Key: framework.KeyCtrlC})
 	case '\r', '\n':
 		m.send(framework.Event{Key: framework.KeyEnter})
 	case '\t':
 		m.send(framework.Event{Key: framework.KeyTab})
+	case 0x7f:
+		// DEL. This is what the Backspace key actually sends on
+		// virtually every modern terminal (xterm, the Linux console,
+		// macOS Terminal, ...) -- not 0x08, which this codebase
+		// already reserves for Ctrl+H via the C0 range below. A
+		// terminal old/unusual enough to send 0x08 for Backspace
+		// instead would decode as Ctrl+H here, same as it always has;
+		// that's a real ambiguity in the wire protocol itself, not
+		// something this decoder can resolve from the byte alone.
+		m.send(framework.Event{Key: framework.KeyBackspace})
 	default:
 		if ch >= 0x01 && ch <= 0x1a {
 			m.send(framework.Event{
@@ -424,17 +393,6 @@ func (m *Manager) handleNormal(ch byte) decodeState {
 	return stateNormal
 }
 
-// send is non-blocking: a full Events() buffer means the consumer
-// (App.Run's dispatch loop) isn't keeping up, and blocking the decode
-// loop to wait for it would just stall reading the terminal too. A
-// drop used to be completely silent -- no log, no counter -- which
-// made a fast MouseDrag burst outrunning a 16-slot buffer under
-// OnDemand render mode (see examples/mouse-paint-demo) look like
-// unexplained jerky/broken painting with no diagnostic trail. Now it's
-// a Debug-level log naming what got dropped and the buffer's capacity,
-// cheap enough to leave in thanks to Logger's own severity-gated,
-// non-blocking send (see framework.Logger's doc comment) -- this can't
-// itself become a second thing stalling the decode loop.
 func (m *Manager) send(e framework.Event) {
 	select {
 	case m.events <- e:

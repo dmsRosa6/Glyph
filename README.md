@@ -64,9 +64,21 @@ func main() {
 
 See the `examples/` directory for fuller examples: bordered boxes and
 out-of-bounds clipping, a drillable focusable widget tree, stacked lists,
-a tile grid, a spinner, and a self-updating clock window.
+a tile grid, a spinner, mouse painting, tab navigation between windows,
+and a self-updating clock window.
 
 ## Widgets
+
+Split across two packages by composition shape, not by "how simple it
+looks": `primitive` holds leaves (nothing implements `Composable`/
+`ChildrenLister`), `widgets` holds composites (things that hold
+children). A self-animating `Spinner` and a focusable `Button` are just
+as much a primitive as a plain `Rect` in this sense — see `devguide.md`
+for the full rationale, including the third composition shape
+(`mixin.FocusableWrapper`) that `Window`/`FocusableBox`/`ListRow` are
+all built on.
+
+### `primitive` — leaves
 
 - **Rect** — a filled rectangle of a single character, with optional
   clipping.
@@ -76,24 +88,8 @@ a tile grid, a spinner, and a self-updating clock window.
 - **Border** — draws a frame (corners, edges) around a bounds. Comes with
   a few built-in styles (single line, double line, rounded) and supports
   custom ones.
-- **Bordered** — wraps any single widget with a `Border`. This is the
-  general "frame around something" primitive.
-- **Box** — a convenience constructor for the common case: a bordered,
-  padded container that holds freely-positioned children.
-- **Panel** — a styled, filled rectangle you can add children to. What
-  `Bordered` puts inside its border; also usable directly for content
-  areas that don't need a frame.
 - **Button** — a focusable widget with a bound action and its own
   rendering (a filled, centered label).
-- **FocusableBox** — a bordered, padded, focusable container. Supports a
-  distinct style while focused, and can hold further focusable children
-  that `FocusManager.Enter()` can drill into.
-- **List** — a container with a stacked layout, plus a convenience
-  method for adding bordered, padded rows.
-- **Window** — a `Box` with a title overlaid on the border itself.
-- **TileGrid** — a grid of independently-colored, single-character cells
-  (color swatches, heatmaps, minimaps), with children still supported on
-  top.
 - **Spinner** — an animated loading indicator; ticks itself on a
   background goroutine and requests a redraw each frame. Several
   built-in cycles (slash, dots, pulse, braille, blocks, clock, and more).
@@ -101,6 +97,27 @@ a tile grid, a spinner, and a self-updating clock window.
   app; it's also called automatically the moment a Spinner is removed
   from its container (`RemoveChild`), so a removed Spinner doesn't keep
   ticking (and requesting redraws) for the rest of the process's life.
+- **PaletteNode** — a grid of independently-colored cells; backs
+  `widgets.TileGrid` below.
+
+### `widgets` — composites
+
+- **Panel** — a styled, filled rectangle you can add children to. What
+  `Bordered` puts inside its border; also usable directly for content
+  areas that don't need a frame.
+- **Bordered** (built via `NewBox`/`BoxConfig`) — wraps a `Panel` with a
+  `primitive.Border`, inset by border thickness + padding. This is the
+  general "frame around something" composite.
+- **FocusableBox** — a bordered, padded, focusable container. Supports a
+  distinct style while focused, and can hold further focusable children
+  that `FocusManager.Enter()` can drill into.
+- **List** — a container with a stacked layout, plus a convenience
+  method (`AddItem`) for adding bordered, padded rows (`ListRow`).
+- **Window** — a `Bordered` box with a title overlaid on the border
+  itself, plus bring-to-front-on-focus behavior.
+- **TileGrid** — a grid of independently-colored, single-character cells
+  (color swatches, heatmaps, minimaps), with children still supported on
+  top.
 
 ## Render modes
 

@@ -13,36 +13,29 @@ import (
 )
 
 func main() {
-	rm, _ := render.FixedFPSMode(30)
 	a, err := app.NewApp(app.AppConfig{
-		Bg:         core.Transparent,
-		RenderMode: rm,
+		Width:      30,
+		Height:     8,
+		Bg:         core.Black,
+		RenderMode: render.OnDemandMode(),
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	borderCfg := primitive.BorderConfig{
-		BorderStyle: primitive.DoubleLine,
-		Thickness:   1,
-		Style:       framework.Style{Bg: core.Transparent, Fg: core.DarkSlateGray},
-		Layer:       1,
-	}
-	win, err := widgets.NewWindow(geom.NewBounds(1, 1, 15, 5), widgets.WindowConfig{
+	win, err := widgets.NewWindow(geom.NewBounds(1, 1, 26, 5), widgets.WindowConfig{
 		BoxStyle:     framework.Style{Bg: core.DarkSlateGray, Fg: core.White},
-		BorderConfig: borderCfg,
+		BorderConfig: primitive.DefaultBorderConfig(),
 		Title:        "Clock",
-		TitleFg:      core.DarkSlateGray,
-		Anchor:       framework.Anchor{V: framework.Center, H: framework.Center},
+		TitleFg:      core.White,
 	})
 	if err != nil {
 		panic(err)
 	}
 
 	clock, err := primitive.NewText(&geom.Point{X: 1, Y: 1}, primitive.TextConfig{
-		Value:  time.Now().Format("15:04:05"),
-		Fg:     core.White,
-		Anchor: framework.Anchor{V: framework.Center, H: framework.Center},
+		Value: time.Now().Format("15:04:05"),
+		Fg:    core.White,
 	})
 	if err != nil {
 		panic(err)

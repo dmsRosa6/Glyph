@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"github.com/dmsRosa6/glyph/canvas"
@@ -452,7 +453,7 @@ func (a *App) handleEvent(ctx framework.AppContext, ev framework.Event) {
 }
 
 func (a *App) runGlobalAction(ctx framework.AppContext, ev framework.Event, fn AppActionFunc) {
-	reRender, err := fn(ctx, ev)
+	reRender, err := a.invokeAction(ctx, ev, fn)
 	a.logger.Info(fmt.Sprintf("App event of key '%s' triggered. Re-render is '%t'", ev.Key.String(), reRender))
 	if err != nil {
 		a.logger.Warning(err)
@@ -460,6 +461,26 @@ func (a *App) runGlobalAction(ctx framework.AppContext, ev framework.Event, fn A
 	if reRender {
 		a.renderer.RequestRedraw()
 	}
+}
+
+// invokeAction calls fn with a recover in place -- the App-level
+// equivalent of mixin.FocusBehavior's own invoke (see its doc comment
+// for the full reasoning: fn is caller-supplied via BindKey/BindMouse,
+// a panic in any goroutine kills the whole process regardless of which
+// one raised it, and recovering here plus reporting Fatal reuses the
+// same "promotes to a clean SIGTERM shutdown" machinery
+// fault.FaultManager already provides). This is a separate dispatch
+// path from FocusBehavior's -- App-level global bindings, not
+// per-widget ones -- so it needs its own guard rather than relying on
+// the other one to somehow cover it.
+func (a *App) invokeAction(ctx framework.AppContext, ev framework.Event, fn AppActionFunc) (redraw bool, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			a.logger.Fatal(fmt.Errorf("recovered panic in bound action for key %q: %v\n%s", ev.Key.String(), r, debug.Stack()))
+			redraw, err = false, nil
+		}
+	}()
+	return fn(ctx, ev)
 }
 
 // Stop can take over a second in the worst case, not milliseconds --

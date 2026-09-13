@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/dmsRosa6/glyph/canvas"
@@ -134,10 +135,41 @@ func (r *Renderer) RequestRedraw() {
 }
 
 func (r *Renderer) render(c *canvas.Canvas) {
-	c.Compose()
+	if !r.safeCompose(c) {
+		// Panic already recovered and reported as Fatal inside
+		// safeCompose -- that promotes to a clean SIGTERM shutdown
+		// elsewhere in the stack (fault.FaultManager -> App.Stop()),
+		// so this frame is simply skipped rather than Flush-ing a
+		// buffer that may have been left half-composed.
+		return
+	}
 
 	r.Flush(c.Buf)
 	r.out.Flush()
+}
+
+// safeCompose runs c.Compose() -- which walks the ENTIRE widget tree's
+// own Draw methods, framework-provided and user-defined alike -- with
+// a recover in place, reporting any panic as Fatal rather than letting
+// it crash this goroutine and, per Go's per-process panic semantics,
+// therefore the WHOLE process mid-raw-mode: a panic on this specific
+// goroutine bypasses every OTHER goroutine's deferred cleanup,
+// including App.Run's, so nothing would ever get a chance to restore
+// the terminal. Reuses the same Fatal-promotes-to-clean-shutdown
+// machinery fault.FaultManager already provides -- see
+// mixin.FocusBehavior's own invoke for the identical pattern applied
+// to input dispatch instead of rendering. Returns false if a panic was
+// recovered, so render() knows not to Flush a possibly half-composed
+// buffer.
+func (r *Renderer) safeCompose(c *canvas.Canvas) (ok bool) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			r.logger.Fatal(fmt.Errorf("recovered panic while drawing: %v\n%s", rec, debug.Stack()))
+			ok = false
+		}
+	}()
+	c.Compose()
+	return true
 }
 
 func (r *Renderer) restore() {

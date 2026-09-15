@@ -11,12 +11,18 @@ import (
 	"github.com/dmsRosa6/glyph/datastructs"
 )
 
+// Config controls how a FaultManager persists logs. The zero value is
+// safe: LogLevel defaults to core.Warning, LogDir defaults to "logs",
+// DisableFileLog false keeps writing to disk.
 type Config struct {
 	LogLevel       core.Severity
 	LogDir         string
 	DisableFileLog bool
 }
 
+// FaultManager is a log sink (buffer, write to file, retry on
+// failure) that also promotes any Fatal-severity log to a SIGTERM
+// shutdown signal.
 type FaultManager struct {
 	appSignal chan<- core.AppSignal
 	log       chan core.AppLog
@@ -24,12 +30,16 @@ type FaultManager struct {
 	cancel    context.CancelFunc
 	ctx       context.Context
 	done      chan struct{}
-	file      *os.File
+	file      *os.File // nil when Config.DisableFileLog is set
 }
 
 const logFileName string = "log_%s.txt"
 const basePath string = "logs"
 
+// NewFaultManager does its fallible setup (create log dir, open this
+// run's file) synchronously here rather than inside the goroutine
+// Start() launches, so a bad log path is a normal returned error, not
+// a panic in a detached goroutine.
 func NewFaultManager(cfg Config, signals chan core.AppSignal) (*FaultManager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -117,6 +127,8 @@ func (f *FaultManager) run() {
 		}
 	}
 
+	// handle is one queued log's full journey: severity filter, format,
+	// write-or-queue, and -- for Fatal -- promote to a SIGTERM.
 	handle := func(log core.AppLog) {
 		if log.Severity() < f.logLevel {
 			return
@@ -159,6 +171,8 @@ func (f *FaultManager) run() {
 			}
 
 		case <-f.ctx.Done():
+			// Drain whatever's still queued before exiting, so
+			// App.Stop()'s own shutdown logs still get written.
 		drain:
 			for {
 				select {

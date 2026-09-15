@@ -18,115 +18,46 @@ type AppActionFunc func(ctx framework.AppContext, ev framework.Event) (redraw bo
 
 type AppConfig struct {
 	Width, Height int
-	// Fg, Bg follow the same convention as framework.Style everywhere
-	// else in this codebase: core.Transparent means "let NewCanvas pick
-	// its own default (White bg / Black fg)," and the Go zero value
-	// (core.Color{}) reads as opaque Black, NOT as Transparent -- see
-	// framework.StyleBg's doc comment for the same gotcha already
-	// documented there. AppConfig{} with Fg/Bg left unset therefore
-	// gets a black canvas, same as a bare framework.Style{} gets a
-	// black fill; pass core.Transparent explicitly for NewCanvas's own
-	// substituted defaults instead. These used to be *core.Color, with
-	// NewApp nil-checking each one to fall back to core.Transparent --
-	// a second, App-specific way of spelling the exact same "unset"
-	// sentinel core.Color already has, for no real benefit.
+	// Fg, Bg: core.Transparent means "let NewCanvas pick its own default
+	// (white bg / black fg)". The zero value core.Color{} is opaque
+	// black, not transparent -- see framework.StyleBg.
 	Fg, Bg     core.Color
 	RenderMode render.RenderMode
-	// AppEvents is keyed on framework.Binding (Key + Modifiers), not a
-	// bare Key -- this is what lets Tab and Shift+Tab (or Ctrl+Right and
-	// plain Right, etc.) carry different handlers instead of one
-	// handler having to inspect ev.Modifiers itself. NavActions()
-	// returns a ready-to-merge set covering standard Tab/Shift+Tab/
-	// Enter/Esc navigation; nothing here is auto-included by NewApp
-	// (except Ctrl+C, always seeded separately below) -- merge
-	// NavActions() in explicitly if you want it.
+	// AppEvents is keyed on framework.Binding (Key + Modifiers), so e.g.
+	// Tab and Shift+Tab can have different handlers. Ctrl+C is always
+	// seeded separately below regardless of what's passed here.
+	// NavActions() returns a ready-to-merge Tab/Shift+Tab/Enter/Esc set;
+	// nothing here is included automatically.
 	AppEvents map[framework.Binding]AppActionFunc
-	// LogLevel's zero value is core.Warning, not core.Debug -- see
-	// core.Severity's doc comment. Leaving this unset gives a sane
-	// default (warnings and fatals only) instead of logging every
-	// keystroke and mouse event forever.
+	// LogLevel defaults to core.Warning (its zero value), not Debug.
 	LogLevel core.Severity
-	// LogDir overrides where per-run log files are written (default:
-	// "logs", relative to the process's working directory). Ignored if
+	// LogDir overrides the log directory (default "logs"). Ignored if
 	// DisableFileLog is true.
 	LogDir string
-	// DisableFileLog skips file logging entirely -- no directory or
-	// file is created. Fatal-severity logs still trigger a SIGTERM
-	// shutdown regardless; this only turns off persisting log lines to
-	// disk, for a host app embedding glyph that doesn't want its cwd
-	// littered with logs/log_*.txt files unconditionally.
+	// DisableFileLog skips file logging entirely.
 	DisableFileLog bool
-	// MouseEnabled opts into terminal mouse-click/drag reporting (see
-	// input.Manager's decoder and render.Renderer.Init). Off by default
-	// -- enabling it changes what the terminal does with the mouse
-	// system-wide for the duration of the app (e.g. ordinary text
-	// selection by dragging stops working), which isn't something every
-	// app wants turned on unconditionally.
+	// MouseEnabled turns on terminal mouse reporting. Off by default.
 	MouseEnabled bool
-	// InputBufferSize overrides the input event channel's buffer
-	// capacity (default input.DefaultEventBufferSize, 16). A drag-heavy
-	// app (see examples/mouse-paint-demo) can easily emit more
-	// MouseDrag events between renderer ticks than the default holds,
-	// especially under OnDemand render mode where the consumer only
-	// wakes on RequestRedraw -- events beyond capacity are dropped
-	// (logged at Debug, see input.Manager.send) rather than blocking
-	// the decode loop, so bumping this is a real tuning knob for that
-	// case, not just a cosmetic one.
+	// InputBufferSize overrides the input event channel's capacity
+	// (default input.DefaultEventBufferSize).
 	InputBufferSize int
 }
 
 type App struct {
 	Canvas *canvas.Canvas
-	// renderer and input are unexported deliberately: both own a Stop()
-	// that App.Stop() calls in a specific order (close(done), log, THEN
-	// renderer.Stop(), THEN input.Stop()) -- a caller reaching
-	// a.Renderer.Stop() or a.Input.Stop() directly could skip that
-	// ordering entirely, or stop only one of the two and leave the app
-	// half-shut-down with nothing to catch it. Canvas has no such
-	// lifecycle method (see canvas.go -- AddShape/Shapes/SetContext/etc,
-	// no Stop), so it stays exported: every example's
-	// a.Canvas.AddShape(...) is the normal, everyday way to build a UI,
-	// not a hazard.
+
 	renderer *render.Renderer
 	input    *input.Manager
 	focus    *input.FocusManager
-	// bindingsMu guards appEvents and mouseHandler together. Both are
-	// runtime-rebindable via the public BindKey/UnbindKey/BindMouse/
-	// UnbindMouse methods, none of which restrict which goroutine calls
-	// them, while Run's dispatch loop reads them on every event and
-	// ctx.IsGlobalKey (below) reads appEvents from whatever goroutine
-	// calls Propagator.Track/PropagateContext (i.e. AddChild, possibly
-	// from a background goroutine -- Spinner already establishes that
-	// as a normal pattern in this framework). mixin.Propagator got a
-	// sync.RWMutex after presumably hitting exactly this kind of real
-	// concurrent-access bug on its own owned slice; this is the same
-	// class of risk, guarded the same way, rather than merely
-	// documented away -- Bind*/Unbind* are low-frequency calls, so the
-	// lock costs nothing that matters. Contrast mixin.Node.ctx,
-	// which takes the OTHER option the same review flagged (an explicit
-	// "when this is safe" doc comment, no lock) precisely because it's
-	// read on the hottest path in the framework -- see its own comment
-	// for why that tradeoff goes the other way there.
-	bindingsMu sync.RWMutex
-	appEvents  map[framework.Binding]AppActionFunc
-	// mouseHandler is the one place a mouse event can go today -- see
-	// BindMouse. There's no per-widget or per-Binding routing for mouse
-	// (that needs hit-testing, deliberately not built -- see
-	// framework.MouseHandler's doc comment), so this is a single global
-	// callback, same shape as AppActionFunc, called for every decoded
-	// mouse event if set.
+
+	// bindingsMu guards appEvents and mouseHandler -- both are
+	// rebindable at runtime from any goroutine via Bind*/Unbind*.
+	bindingsMu   sync.RWMutex
+	appEvents    map[framework.Binding]AppActionFunc
 	mouseHandler AppActionFunc
-	logs         *fault.FaultManager
-	// logger wraps logs.Logs() through the same framework.Logger every
-	// widget uses (see framework/logger.go's doc comment for why this
-	// replaced raw `a.logs.Logs() <- *core.NewXAppLog(...)` sends at
-	// every call site in this file) -- one logging convention across
-	// the whole codebase, not two.
-	logger framework.Logger
-	// logLevel is kept alongside logger (rather than only inside it)
-	// because framework.AppContext.LogLevel -- populated in Run() below
-	// -- needs a plain core.Severity to hand every widget's own Logger,
-	// not something baked unexported into this one.
+
+	logs       *fault.FaultManager
+	logger     framework.Logger
 	logLevel   core.Severity
 	appSignals chan core.AppSignal
 	nodes      *framework.Registry
@@ -135,7 +66,6 @@ type App struct {
 }
 
 func NewApp(cfg AppConfig) (*App, error) {
-
 	appSignals := make(chan core.AppSignal, 10)
 
 	logs, err := fault.NewFaultManager(fault.Config{
@@ -169,16 +99,9 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, fmt.Errorf("failed to create input manager: %v", err)
 	}
 
-	// Ctrl+C is the one binding every app gets unconditionally -- raw
-	// mode (term.SafeRawMode, via Input.Start) disables ISIG, so the
-	// terminal's own SIGINT never fires; without this, a keyboard-only
-	// user would have zero way to exit. It's seeded here, then anything
-	// in cfg.AppEvents is layered on top -- so a caller who explicitly
-	// wants to redefine Ctrl+C still can, but simply not mentioning it
-	// (the common case: animations, on-demand widgets, anything that
-	// isn't building nav) costs nothing and needs no boilerplate.
-	// Tab/Enter/Esc are NOT included here -- those stay fully opt-in via
-	// NavActions(), merged in only by apps that actually want them.
+	// Ctrl+C always quits -- raw mode disables ISIG, so without this a
+	// keyboard-only user has no way to exit. cfg.AppEvents layers on
+	// top and can still redefine it.
 	appEvents := map[framework.Binding]AppActionFunc{
 		{Key: framework.KeyCtrlC}: QuitAction(),
 	}
@@ -211,17 +134,12 @@ func QuitAction() AppActionFunc {
 	}
 }
 
-// BindKey binds fn to k with no modifiers (Binding{Key: k, Modifiers:
-// framework.ModNone}). Use BindKeyMod for a specific modifier
-// combination -- e.g. BindKeyMod(KeyTab, framework.ModShift, prevFn)
-// alongside a plain BindKey(KeyTab, nextFn) for independent Tab /
-// Shift+Tab behavior.
+// BindKey binds fn to k with no modifiers. Use BindKeyMod for a
+// specific modifier combination.
 func (a *App) BindKey(k framework.Key, fn AppActionFunc) {
 	a.BindKeyMod(k, framework.ModNone, fn)
 }
 
-// BindKeyMod binds fn to an exact (k, mods) combination. Exact match
-// only -- see framework.Binding's doc comment.
 func (a *App) BindKeyMod(k framework.Key, mods framework.Modifier, fn AppActionFunc) {
 	a.bindingsMu.Lock()
 	defer a.bindingsMu.Unlock()
@@ -235,17 +153,9 @@ func (a *App) UnbindKey(k framework.Key) {
 	a.UnbindKeyMod(k, framework.ModNone)
 }
 
-// BindMouse sets the single handler that receives every decoded mouse
-// event (press/release/drag/wheel -- see framework.MouseAction). There's
-// no per-widget or per-button routing here, only one global handler at
-// a time -- calling BindMouse again replaces the previous one. This
-// exists because there was otherwise NO way for application code to
-// receive a mouse event at all: App.Run's dispatch loop only logs
-// mouse events, deliberately never routing them through the Key-indexed
-// appEvents/per-widget maps (see the dispatch loop's own comment for
-// why). Doing real per-widget mouse dispatch needs hit-testing, which
-// remains an open, separate design decision -- see
-// framework.MouseHandler.
+// BindMouse sets the single handler for every decoded mouse event.
+// There's no per-widget mouse routing (needs hit-testing, not built
+// yet) -- this is the only way application code receives mouse input.
 func (a *App) BindMouse(fn AppActionFunc) {
 	a.bindingsMu.Lock()
 	defer a.bindingsMu.Unlock()
@@ -264,11 +174,6 @@ func (a *App) UnbindKeyMod(k framework.Key, mods framework.Modifier) {
 	delete(a.appEvents, framework.Binding{Key: k, Modifiers: mods})
 }
 
-// globalAction looks up binding b's global handler, if any, guarded by
-// bindingsMu -- the one place appEvents is read from, so Run's dispatch
-// loop and ctx.IsGlobalKey (see Run below) can't race with BindKey/
-// UnbindKey being called from another goroutine while a lookup is in
-// flight.
 func (a *App) globalAction(b framework.Binding) (AppActionFunc, bool) {
 	a.bindingsMu.RLock()
 	defer a.bindingsMu.RUnlock()
@@ -276,28 +181,15 @@ func (a *App) globalAction(b framework.Binding) (AppActionFunc, bool) {
 	return fn, ok
 }
 
-// currentMouseHandler reads mouseHandler under bindingsMu -- same
-// reasoning as globalAction, for the other half of what that mutex
-// guards.
 func (a *App) currentMouseHandler() AppActionFunc {
 	a.bindingsMu.RLock()
 	defer a.bindingsMu.RUnlock()
 	return a.mouseHandler
 }
 
-// NavActions returns a ready-to-merge set of standard focus-navigation
-// bindings: Tab/Shift+Tab cycle focus forward/backward, Enter drills
-// into a focused FocusContainer, Esc drills back out. None of this is
-// auto-included by NewApp -- an app that wants it merges it in
-// explicitly:
-//
-//	app.NewApp(app.AppConfig{AppEvents: app.NavActions()})
-//
-// or alongside other bindings:
-//
-//	events := app.NavActions()
-//	events[framework.Binding{Key: framework.KeyCtrlC}] = myQuitHandler
-//	app.NewApp(app.AppConfig{AppEvents: events})
+// NavActions returns standard focus-navigation bindings: Tab/Shift+Tab
+// cycle focus, Enter drills into a focused FocusContainer, Esc drills
+// back out. Merge into AppConfig.AppEvents explicitly to use it.
 func NavActions() map[framework.Binding]AppActionFunc {
 	return map[framework.Binding]AppActionFunc{
 		{Key: framework.KeyTab}: func(ctx framework.AppContext, ev framework.Event) (bool, error) {
@@ -343,8 +235,8 @@ func (a *App) Run() {
 
 	if err := a.input.Start(); err != nil {
 		a.logger.Warning(fmt.Errorf("failed to start input manager: %w", err))
-		a.renderer.Stop() // otherwise the terminal stays corrupted and the render goroutine leaks
-		a.logs.Stop()     // otherwise FaultManager's goroutine and open log file leak for the rest of the process's life
+		a.renderer.Stop()
+		a.logs.Stop()
 		return
 	}
 
@@ -371,47 +263,13 @@ func (a *App) Run() {
 	}
 }
 
-// handleEvent applies App's dispatch rules to one input event: mouse
-// events go to the single global mouseHandler if bound; key events
-// split on framework.IsStructuralKey into global-first (Ctrl+C/Enter/
-// Tab/Esc) versus widget-first (everything else) dispatch -- see the
-// devguide's "app" section for the full rationale. Extracted out of
-// Run's select loop into its own method so it can be exercised
-// directly in tests, with a synthetic focused widget and synthetic
-// bindings, without needing a real terminal/input.Manager at all.
+// handleEvent dispatches one input event. Mouse events go to the
+// global mouse handler if bound. Key events split on
+// framework.IsStructuralKey: structural keys (Ctrl+C/Enter/Tab/Esc)
+// dispatch global-first, everything else dispatches widget-first with
+// global fallback -- see devguide.md's "app" section for why.
 func (a *App) handleEvent(ctx framework.AppContext, ev framework.Event) {
 	if ev.Kind == framework.EventKindMouse {
-		// Mouse decoding is real (input.Manager parses actual
-		// SGR mouse escape sequences into MouseButton/
-		// MouseAction/MouseX/MouseY). What's still NOT built is
-		// per-widget dispatch (hit-testing: mapping MouseX/
-		// MouseY to whichever Drawable's ABSOLUTE screen bounds
-		// contain it) -- no part of this tree currently tracks
-		// that (mixin.Node only knows its position relative to
-		// its own parent), and it's left as an open, separate
-		// design decision rather than guessed at here -- see
-		// framework.MouseHandler's doc comment.
-		//
-		// mouseHandler (see BindMouse) is the one place a
-		// mouse event can go in the meantime: a single global
-		// callback, not per-widget or per-Binding routing.
-		//
-		// Deliberately checked and handled BEFORE any of the
-		// Key-indexed branches below: a mouse Event's Key field
-		// sits at its zero value (KeyRune), and both the
-		// per-widget actions map (FocusableNode/FocusBehavior)
-		// and a.appEvents are indexed by Key -- without this
-		// early return, every mouse click would be silently
-		// indistinguishable from a KeyRune keypress with Rune 0
-		// to any widget or global binding on KeyRune.
-		//
-		// Debug, not Info, and guarded by Enabled(core.Debug)
-		// before the fmt.Sprintf runs at all: this fires on
-		// EVERY decoded mouse event (including every single
-		// MouseDrag sample of an ordinary click-drag), so at
-		// the default LogLevel it should cost nothing beyond
-		// one cheap comparison, not an allocation + a channel
-		// send it's just going to filter out downstream anyway.
 		if a.logger.Enabled(core.Debug) {
 			a.logger.Debug(fmt.Sprintf("Mouse %s at (%d,%d)", ev.MouseAction.String(), ev.MouseX, ev.MouseY))
 		}
@@ -421,8 +279,6 @@ func (a *App) handleEvent(ctx framework.AppContext, ev framework.Event) {
 		return
 	}
 
-	// Same Debug + Enabled-guard reasoning as the mouse branch
-	// above -- this fires on every keystroke.
 	if a.logger.Enabled(core.Debug) {
 		a.logger.Debug(fmt.Sprintf("Key '%s' pressed", ev.Key.String()))
 	}
@@ -430,7 +286,6 @@ func (a *App) handleEvent(ctx framework.AppContext, ev framework.Event) {
 	binding := framework.Binding{Key: ev.Key, Modifiers: ev.Modifiers}
 
 	if framework.IsStructuralKey(ev.Key) {
-		// Global-first, unconditionally, for Ctrl+C/Enter/Tab/Esc.
 		if fn, bound := a.globalAction(binding); bound {
 			a.runGlobalAction(ctx, ev, fn)
 			return
@@ -441,7 +296,6 @@ func (a *App) handleEvent(ctx framework.AppContext, ev framework.Event) {
 		return
 	}
 
-	// Every other key: widget-first, global as fallback.
 	if f := a.focus.Current(); f != nil {
 		if handled, _ := f.HandleInput(ev); handled {
 			return
@@ -463,16 +317,10 @@ func (a *App) runGlobalAction(ctx framework.AppContext, ev framework.Event, fn A
 	}
 }
 
-// invokeAction calls fn with a recover in place -- the App-level
-// equivalent of mixin.FocusBehavior's own invoke (see its doc comment
-// for the full reasoning: fn is caller-supplied via BindKey/BindMouse,
-// a panic in any goroutine kills the whole process regardless of which
-// one raised it, and recovering here plus reporting Fatal reuses the
-// same "promotes to a clean SIGTERM shutdown" machinery
-// fault.FaultManager already provides). This is a separate dispatch
-// path from FocusBehavior's -- App-level global bindings, not
-// per-widget ones -- so it needs its own guard rather than relying on
-// the other one to somehow cover it.
+// invokeAction calls fn with a recover in place: a panic in a
+// caller-supplied handler would otherwise crash the whole process
+// mid-raw-mode. Recovered panics are logged as Fatal, which
+// fault.FaultManager promotes to a clean shutdown.
 func (a *App) invokeAction(ctx framework.AppContext, ev framework.Event, fn AppActionFunc) (redraw bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -483,13 +331,9 @@ func (a *App) invokeAction(ctx framework.AppContext, ev framework.Event, fn AppA
 	return fn(ctx, ev)
 }
 
-// Stop can take over a second in the worst case, not milliseconds --
-// worth knowing if something calls this from a signal handler expecting
-// a near-instant exit. Three waits stack up serially, not concurrently:
-// a.input.Stop() alone can take ~100ms (see input.Manager.Stop's doc
-// comment), and a.logs.Stop() can separately wait on FaultManager's 1s
-// retry ticker if a log write was mid-retry. Nothing here is wrong,
-// just not instant.
+// Stop can take over a second in the worst case (input.Manager.Stop
+// alone can take ~100ms; FaultManager.Stop can wait on a 1s retry
+// ticker). Not instant, but nothing here is wrong.
 func (a *App) Stop() {
 	a.stopOnce.Do(func() {
 		close(a.done)

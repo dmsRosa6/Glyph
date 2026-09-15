@@ -17,21 +17,21 @@ type Container struct {
 	mixin.Propagator
 	layout framework.LayoutPolicy
 
+	// fitMu guards fitDirty/warned. Recomputing the fit/bounds check
+	// every frame for every child would be O(n^2) allocation work for
+	// a result that's static until an add/remove/resize -- fitDirty
+	// gates that.
 	fitMu    sync.Mutex
 	fitDirty bool
 	warned   map[framework.Drawable]struct{}
 
-	// scrollY is this container's vertical scroll offset in cells,
-	// applied ONLY to where children get drawn -- see ScrollY's own
-	// doc comment for why that's a different thing from moving the
-	// container's own on-screen position. Zero by default, so every
-	// existing container is completely unaffected unless something
-	// explicitly calls SetScrollY. Read every Draw call on the render
-	// goroutine, written from whatever goroutine an input handler runs
-	// on -- same concurrent-access shape as mixin.Node's own `layer`
-	// field, given the identical plain-atomic-int64 treatment for the
-	// identical reason (a full RWMutex costs more than a single int
-	// swap needs to, on a genuinely hot path).
+	// scrollY is a vertical scroll offset in cells, applied only to
+	// where children are drawn -- the clip pushed in Draw stays
+	// anchored to this container's own screen position regardless.
+	// Zero by default; widgets.List's Scrollable mode is the only
+	// current consumer. Plain atomic (not a mutex), same reasoning as
+	// mixin.Node's layer field: read every Draw call, written from an
+	// input-handling goroutine.
 	scrollY int64
 }
 
@@ -79,13 +79,9 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 	buf.PushClip(v.X, v.Y, frame.W, frame.H)
 	defer buf.PopClip()
 
-	// drawVec is where each child's OWN ComputedPos gets added on top
-	// of -- deliberately a SEPARATE vector from v above, which the
-	// PushClip call already used: scrolling has to shift what content
-	// lands inside this container's fixed on-screen rectangle without
-	// moving that rectangle itself, or ScrollY would just be panning
-	// the whole container around the screen instead of scrolling its
-	// content within a fixed viewport.
+	// drawVec is separate from v: scrolling shifts what content lands
+	// inside this container's fixed viewport without moving the
+	// viewport (the clip above) itself.
 	drawVec := geom.Vector{X: v.X, Y: v.Y - int(atomic.LoadInt64(&c.scrollY))}
 
 	for _, child := range children {
@@ -93,22 +89,8 @@ func (c *Container) Draw(buf *core.Buffer, vec geom.Vector) {
 	}
 }
 
-// ScrollY is this container's vertical scroll offset in cells. It is a
-// mechanism, not a policy: Container has no opinion about whether, when,
-// or how far to scroll -- widgets.List (the first, and so far only,
-// consumer) is what decides that, by calling SetScrollY from its own
-// auto-follow-focus logic. Nothing here clamps the value to any
-// "valid" range either; a caller driving this is expected to do its
-// own clamping against whatever it considers valid (List does, in
-// setClampedScroll).
-func (c *Container) ScrollY() int {
-	return int(atomic.LoadInt64(&c.scrollY))
-}
-
-func (c *Container) SetScrollY(y int) {
-	atomic.StoreInt64(&c.scrollY, int64(y))
-}
-
+// refreshFitWarnings recomputes offending children and logs anything
+// newly offending, but only when fitDirty is set.
 func (c *Container) refreshFitWarnings(children []framework.Drawable, frame geom.Bounds, skipped []framework.Drawable) {
 	c.fitMu.Lock()
 	dirty := c.fitDirty
@@ -198,4 +180,15 @@ func (c *Container) SetParentStyle(s *framework.Style) {
 func (c *Container) SetContext(ctx framework.AppContext) {
 	c.Node.SetContext(ctx)
 	c.Propagator.PropagateContext(ctx)
+}
+
+// ScrollY/SetScrollY are a mechanism, not a policy: Container has no
+// opinion about whether or how far to scroll. Nothing here clamps the
+// value -- the caller (widgets.List) does its own clamping.
+func (c *Container) ScrollY() int {
+	return int(atomic.LoadInt64(&c.scrollY))
+}
+
+func (c *Container) SetScrollY(y int) {
+	atomic.StoreInt64(&c.scrollY, int64(y))
 }

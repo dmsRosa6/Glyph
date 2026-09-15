@@ -30,19 +30,6 @@ const (
 	KeyEsc
 	KeyTab
 	KeyCtrlC
-	// KeyBackspace, KeyDelete, KeyHome, KeyEnd were added after the
-	// original arrow-key set above -- appended at the end rather than
-	// interleaved, so the existing constants keep their numeric values
-	// (nothing in this codebase persists a Key across a binary
-	// boundary today, but there's no reason to reshuffle values that
-	// don't need to move). See input.Manager's decoder for the actual
-	// wire sequences each of these maps from -- terminal conventions
-	// for Home/End/Delete vary (xterm vs vt220 vs rxvt), so the
-	// decoder accepts more than one sequence per key; Backspace is the
-	// single 0x7F (DEL) byte virtually every modern terminal sends for
-	// the Backspace key (as opposed to 0x08, which this codebase
-	// already reserves for Ctrl+H -- see handleNormal's own doc
-	// comment on the C0 control range).
 	KeyBackspace
 	KeyDelete
 	KeyHome

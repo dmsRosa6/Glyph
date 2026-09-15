@@ -9,6 +9,9 @@ import (
 	"github.com/dmsRosa6/glyph/framework"
 )
 
+// Propagator is safe for concurrent use: Track/Untrack/BringToFront/
+// SendToBack run from whatever goroutine handles input, while
+// Container.Draw reads the same data from the render goroutine.
 type Propagator struct {
 	mu    sync.RWMutex
 	owned []framework.Drawable
@@ -43,6 +46,7 @@ func (p *Propagator) Track(child framework.Drawable) {
 	}
 }
 
+// Untrack reports whether it actually removed something.
 func (p *Propagator) Untrack(target framework.Drawable) (removed bool) {
 	p.mu.Lock()
 	idx := -1
@@ -70,6 +74,7 @@ func (p *Propagator) Untrack(target framework.Drawable) (removed bool) {
 	return true
 }
 
+// Children returns a defensive copy, not the live backing array.
 func (p *Propagator) Children() []framework.Drawable {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -109,6 +114,9 @@ func (p *Propagator) PropagateContext(ctx framework.AppContext) {
 	}
 }
 
+// BringToFront moves child above its current siblings (Container.Draw
+// sorts ascending by layer). Scope is this Propagator's own children
+// only. No-op if child isn't tracked here.
 func (p *Propagator) BringToFront(child framework.Drawable) {
 	p.mu.RLock()
 	owned := append([]framework.Drawable(nil), p.owned...)
@@ -135,6 +143,7 @@ func (p *Propagator) BringToFront(child framework.Drawable) {
 	}
 }
 
+// SendToBack is BringToFront's mirror, floored at 0.
 func (p *Propagator) SendToBack(child framework.Drawable) {
 	p.mu.RLock()
 	owned := append([]framework.Drawable(nil), p.owned...)
@@ -178,6 +187,9 @@ type keyLister interface {
 	BoundKeys() []framework.Binding
 }
 
+// warnShadowedKeys warns if a newly-attached child binds a structural
+// key (Ctrl+C/Enter/Tab/Esc) that's also bound globally -- the global
+// binding always wins, so the widget's action would never fire.
 func warnShadowedKeys(ctx framework.AppContext, child framework.Drawable) {
 	kl, ok := child.(keyLister)
 	if !ok {

@@ -22,6 +22,8 @@ type Renderer struct {
 	logger       framework.Logger
 	mouseEnabled bool
 
+	// lastFrame/lastW/lastH cache the previous frame so Flush can diff
+	// against it instead of repainting everything every time.
 	lastFrame    []core.Cell
 	lastW, lastH int
 
@@ -30,6 +32,9 @@ type Renderer struct {
 	done   chan struct{}
 }
 
+// NewRenderer takes an already-built RenderMode (via FixedFPSMode or
+// OnDemandMode) and validates it -- a hand-built or zero-value
+// RenderMode would otherwise panic or hang at runtime.
 func NewRenderer(mode RenderMode, mouseEnabled bool, logger framework.Logger) (*Renderer, error) {
 	if !mode.valid() {
 		return nil, errors.New("render: invalid RenderMode; build one with render.FixedFPSMode(fps) or render.OnDemandMode(), don't leave AppConfig.RenderMode unset")
@@ -56,6 +61,10 @@ func (r *Renderer) Init() {
 	fmt.Fprint(r.out, "\x1b[2J")
 	fmt.Fprint(r.out, "\x1b[H")
 	if r.mouseEnabled {
+		// 1000: click/release. 1002: also report drag. 1006: SGR
+		// extended coordinates. Deliberately not 1003 (report every
+		// move) -- would flood the input buffer for a feature nothing
+		// here consumes.
 		fmt.Fprint(r.out, "\x1b[?1000h\x1b[?1002h\x1b[?1006h")
 	}
 	r.out.Flush()
@@ -136,11 +145,6 @@ func (r *Renderer) RequestRedraw() {
 
 func (r *Renderer) render(c *canvas.Canvas) {
 	if !r.safeCompose(c) {
-		// Panic already recovered and reported as Fatal inside
-		// safeCompose -- that promotes to a clean SIGTERM shutdown
-		// elsewhere in the stack (fault.FaultManager -> App.Stop()),
-		// so this frame is simply skipped rather than Flush-ing a
-		// buffer that may have been left half-composed.
 		return
 	}
 
@@ -148,19 +152,11 @@ func (r *Renderer) render(c *canvas.Canvas) {
 	r.out.Flush()
 }
 
-// safeCompose runs c.Compose() -- which walks the ENTIRE widget tree's
-// own Draw methods, framework-provided and user-defined alike -- with
-// a recover in place, reporting any panic as Fatal rather than letting
-// it crash this goroutine and, per Go's per-process panic semantics,
-// therefore the WHOLE process mid-raw-mode: a panic on this specific
-// goroutine bypasses every OTHER goroutine's deferred cleanup,
-// including App.Run's, so nothing would ever get a chance to restore
-// the terminal. Reuses the same Fatal-promotes-to-clean-shutdown
-// machinery fault.FaultManager already provides -- see
-// mixin.FocusBehavior's own invoke for the identical pattern applied
-// to input dispatch instead of rendering. Returns false if a panic was
-// recovered, so render() knows not to Flush a possibly half-composed
-// buffer.
+// safeCompose runs c.Compose() with a recover in place -- a panic
+// anywhere in the widget tree's Draw would otherwise crash this
+// goroutine and, per Go's per-process panic semantics, the whole app
+// mid-raw-mode. Recovered panics are logged as Fatal, which
+// fault.FaultManager promotes to a clean SIGTERM shutdown.
 func (r *Renderer) safeCompose(c *canvas.Canvas) (ok bool) {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -192,6 +188,9 @@ func (r *Renderer) Stop() {
 	<-r.done
 }
 
+// Flush writes only what changed since the last Flush, batching
+// adjacent changed cells that share a style into one cursor move plus
+// one run of characters.
 func (r *Renderer) Flush(buf *core.Buffer) {
 	cells := buf.Cells()
 	w, h := buf.W, buf.H

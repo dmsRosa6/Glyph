@@ -9,6 +9,11 @@ const (
 	OnDemand
 )
 
+// RenderMode configures the frame loop: a fixed timer (FixedFPS) or
+// purely on-demand redraws (OnDemand). Fields are unexported -- build
+// one via OnDemandMode() or FixedFPSMode(fps), not a literal, or you
+// risk a divide-by-zero (FixedFPS with fps 0) or a redraw channel that
+// was never allocated (OnDemand).
 type RenderMode struct {
 	mode   LoopMode
 	fps    int

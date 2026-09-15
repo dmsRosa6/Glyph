@@ -13,6 +13,11 @@ type Canvas struct {
 	root *Container
 	Buf  *core.Buffer
 
+	// RequestedWidth/RequestedHeight mirror CanvasConfig.Width/Height
+	// exactly, including the <=0 "auto-size to terminal" sentinel --
+	// NEVER resolved against the terminal at any point in time, or
+	// ApplySize can no longer tell "auto" apart from "fixed size that
+	// happened to match the terminal at startup".
 	RequestedWidth  int
 	RequestedHeight int
 }
@@ -63,6 +68,10 @@ func NewCanvas(cfg CanvasConfig) (*Canvas, error) {
 	}, nil
 }
 
+// ApplySize recomputes the canvas's actual size from the terminal's
+// current size, respecting RequestedWidth/RequestedHeight as a cap:
+// <=0 means "track the terminal exactly", otherwise "fixed, but never
+// bigger than the terminal actually is".
 func (c *Canvas) ApplySize(termW, termH int) {
 	w := c.RequestedWidth
 	if w <= 0 {

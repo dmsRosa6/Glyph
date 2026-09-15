@@ -8,7 +8,13 @@ import (
 	"github.com/dmsRosa6/glyph/framework"
 )
 
+// FocusBehavior is focus/input-handling behavior as a mixin -- it owns
+// no Node, so a struct can embed both Node (or *canvas.Container) and
+// FocusBehavior at the same depth with no method-set collision.
 type FocusBehavior struct {
+	// actionsMu is a *sync.RWMutex (not a value) so every copy of a
+	// constructed FocusBehavior shares the same lock -- needed once
+	// it's embedded by value into a composite.
 	actionsMu  *sync.RWMutex
 	actions    map[framework.Binding]FocusableActionFunc
 	focused    bool
@@ -19,6 +25,8 @@ type FocusBehavior struct {
 	id     string
 }
 
+// FocusableActionContext is what a bound action receives: the
+// FocusBehavior it's bound to, and the triggering Event.
 type FocusableActionContext struct {
 	behavior *FocusBehavior
 	ev       framework.Event
@@ -46,6 +54,8 @@ func NewFocusBehavior(source string) FocusBehavior {
 	}
 }
 
+// SetFocusContext wires this behavior's redraw/log hook. id is
+// captured once, at the moment context first reaches this behavior.
 func (f *FocusBehavior) SetFocusContext(ctx framework.AppContext, id string) {
 	f.ctx = ctx
 	f.id = id
@@ -55,6 +65,7 @@ func (f *FocusBehavior) SetFocusStyle(s framework.Style) {
 	f.focusStyle = &s
 }
 
+// ResolveFocusStyle blends focusStyle over base when focused.
 func (f *FocusBehavior) ResolveFocusStyle(base framework.Style) framework.Style {
 	if f.focused && f.focusStyle != nil {
 		return *framework.ResolveStyle(*f.focusStyle, base)
@@ -62,6 +73,8 @@ func (f *FocusBehavior) ResolveFocusStyle(base framework.Style) framework.Style 
 	return base
 }
 
+// BindAction binds fn to k with no modifiers. Use BindActionMod for a
+// specific modifier combination.
 func (f *FocusBehavior) BindAction(k framework.Key, fn FocusableActionFunc) {
 	f.BindActionMod(k, framework.ModNone, fn)
 }
@@ -72,6 +85,8 @@ func (f *FocusBehavior) BindActionMod(k framework.Key, mods framework.Modifier, 
 	f.actions[framework.Binding{Key: k, Modifiers: mods}] = fn
 }
 
+// BoundKeys lists every binding this behavior has an action for. Used
+// by Propagator's shadow-key warning.
 func (f *FocusBehavior) BoundKeys() []framework.Binding {
 	f.actionsMu.RLock()
 	defer f.actionsMu.RUnlock()
@@ -99,25 +114,10 @@ func (f *FocusBehavior) HandleInput(ev framework.Event) (bool, error) {
 	return true, err
 }
 
-// invoke calls fn with a recover in place. fn is caller-supplied --
-// BindAction/BindActionMod take an arbitrary closure -- so a bug in
-// application code panicking here would otherwise take down whichever
-// goroutine is running input dispatch, and a panic in ANY goroutine
-// kills the whole process regardless of which one raised it. That
-// means the terminal's raw mode would never get a chance to be
-// restored: the person using the app is left with a genuinely broken
-// terminal (no echo, no line buffering), not just a crashed program.
-//
-// Recovering here and reporting it as a Fatal-severity log reuses
-// machinery this framework already has for exactly this situation:
-// fault.FaultManager promotes any Fatal log straight to a SIGTERM,
-// which App.Stop() turns into a normal, clean shutdown -- including
-// Renderer.Stop()'s terminal restore. A panicking handler still ends
-// the app; it just does so gracefully instead of catastrophically.
-// The panic is deliberately reported via the SAME logger the bound
-// action's own errors already go through (f.logger()), not a
-// separate path, so both land in one place a person actually looking
-// at logs would check.
+// invoke calls fn with a recover in place, since fn is caller-supplied
+// and a panic in any goroutine kills the whole process. Recovered
+// panics are logged as Fatal, which fault.FaultManager promotes to a
+// clean SIGTERM shutdown instead of a broken terminal.
 func (f *FocusBehavior) invoke(fn FocusableActionFunc, ev framework.Event) (refresh bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {

@@ -12,6 +12,8 @@ import (
 
 var idSeq uint64
 
+// nextID generates a unique default ID ("<source>#<n>") for a node
+// that hasn't called SetID.
 func nextID(source string) string {
 	return fmt.Sprintf("%s#%d", source, atomic.AddUint64(&idSeq, 1))
 }
@@ -25,8 +27,18 @@ type Node struct {
 	style       *framework.Style
 	parentStyle *framework.Style
 
+	// layer is read every frame (render goroutine) and written by
+	// BringToFront/SendToBack (input goroutine) -- plain atomic int64
+	// rather than atomic.Int64, to avoid its noCopy marker fighting
+	// with Node being embedded by value everywhere.
 	layer int64
 
+	// ctx is written once per attach by SetContext, NOT mutex-guarded
+	// unlike appEvents/FocusBehavior.actions -- it's read on the
+	// hottest path in the framework (every widget, every frame), so a
+	// lock here would cost more than the rare-mutation case it'd guard
+	// against. Keep tree-shape changes (AddChild/RemoveChild) on one
+	// goroutine per node.
 	ctx    framework.AppContext
 	source string
 	id     string

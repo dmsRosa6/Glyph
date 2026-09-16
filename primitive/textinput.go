@@ -10,6 +10,13 @@ import (
 	"github.com/dmsRosa6/glyph/mixin"
 )
 
+// TextInput is a focusable, editable, single-line text field. Does not
+// embed mixin.TextBuffer: mutation goes through cursor-aware methods
+// (insert/delete/move) instead of a raw SetValue, which would strand
+// the cursor mid-edit. Single-line only, same as Text. Width is fixed;
+// content scrolls horizontally to keep the cursor visible once it
+// outgrows the field, rather than truncating (which would drop
+// characters while the user is still typing).
 type TextInput struct {
 	mixin.FocusableNode
 
@@ -25,7 +32,9 @@ type TextInputConfig struct {
 	Anchor framework.Anchor
 	// OnSubmit, if set, is bound to Enter. Unlike Button.OnActivate
 	// (bound to Space to avoid this), TextInput takes the shadow-key
-	// risk deliberately.
+	// risk deliberately: if Enter is also bound globally (e.g.
+	// app.NavActions()), this never fires -- mixin.Propagator's own
+	// warning will log that the moment this is attached.
 	OnSubmit func(value string) (redraw bool, err error)
 }
 

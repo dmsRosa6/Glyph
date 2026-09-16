@@ -11,13 +11,6 @@ import (
 	"github.com/dmsRosa6/glyph/mixin"
 )
 
-// MultilineText is mutable, wrapping, fixed-size text. A '\n' in the
-// value is a hard break; each resulting line is greedily word-wrapped
-// to fit the declared width. Content that still doesn't fit the
-// declared height is TRUNCATED, not scrolled, with a Warning logged
-// once per SetValue/Resize call that overflows -- including the
-// constructor's own initial value, via a check in SetContext (a
-// Warning fired before ctx exists would otherwise silently no-op).
 type MultilineText struct {
 	mixin.Node
 

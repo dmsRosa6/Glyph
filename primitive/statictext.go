@@ -7,8 +7,6 @@ import (
 	"github.com/dmsRosa6/glyph/mixin"
 )
 
-// StaticText is immutable, single-line styled text set once at
-// construction.
 type StaticText struct {
 	mixin.Node
 	value []rune

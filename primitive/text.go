@@ -9,8 +9,6 @@ import (
 	"github.com/dmsRosa6/glyph/mixin"
 )
 
-// Text is mutable, single-line styled text -- can be updated after
-// construction.
 type Text struct {
 	mixin.Node
 	mixin.TextBuffer

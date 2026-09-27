@@ -41,6 +41,7 @@ type AppConfig struct {
 	// InputBufferSize overrides the input event channel's capacity
 	// (default input.DefaultEventBufferSize).
 	InputBufferSize int
+	FullTerminal    bool
 }
 
 type App struct {
@@ -84,10 +85,11 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return nil, errors.New("height is less than 0")
 	}
 
-	c, err := canvas.NewCanvas(canvas.CanvasConfig{Width: cfg.Width, Height: cfg.Height, Fg: cfg.Fg, Bg: cfg.Bg})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create canvas: %v", err)
-	}
+	c, err := canvas.NewCanvas(canvas.CanvasConfig{
+		Width: cfg.Width, Height: cfg.Height,
+		FullTerminal: cfg.FullTerminal,
+		Fg:           cfg.Fg, Bg: cfg.Bg,
+	})
 
 	r, err := render.NewRenderer(cfg.RenderMode, cfg.MouseEnabled, framework.NewLogger(logs.Logs(), cfg.LogLevel, string(core.RendererSource), ""))
 	if err != nil {

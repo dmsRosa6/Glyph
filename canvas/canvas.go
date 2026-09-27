@@ -24,11 +24,15 @@ type Canvas struct {
 
 type CanvasConfig struct {
 	Width, Height int
+	FullTerminal  bool
 	Fg, Bg        core.Color
 }
 
 func NewCanvas(cfg CanvasConfig) (*Canvas, error) {
 	initW, initH := cfg.Width, cfg.Height
+	if cfg.FullTerminal {
+		initW, initH = 0, 0
+	}
 
 	if initW <= 0 || initH <= 0 {
 		size, err := term.TermSize()
@@ -59,12 +63,17 @@ func NewCanvas(cfg CanvasConfig) (*Canvas, error) {
 		return nil, err
 	}
 
+	requestedW, requestedH := cfg.Width, cfg.Height
+	if cfg.FullTerminal {
+		requestedW, requestedH = 0, 0
+	}
+
 	return &Canvas{
 		root: root,
 		Buf:  core.NewBuffer(initW, initH, fg, bg),
 
-		RequestedWidth:  cfg.Width,
-		RequestedHeight: cfg.Height,
+		RequestedWidth:  requestedW,
+		RequestedHeight: requestedH,
 	}, nil
 }
 

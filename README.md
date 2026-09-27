@@ -14,7 +14,7 @@ without wiring up rendering, layout, and input handling by hand.
 ## Install
 
 ```bash
-go get github.com/dmsRosa6/glyph
+go get github.com/dmsRosa6/glyph@v0.1.0
 ```
 
 ## Quick start
@@ -106,10 +106,11 @@ real things on.
   commitment: a one-shot `geom.Percent(w, h, parent)` helper that
   resolves once at construction, no live tracking.)
 - **Mouse hit-testing** — no per-widget mouse dispatch; `BindMouse`
-  gives you raw coordinates, you do your own hit-testing.
+  gives you raw coordinates; you do your own hit-testing.
 - **A general scroll container** for arbitrary content — `List`'s
   `Scrollable` mode covers stacked rows; a `ScrollContainer` for any
   child is a different, unbuilt thing.
+-** There is something funky with the terminal resize event; it's a fact that the whole app is not affected, but the canvas should always be **
 - **A real multi-line `TextInput`** — single-line only for now.
 - **Perfomace** - Add the real notion of dirty components and "partial hydration" and review render package as a whole
 - **More widgets**
